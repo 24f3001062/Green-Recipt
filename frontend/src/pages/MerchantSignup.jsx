@@ -5,7 +5,7 @@ import { signupMerchant } from '../services/api.js';
 const MerchantSignup = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    businessName: '',
+    shopName: '',
     email: '',
     password: '',
     confirmPassword: ''
@@ -28,17 +28,30 @@ const MerchantSignup = () => {
     setError('');
     setInfo('');
     try {
-      const { data } = await signupMerchant({
-        shopName: formData.businessName,
+    // 🔗 CONNECT TO BACKEND: MERCHANT ROUTE
+    const response = await fetch('http://localhost:5001/api/auth/signup/merchant', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shopName: formData.shopName, // Ensure backend expects "businessName"
         email: formData.email,
-        password: formData.password,
-        confirmPassword: formData.confirmPassword,
-      });
-      setInfo(data.message || 'Account created. Check your email for the code.');
+        password: formData.password
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
       navigate('/verify-merchant', { state: { email: formData.email } });
-    } catch (err) {
-      setError(err.response?.data?.message || 'Signup failed');
-    } finally {
+    } else {
+      alert(data.message || "Signup failed");
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    alert("Server connection failed.");
+  }
+    finally {
+      // 🛑 STOP LOADING (This runs whether success OR fail)
       setLoading(false);
     }
   };
@@ -86,7 +99,7 @@ const MerchantSignup = () => {
                     <i className="fas fa-building text-slate-400"></i>
                 </div>
                 <input 
-                  name="businessName" type="text" required 
+                  name="shopName" type="text" required 
                   onChange={handleChange}
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/30" 
                   placeholder="My Coffee Shop" 
@@ -112,7 +125,12 @@ const MerchantSignup = () => {
 
             {/* Password */}
             <div>
-              <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 ml-1">Password</label>
+              <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 ml-1">
+                Password
+                <span className="font-normal normal-case text-slate-400 ml-2">
+                  (min. 6 characters)
+                </span>
+              </label>
               <input 
                 name="password" type="password" required 
                 onChange={handleChange}
@@ -123,7 +141,12 @@ const MerchantSignup = () => {
 
             {/* Confirm Password */}
             <div>
-              <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 ml-1">Confirm Password</label>
+              <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 ml-1">
+                Confirm Password
+                <span className="font-normal normal-case text-slate-400 ml-2">
+                  (min. 6 characters)
+                </span>
+              </label>
               <input 
                 name="confirmPassword" type="password" required 
                 onChange={handleChange}
