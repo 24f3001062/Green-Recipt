@@ -24,17 +24,17 @@ Create two `.env` files: one in `backend/`, one in `frontend/`.
 
 ### backend/.env
 ```
-PORT=5000
+PORT=5001
 MONGO_URI=mongodb://localhost:27017/greenreceipt
 JWT_SECRET=replace_with_strong_secret
 EMAIL_USER=your_smtp_user@gmail.com
 EMAIL_PASS=your_smtp_app_password
-BASE_URL=http://localhost:5000
+CLIENT_URL=http://localhost:5173
 ```
 
 ### frontend/.env
 ```
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=http://localhost:5001/api
 ```
 
 ## Installation

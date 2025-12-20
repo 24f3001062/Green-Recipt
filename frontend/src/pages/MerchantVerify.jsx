@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { requestOtp, setSession, verifyOtpCode } from '../services/api.js';
+import { requestOtp, verifyOtpCode } from '../services/api.js';
 
 const MerchantVerify = () => {
   const navigate = useNavigate();
@@ -42,29 +42,13 @@ const MerchantVerify = () => {
     setInfo('');
 
     try {
-    // 🔗 CONNECT TO BACKEND: VERIFY OTP
-    const response = await fetch('http://localhost:5001/api/auth/otp/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: email,
-        code: code,
-        role: 'merchant'
-      }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
+      await verifyOtpCode({ email, code, role: 'merchant' });
       alert("Verification Successful! Please log in.");
       navigate('/merchant-login');
-    } else {
-      alert(data.message || "Invalid Code. Try again.");
+    } catch (error) {
+      const message = error.response?.data?.message || "Invalid Code. Try again.";
+      setError(message);
     }
-  } catch (error) {
-    console.error("Error:", error);
-    alert("Could not verify code.");
-  }
   };
 
   const handleResend = async () => {

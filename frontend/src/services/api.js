@@ -1,8 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.
-  VITE_API_URL || "http://localhost:5000/api",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5001/api",
 });
 
 api.interceptors.request.use((config) => {
@@ -45,6 +44,8 @@ export const signupMerchant = (payload) => api.post("/auth/signup/merchant", pay
 export const loginUser = (payload) => api.post("/auth/login", payload);
 export const requestOtp = (payload) => api.post("/auth/otp/request", payload);
 export const verifyOtpCode = (payload) => api.post("/auth/otp/verify", payload);
+export const forgotPassword = (payload) => api.post("/auth/forgot-password", payload);
+export const resetPassword = (payload) => api.post("/auth/reset-password", payload);
 
 export const fetchCustomerReceipts = () => api.get("/receipts/customer");
 export const fetchMerchantReceipts = () => api.get("/receipts/merchant");

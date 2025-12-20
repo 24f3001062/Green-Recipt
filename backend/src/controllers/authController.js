@@ -10,6 +10,7 @@ const JWT_EXPIRES_IN = "7d";
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MINUTES = 10;
 const OTP_MAX_ATTEMPTS = 5;
+const OTP_RESEND_WINDOW_MS = 60 * 1000; // 1 minute cooldown between OTP sends
 
 if (!JWT_SECRET) {
   throw new Error("JWT_SECRET is not set. Define it in your environment before starting the server.");
@@ -27,6 +28,12 @@ export const forgotPassword = async (req, res) => {
       return res.status(404).json({ message: "Account not found" });
     }
 
+    // Resend cooldown
+    if (account.otpLastSentAt && Date.now() - account.otpLastSentAt.getTime() < OTP_RESEND_WINDOW_MS) {
+      const waitSeconds = Math.ceil((OTP_RESEND_WINDOW_MS - (Date.now() - account.otpLastSentAt.getTime())) / 1000);
+      return res.status(429).json({ message: `Please wait ${waitSeconds}s before requesting another code.` });
+    }
+
     // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpHash = await bcrypt.hash(otp, 10);
@@ -34,6 +41,7 @@ export const forgotPassword = async (req, res) => {
     // Save OTP to User
     account.otpCodeHash = otpHash;
     account.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+    account.otpLastSentAt = new Date();
     await account.save();
 
     // Send Email
@@ -95,15 +103,31 @@ const persistOtp = async (account) => {
   account.otpCodeHash = hash;
   account.otpExpiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
   account.otpAttempts = 0;
+  account.otpLastSentAt = new Date();
   await account.save();
   return code;
 };
 
 const findAccountByRole = async (email, role = "customer") => {
-  if (!email) return null;
+  const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : null;
+  if (!normalizedEmail) return null;
   if (!["customer", "merchant"].includes(role)) return null;
-  const Model = role === "merchant" ? Merchant : User;
-  return Model.findOne({ email }).select("+otpCodeHash +otpExpiresAt +otpAttempts");
+
+  const primaryModel = role === "merchant" ? Merchant : User;
+  const fallbackModel = role === "merchant" ? User : Merchant;
+
+  let account = await primaryModel
+    .findOne({ email: normalizedEmail })
+    .select("+otpCodeHash +otpExpiresAt +otpAttempts +otpLastSentAt");
+
+  if (!account) {
+    // If role was wrong, attempt the other collection so users aren't blocked by a role mismatch.
+    account = await fallbackModel
+      .findOne({ email: normalizedEmail })
+      .select("+otpCodeHash +otpExpiresAt +otpAttempts +otpLastSentAt");
+  }
+
+  return account;
 };
 
 export const registerCustomer = async (req, res) => {
@@ -257,6 +281,11 @@ export const requestOtp = async (req, res) => {
 
     if (account.isVerified) {
       return res.status(400).json({ message: "Account already verified" });
+    }
+
+    if (account.otpLastSentAt && Date.now() - account.otpLastSentAt.getTime() < OTP_RESEND_WINDOW_MS) {
+      const waitSeconds = Math.ceil((OTP_RESEND_WINDOW_MS - (Date.now() - account.otpLastSentAt.getTime())) / 1000);
+      return res.status(429).json({ message: `Please wait ${waitSeconds}s before requesting another code.` });
     }
 
     const code = await persistOtp(account);

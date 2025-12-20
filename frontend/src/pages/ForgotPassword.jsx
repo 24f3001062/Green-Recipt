@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { forgotPassword } from '../services/api.js';
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -19,26 +20,14 @@ const ForgotPassword = () => {
     setMessage('');
 
     try {
-      // 🔗 CONNECT TO BACKEND
-      const response = await fetch('http://127.0.0.1:5001/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, role }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage("Code sent! Redirecting...");
-        // Wait 1.5s so user reads the message, then go to next step
-        setTimeout(() => {
-          navigate('/reset-password', { state: { email, role } });
-        }, 1500);
-      } else {
-        setError(data.message || "Could not find account.");
-      }
+      await forgotPassword({ email, role });
+      setMessage("Code sent! Redirecting...");
+      setTimeout(() => {
+        navigate('/reset-password', { state: { email, role } });
+      }, 1500);
     } catch (err) {
-      setError("Server connection failed.");
+      const message = err.response?.data?.message || "Could not find account.";
+      setError(message);
     } finally {
       setLoading(false);
     }

@@ -28,35 +28,17 @@ const CustomerSignup = () => {
     setError("");
     setInfo("");
     try {
-      // 🔗 CONNECT TO BACKEND: CUSTOMER ROUTE
-      const response = await fetch(
-        "http://localhost:5001/api/auth/signup/customer",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: formData.name,
-            email: formData.email,
-            password: formData.password,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // ✅ SUCCESS
-        navigate("/verify-customer", { state: { email: formData.email } });
-      } else {
-        // ❌ FAILURE (e.g. Email exists)
-        // Show the actual error message from backend
-        alert(data.message || "Signup failed");
-      }
+      await signupCustomer({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+      });
+      navigate("/verify-customer", { state: { email: formData.email } });
     } catch (error) {
-      console.error("Error:", error);
-      alert("Server connection failed. Is Backend running?");
+      const message = error.response?.data?.message || "Signup failed";
+      setError(message);
     } finally {
-      // 🛑 STOP LOADING (This runs whether success OR fail)
       setLoading(false);
     }
   };

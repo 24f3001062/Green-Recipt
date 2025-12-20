@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { requestOtp, verifyOtpCode } from '../services/api.js';
 
 const CustomerVerify = () => {
   const navigate = useNavigate();
@@ -49,28 +50,12 @@ const CustomerVerify = () => {
     setInfo('');
 
     try {
-      // 🔗 CONNECT TO BACKEND: VERIFY
-      const response = await fetch('http://127.0.0.1:5001/api/auth/otp/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email,
-          code: code,
-          role: 'customer'
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        alert("Verification Successful! Please log in.");
-        navigate('/customer-login');
-      } else {
-        alert(data.message || "Invalid Code. Try again.");
-      }
+      await verifyOtpCode({ email, code, role: 'customer' });
+      alert("Verification Successful! Please log in.");
+      navigate('/customer-login');
     } catch (error) {
-      console.error("Error:", error);
-      alert("Could not verify code. Is Backend running?");
+      const message = error.response?.data?.message || "Invalid Code. Try again.";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -85,27 +70,12 @@ const CustomerVerify = () => {
     setInfo('');
 
     try {
-      // 🔗 CONNECT TO BACKEND: REQUEST NEW OTP
-      const response = await fetch('http://127.0.0.1:5001/api/auth/otp/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: email, 
-          role: 'customer' 
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setInfo('New code sent successfully!');
-        setTimer(30); // 🔄 Reset clock to 30s
-      } else {
-        setError(data.message || 'Could not resend code.');
-      }
+      await requestOtp({ email, role: 'customer' });
+      setInfo('New code sent successfully!');
+      setTimer(30);
     } catch (err) {
-      console.error(err);
-      setError('Network error. Check console.');
+      const message = err.response?.data?.message || 'Could not resend code.';
+      setError(message);
     } finally {
       setResending(false);
     }

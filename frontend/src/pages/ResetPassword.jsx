@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { resetPassword as resetPasswordApi } from '../services/api.js';
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -40,29 +41,12 @@ const ResetPassword = () => {
 
     try {
       const code = otp.join("");
-      
-      // 🔗 CONNECT TO BACKEND
-      const response = await fetch('http://127.0.0.1:5001/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          role,
-          otp: code,
-          newPassword: password
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        alert("Password Reset Successfully! Please Login.");
-        navigate(role === 'merchant' ? '/merchant-login' : '/customer-login');
-      } else {
-        setError(data.message || "Reset failed. Invalid code?");
-      }
+      await resetPasswordApi({ email, role, otp: code, newPassword: password });
+      alert("Password Reset Successfully! Please Login.");
+      navigate(role === 'merchant' ? '/merchant-login' : '/customer-login');
     } catch (err) {
-      setError("Server connection failed.");
+      const message = err.response?.data?.message || "Reset failed. Invalid code?";
+      setError(message);
     } finally {
       setLoading(false);
     }

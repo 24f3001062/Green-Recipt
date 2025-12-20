@@ -14,34 +14,13 @@ const CustomerLogin = () => {
     setLoading(true);
     setError("");
     try {
-      // 🔗 CONNECT TO BACKEND: LOGIN
-      const response = await fetch("http://localhost:5001/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-          role: "customer", // Optional: Backend might need to know who is logging in
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // SAVE THE TOKEN (Important for staying logged in)
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("role", "customer");
-        console.log("Login Success! Saving token...");
-        navigate("/customer-dashboard");
-      } else {
-        alert(data.message || "Login failed");
-      }
+      const { data } = await loginUser({ email, password, role: "customer" });
+      setSession({ token: data.token, role: data.role });
+      navigate("/customer-dashboard");
     } catch (error) {
-      console.error("Error:", error);
-      alert("Login Error");
-    }
-    finally {
-      // 🛑 STOP LOADING (This runs whether success OR fail)
+      const message = error.response?.data?.message || "Login failed";
+      setError(message);
+    } finally {
       setLoading(false);
     }
   };

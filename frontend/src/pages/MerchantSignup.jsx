@@ -28,30 +28,17 @@ const MerchantSignup = () => {
     setError('');
     setInfo('');
     try {
-    // 🔗 CONNECT TO BACKEND: MERCHANT ROUTE
-    const response = await fetch('http://localhost:5001/api/auth/signup/merchant', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        shopName: formData.shopName, // Ensure backend expects "businessName"
+      await signupMerchant({
+        shopName: formData.shopName,
         email: formData.email,
-        password: formData.password
-      }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+      });
       navigate('/verify-merchant', { state: { email: formData.email } });
-    } else {
-      alert(data.message || "Signup failed");
-    }
-  } catch (error) {
-    console.error("Error:", error);
-    alert("Server connection failed.");
-  }
-    finally {
-      // 🛑 STOP LOADING (This runs whether success OR fail)
+    } catch (error) {
+      const message = error.response?.data?.message || "Signup failed";
+      setError(message);
+    } finally {
       setLoading(false);
     }
   };
