@@ -1,6 +1,28 @@
 import mongoose from "mongoose";
 import Receipt from "../models/Receipt.js";
 
+// ============ SIMPLE IN-MEMORY CACHE ============
+// In production, use Redis for distributed caching
+const analyticsCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+const getCachedOrFetch = async (cacheKey, fetchFn) => {
+  const cached = analyticsCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  
+  const data = await fetchFn();
+  analyticsCache.set(cacheKey, { data, timestamp: Date.now() });
+  return data;
+};
+
+// Clear cache for a user (call after creating receipts)
+export const clearAnalyticsCache = (userId) => {
+  analyticsCache.delete(`customer_${userId}`);
+  analyticsCache.delete(`merchant_${userId}`);
+};
+
 // Helper to get date ranges
 const getDateRanges = () => {
   const now = new Date();
@@ -30,8 +52,17 @@ const getDateRanges = () => {
 
 export const getCustomerAnalytics = async (req, res) => {
   try {
-    const userId = new mongoose.Types.ObjectId(req.user.id);
-    const { startOfMonth, startOfLastMonth, endOfLastMonth, startOfYear, startOfWeek, startOfLastWeek, endOfLastWeek, now } = getDateRanges();
+    const cacheKey = `customer_${req.user.id}`;
+    
+    // Check for force refresh query param
+    const forceRefresh = req.query.refresh === 'true';
+    if (forceRefresh) {
+      analyticsCache.delete(cacheKey);
+    }
+    
+    const analytics = await getCachedOrFetch(cacheKey, async () => {
+      const userId = new mongoose.Types.ObjectId(req.user.id);
+      const { startOfMonth, startOfLastMonth, endOfLastMonth, startOfYear, startOfWeek, startOfLastWeek, endOfLastWeek, now } = getDateRanges();
 
     const baseMatch = { 
       userId, 
@@ -215,7 +246,7 @@ export const getCustomerAnalytics = async (req, res) => {
     // Budget insights (simple heuristic)
     const projectedMonthEnd = avgPerDay * new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
-    res.json({
+    return {
       // Summary stats
       summary: {
         totalAllTime: totalAll[0]?.total || 0,
@@ -311,7 +342,10 @@ export const getCustomerAnalytics = async (req, res) => {
         periodStart: startOfMonth.toISOString(),
         periodEnd: now.toISOString(),
       },
-    });
+    };
+    }); // End of getCachedOrFetch
+    
+    res.json(analytics);
   } catch (error) {
     console.error("getCustomerAnalytics error", error);
     res.status(500).json({ message: "Failed to load analytics" });
@@ -320,13 +354,22 @@ export const getCustomerAnalytics = async (req, res) => {
 
 export const getMerchantAnalytics = async (req, res) => {
   try {
-    const merchantId = new mongoose.Types.ObjectId(req.user.id);
-    const { startOfMonth, startOfLastMonth, endOfLastMonth, startOfYear, startOfWeek, startOfLastWeek, endOfLastWeek, now } = getDateRanges();
+    const cacheKey = `merchant_${req.user.id}`;
+    
+    // Check for force refresh query param
+    const forceRefresh = req.query.refresh === 'true';
+    if (forceRefresh) {
+      analyticsCache.delete(cacheKey);
+    }
+    
+    const analytics = await getCachedOrFetch(cacheKey, async () => {
+      const merchantId = new mongoose.Types.ObjectId(req.user.id);
+      const { startOfMonth, startOfLastMonth, endOfLastMonth, startOfYear, startOfWeek, startOfLastWeek, endOfLastWeek, now } = getDateRanges();
 
-    const baseMatch = { 
-      merchantId, 
-      $or: [{ excludeFromStats: { $exists: false } }, { excludeFromStats: false }] 
-    };
+      const baseMatch = { 
+        merchantId, 
+        $or: [{ excludeFromStats: { $exists: false } }, { excludeFromStats: false }] 
+      };
 
     const [
       totalAll,
@@ -543,7 +586,7 @@ export const getMerchantAnalytics = async (req, res) => {
     // Calculate top item percentage for progress bars
     const maxItemQuantity = topItems[0]?.totalQuantity || 1;
 
-    res.json({
+    return {
       summary: {
         totalAllTime: totalAll[0]?.total || 0,
         totalReceiptsAllTime: totalAll[0]?.count || 0,
@@ -664,7 +707,10 @@ export const getMerchantAnalytics = async (req, res) => {
         periodStart: startOfMonth.toISOString(),
         periodEnd: now.toISOString(),
       },
-    });
+    };
+    }); // End of getCachedOrFetch
+    
+    res.json(analytics);
   } catch (error) {
     console.error("getMerchantAnalytics error", error);
     res.status(500).json({ message: "Failed to load analytics" });

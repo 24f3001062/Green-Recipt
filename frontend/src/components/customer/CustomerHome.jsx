@@ -3,9 +3,10 @@ import { MOCK_RECEIPTS } from './customerData';
 import ReceiptCard from './ReceiptCard';
 import { 
   TrendingUp, Wallet, QrCode, UploadCloud, X, Save,
-  Image as ImageIcon, Calendar, PieChart, Store, CheckCircle
+  Image as ImageIcon, Calendar, PieChart, Store, CheckCircle, Loader2
 } from 'lucide-react';
-import { fetchCustomerReceipts } from '../../services/api';
+import { fetchCustomerReceipts, createReceipt } from '../../services/api';
+import toast from 'react-hot-toast';
 
 const CustomerHome = ({ onNavigate, onScanTrigger }) => {
   
@@ -17,9 +18,11 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
     const load = async () => {
       try {
         const { data } = await fetchCustomerReceipts();
+        // Handle paginated response structure
+        const receiptsData = data.receipts || data || [];
         if (mounted) {
-          setReceipts(data || []);
-          localStorage.setItem('customerReceipts', JSON.stringify(data || []));
+          setReceipts(receiptsData);
+          localStorage.setItem('customerReceipts', JSON.stringify(receiptsData));
         }
       } catch (error) {
         const cached = localStorage.getItem('customerReceipts');
@@ -49,6 +52,7 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
   const [manualMerchant, setManualMerchant] = useState(""); 
   const [manualDate, setManualDate] = useState(new Date().toISOString().split('T')[0]);
   const [includeInStats, setIncludeInStats] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
 
   const fileInputRef = useRef(null);
 
@@ -80,24 +84,37 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
   };
 
   // 💾 SAVE UPLOAD
-  const saveUploadedReceipt = (e) => {
+  const saveUploadedReceipt = async (e) => {
     e.preventDefault();
-    if (!pendingFile) return;
+    if (!pendingFile || isUploading) return;
 
-    const newReceipt = {
-        id: `U-${Date.now()}`,
-        merchant: manualMerchant || "Unknown Merchant",
-        date: manualDate,
-        time: "12:00 PM",
-        amount: parseFloat(manualAmount) || 0,
-        type: "upload",
-        image: pendingFile.url,
+    setIsUploading(true);
+    try {
+      const payload = {
+        source: "upload",
+        merchantName: manualMerchant || "Unknown Merchant",
+        transactionDate: manualDate,
+        total: parseFloat(manualAmount) || 0,
+        imageUrl: pendingFile.url,
         note: pendingFile.name,
-        excludeFromStats: !includeInStats
-    };
+        excludeFromStats: !includeInStats,
+        paymentMethod: "other",
+      };
 
-    setReceipts([newReceipt, ...receipts]);
-    setPendingFile(null);
+      const { data: newReceipt } = await createReceipt(payload);
+      setReceipts([newReceipt, ...receipts]);
+      setPendingFile(null);
+      setManualAmount("");
+      setManualMerchant("");
+      setManualDate(new Date().toISOString().split('T')[0]);
+      setIncludeInStats(true);
+      toast.success("Receipt uploaded successfully!");
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error(error.response?.data?.message || "Failed to upload receipt");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -241,8 +258,16 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
                             </div>
                         </div>
 
-                        <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 mt-4">
-                            <Save size={18} /> Save Receipt
+                        <button 
+                            type="submit" 
+                            disabled={isUploading}
+                            className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                            {isUploading ? (
+                              <><Loader2 size={18} className="animate-spin" /> Uploading...</>
+                            ) : (
+                              <><Save size={18} /> Save Receipt</>
+                            )}
                         </button>
                     </form>
                 </div>

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ShoppingBag, QrCode, X, Plus, Minus, Trash2, Search, Zap, CheckCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { createReceipt, markReceiptPaid } from '../../services/api';
 
 const MerchantBilling = ({ inventory }) => {
@@ -151,7 +152,7 @@ const MerchantBilling = ({ inventory }) => {
       setShowQr(false);
       setCart([]);
       setIsMobileCartOpen(false);
-      alert("Payment Recorded! Sale saved to dashboard.");
+      toast.success("Payment Recorded! Sale saved to dashboard.");
   };
 
   return (

@@ -13,9 +13,11 @@ const CustomerReceipts = () => {
     const load = async () => {
       try {
         const { data } = await fetchCustomerReceipts();
+        // Handle paginated response structure
+        const receiptsData = data.receipts || data || [];
         if (mounted) {
-          setReceipts(data || []);
-          localStorage.setItem('customerReceipts', JSON.stringify(data || []));
+          setReceipts(receiptsData);
+          localStorage.setItem('customerReceipts', JSON.stringify(receiptsData));
         }
       } catch (error) {
         const saved = localStorage.getItem('customerReceipts');

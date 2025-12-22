@@ -69,6 +69,8 @@ export const createReceipt = async (req, res) => {
       total: providedTotal,
       status = "completed",
       receiptId = null,
+      // For customer uploads without merchant
+      merchantName = null,
     } = req.body;
 
     const resolvedMerchantId = req.user.role === "merchant" ? req.user.id : bodyMerchantId;
@@ -79,18 +81,27 @@ export const createReceipt = async (req, res) => {
     const items = normalizeItems(rawItems);
     const computedTotal = computeTotal(items);
 
-    if (typeof providedTotal === "number" && Math.abs(providedTotal - computedTotal) > 0.01) {
+    // For uploads, allow providedTotal without items
+    const finalTotal = source === "upload" && typeof providedTotal === "number" 
+      ? providedTotal 
+      : computedTotal;
+
+    if (source !== "upload" && typeof providedTotal === "number" && Math.abs(providedTotal - computedTotal) > 0.01) {
       return res.status(400).json({ message: "Total does not match items sum" });
     }
 
     let merchant = null;
-    if (resolvedMerchantId) {
-      merchant = await Merchant.findById(resolvedMerchantId).lean();
-    } else if (resolvedMerchantCode) {
-      merchant = await Merchant.findOne({ merchantCode: resolvedMerchantCode }).lean();
-    }
-    if (!merchant) {
-      return res.status(400).json({ message: "Merchant not found" });
+    // For customer uploads, merchant is optional
+    if (source !== "upload" || resolvedMerchantId || resolvedMerchantCode) {
+      if (resolvedMerchantId) {
+        merchant = await Merchant.findById(resolvedMerchantId).lean();
+      } else if (resolvedMerchantCode) {
+        merchant = await Merchant.findOne({ merchantCode: resolvedMerchantCode }).lean();
+      }
+      // Only require merchant for non-upload sources
+      if (!merchant && source !== "upload") {
+        return res.status(400).json({ message: "Merchant not found" });
+      }
     }
 
     let customerSnapshot;
@@ -102,13 +113,24 @@ export const createReceipt = async (req, res) => {
       customerSnapshot = { name: user.name, email: user.email };
     }
 
+    // Build merchant snapshot - use merchant data if available, otherwise use provided name
+    const merchantSnapshot = merchant 
+      ? {
+          shopName: merchant.shopName,
+          merchantCode: merchant.merchantCode,
+          address: merchant.address,
+        }
+      : merchantName 
+        ? { shopName: merchantName, merchantCode: null, address: null }
+        : null;
+
     const receipt = await Receipt.create({
       _id: receiptId || undefined,
-      merchantId: merchant?._id || resolvedMerchantId,
-      merchantCode: merchant.merchantCode,
+      merchantId: merchant?._id || null,
+      merchantCode: merchant?.merchantCode || null,
       userId,
       items,
-      total: computedTotal,
+      total: finalTotal,
       source,
       paymentMethod,
       status,
@@ -116,13 +138,9 @@ export const createReceipt = async (req, res) => {
       note,
       imageUrl,
       excludeFromStats: Boolean(excludeFromStats),
-      footer: footer || merchant.receiptFooter,
+      footer: footer || merchant?.receiptFooter || "",
       category,
-      merchantSnapshot: {
-        shopName: merchant.shopName,
-        merchantCode: merchant.merchantCode,
-        address: merchant.address,
-      },
+      merchantSnapshot,
       customerSnapshot,
     });
 
@@ -135,10 +153,33 @@ export const createReceipt = async (req, res) => {
 
 export const getCustomerReceipts = async (req, res) => {
   try {
-    const receipts = await Receipt.find({ userId: req.user.id })
-      .sort({ transactionDate: -1 })
-      .lean();
-    res.json(receipts.map(mapReceiptToClient));
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
+    const filter = { userId: req.user.id };
+
+    const [receipts, total] = await Promise.all([
+      Receipt.find(filter)
+        .sort({ transactionDate: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Receipt.countDocuments(filter),
+    ]);
+
+    res.json({
+      receipts: receipts.map(mapReceiptToClient),
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    });
   } catch (error) {
     console.error("getCustomerReceipts error", error);
     res.status(500).json({ message: "Failed to load receipts" });
@@ -193,10 +234,33 @@ export const markReceiptPaid = async (req, res) => {
 
 export const getMerchantReceipts = async (req, res) => {
   try {
-    const receipts = await Receipt.find({ merchantId: req.user.id })
-      .sort({ transactionDate: -1 })
-      .lean();
-    res.json(receipts.map(mapReceiptToClient));
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
+    const filter = { merchantId: req.user.id };
+
+    const [receipts, total] = await Promise.all([
+      Receipt.find(filter)
+        .sort({ transactionDate: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Receipt.countDocuments(filter),
+    ]);
+
+    res.json({
+      receipts: receipts.map(mapReceiptToClient),
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    });
   } catch (error) {
     console.error("getMerchantReceipts error", error);
     res.status(500).json({ message: "Failed to load receipts" });

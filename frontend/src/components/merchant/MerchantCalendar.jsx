@@ -24,9 +24,11 @@ const MerchantCalendar = () => {
     const load = async () => {
       try {
         const { data } = await fetchMerchantReceipts();
+        // Handle paginated response structure
+        const receiptsData = data.receipts || data || [];
         if (mounted) {
-          setReceipts(data || []);
-          localStorage.setItem('merchantSales', JSON.stringify(data || []));
+          setReceipts(receiptsData);
+          localStorage.setItem('merchantSales', JSON.stringify(receiptsData));
         }
       } catch (error) {
         const saved = localStorage.getItem('merchantSales');

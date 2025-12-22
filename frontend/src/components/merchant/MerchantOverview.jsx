@@ -14,9 +14,11 @@ const MerchantOverview = ({ onNavigate }) => {
     const load = async () => {
       try {
         const { data } = await fetchMerchantReceipts();
+        // Handle paginated response structure
+        const receiptsData = data.receipts || data || [];
         if (mounted) {
-          setSales(data || []);
-          localStorage.setItem('merchantSales', JSON.stringify(data || []));
+          setSales(receiptsData);
+          localStorage.setItem('merchantSales', JSON.stringify(receiptsData));
         }
       } catch (error) {
         const saved = localStorage.getItem('merchantSales');

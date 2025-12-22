@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { resetPassword as resetPasswordApi } from '../services/api.js';
 
 const ResetPassword = () => {
@@ -42,7 +43,7 @@ const ResetPassword = () => {
     try {
       const code = otp.join("");
       await resetPasswordApi({ email, role, otp: code, newPassword: password });
-      alert("Password Reset Successfully! Please Login.");
+      toast.success("Password Reset Successfully! Please Login.");
       navigate(role === 'merchant' ? '/merchant-login' : '/customer-login');
     } catch (err) {
       const message = err.response?.data?.message || "Reset failed. Invalid code?";

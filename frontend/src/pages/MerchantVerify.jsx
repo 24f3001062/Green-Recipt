@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { requestOtp, verifyOtpCode } from '../services/api.js';
 
 const MerchantVerify = () => {
@@ -43,7 +44,7 @@ const MerchantVerify = () => {
 
     try {
       await verifyOtpCode({ email, code, role: 'merchant' });
-      alert("Verification Successful! Please log in.");
+      toast.success("Verification Successful! Please log in.");
       navigate('/merchant-login');
     } catch (error) {
       const message = error.response?.data?.message || "Invalid Code. Try again.";

@@ -93,9 +93,37 @@ merchantSchema.pre("save", async function hashPassword(next) {
 	next();
 });
 
+// Auto-generate unique merchant code
+merchantSchema.pre("save", async function generateMerchantCode(next) {
+	if (this.merchantCode) return next();
+
+	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+	let code;
+	let exists = true;
+
+	// Keep generating until we find a unique code
+	while (exists) {
+		code = "";
+		for (let i = 0; i < 6; i++) {
+			code += chars.charAt(Math.floor(Math.random() * chars.length));
+		}
+		exists = await mongoose.model("Merchant").findOne({ merchantCode: code });
+	}
+
+	this.merchantCode = code;
+	next();
+});
+
 merchantSchema.methods.comparePassword = function comparePassword(candidate) {
 	return bcrypt.compare(candidate, this.password);
 };
+
+// Database indexes for query optimization
+merchantSchema.index({ email: 1 });
+merchantSchema.index({ merchantCode: 1 });
+merchantSchema.index({ shopName: "text" }); // Text search on shop name
+merchantSchema.index({ isVerified: 1 });
+merchantSchema.index({ createdAt: -1 });
 
 const Merchant = mongoose.model("Merchant", merchantSchema);
 
