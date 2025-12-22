@@ -146,9 +146,11 @@ const CustomerProfile = () => {
 
       if (analyticsRes.status === 'fulfilled') {
         const analytics = analyticsRes.value.data;
-        const receiptCount = analytics.categories?.reduce((sum, c) => sum + c.count, 0) || 0;
+        // Handle both old and new analytics API structure
+        const totalSpent = analytics.summary?.thisYear?.total || analytics.summary?.thisMonth?.total || analytics.totalSpent || 0;
+        const receiptCount = analytics.summary?.thisYear?.count || analytics.summary?.thisMonth?.count || analytics.categories?.reduce((sum, c) => sum + c.count, 0) || 0;
         setStats({
-          totalSpent: analytics.totalSpent || 0,
+          totalSpent,
           receiptCount,
         });
       }
