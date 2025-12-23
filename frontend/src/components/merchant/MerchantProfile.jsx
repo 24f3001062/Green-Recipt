@@ -16,7 +16,10 @@ import {
   RefreshCw,
   Loader2,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Palette,
+  ImageIcon,
+  Type
 } from 'lucide-react';
 import { fetchProfile, updateProfile, fetchMerchantAnalytics, clearSession } from '../../services/api';
 
@@ -90,6 +93,9 @@ const MerchantProfile = () => {
           email: data.email || '',
           address: data.address || '',
           receiptFooter: data.receiptFooter || 'Thank you! Visit again.',
+          receiptHeader: data.receiptHeader || '',
+          brandColor: data.brandColor || '#10b981',
+          logoUrl: data.logoUrl || '',
         });
       }
 
@@ -131,6 +137,9 @@ const MerchantProfile = () => {
       email: profile.email || '',
       address: profile.address || '',
       receiptFooter: profile.receiptFooter || 'Thank you! Visit again.',
+      receiptHeader: profile.receiptHeader || '',
+      brandColor: profile.brandColor || '#10b981',
+      logoUrl: profile.logoUrl || '',
     });
     setIsEditing(true);
   };
@@ -156,6 +165,9 @@ const MerchantProfile = () => {
         email: tempProfile.email,
         address: tempProfile.address,
         receiptFooter: tempProfile.receiptFooter,
+        receiptHeader: tempProfile.receiptHeader,
+        brandColor: tempProfile.brandColor,
+        logoUrl: tempProfile.logoUrl,
       });
       
       setProfile(data);
@@ -362,6 +374,68 @@ const MerchantProfile = () => {
                 </h3>
                 
                 <div className="space-y-4">
+                    {/* Brand Color */}
+                    <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1">
+                            <Palette size={12} /> Brand Color
+                        </label>
+                        <div className="flex items-center gap-2">
+                            <input 
+                                disabled={!isEditing}
+                                type="color"
+                                value={isEditing ? tempProfile.brandColor : (profile?.brandColor || '#10b981')}
+                                onChange={(e) => setTempProfile({...tempProfile, brandColor: e.target.value})}
+                                className={`w-10 h-10 rounded-lg border cursor-pointer ${isEditing ? 'border-emerald-500' : 'border-slate-200'}`}
+                            />
+                            <div className="flex-1 flex gap-1">
+                                {['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899'].map((color) => (
+                                    <button
+                                        key={color}
+                                        disabled={!isEditing}
+                                        onClick={() => isEditing && setTempProfile({...tempProfile, brandColor: color})}
+                                        className={`w-6 h-6 rounded-full border-2 transition-all ${
+                                            (isEditing ? tempProfile.brandColor : profile?.brandColor) === color 
+                                                ? 'border-slate-800 scale-110' 
+                                                : 'border-transparent'
+                                        } ${!isEditing ? 'opacity-50 cursor-not-allowed' : 'hover:scale-110'}`}
+                                        style={{ backgroundColor: color }}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Logo URL */}
+                    <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1">
+                            <ImageIcon size={12} /> Logo URL (optional)
+                        </label>
+                        <input 
+                             disabled={!isEditing}
+                             type="url"
+                             value={isEditing ? tempProfile.logoUrl : (profile?.logoUrl || '')}
+                             onChange={(e) => setTempProfile({...tempProfile, logoUrl: e.target.value})}
+                             placeholder="https://example.com/logo.png"
+                             className={`w-full px-3 py-2 text-sm rounded-lg border outline-none transition-all ${isEditing ? 'border-emerald-500' : 'bg-slate-50 border-slate-200'}`}
+                        />
+                    </div>
+
+                    {/* Header Text */}
+                    <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1">
+                            <Type size={12} /> Header Text (optional)
+                        </label>
+                        <input 
+                             disabled={!isEditing}
+                             type="text"
+                             value={isEditing ? tempProfile.receiptHeader : (profile?.receiptHeader || '')}
+                             onChange={(e) => setTempProfile({...tempProfile, receiptHeader: e.target.value})}
+                             placeholder="e.g. ★ Premium Coffee Shop ★"
+                             className={`w-full px-3 py-2 text-sm rounded-lg border outline-none transition-all ${isEditing ? 'border-emerald-500' : 'bg-slate-50 border-slate-200'}`}
+                        />
+                    </div>
+
+                    {/* Footer Message */}
                     <div>
                         <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Footer Message</label>
                         <input 
@@ -370,23 +444,70 @@ const MerchantProfile = () => {
                              value={isEditing ? tempProfile.receiptFooter : (profile?.receiptFooter || '')}
                              onChange={(e) => setTempProfile({...tempProfile, receiptFooter: e.target.value})}
                              placeholder="e.g. Thank you, visit again!"
-                             className={`w-full px-4 py-2 text-sm rounded-lg border outline-none transition-all ${isEditing ? 'border-emerald-500' : 'bg-slate-50 border-slate-200'}`}
+                             className={`w-full px-3 py-2 text-sm rounded-lg border outline-none transition-all ${isEditing ? 'border-emerald-500' : 'bg-slate-50 border-slate-200'}`}
                         />
                     </div>
 
                     {/* LIVE PREVIEW BOX */}
                     <div className="mt-4 bg-slate-100 p-4 rounded-xl">
                         <p className="text-[10px] text-slate-400 font-bold uppercase text-center mb-2">Live Customer Preview</p>
-                        <div className="bg-white p-4 shadow-sm border border-slate-200 mx-auto max-w-[200px] text-center font-mono text-[10px] leading-tight relative">
-                            <div className="absolute -top-1 left-0 w-full h-2 bg-[radial-gradient(circle,transparent_50%,#fff_50%)] bg-[length:8px_8px] rotate-180"></div>
-                            <div className="font-bold text-xs mb-1 text-slate-800">{isEditing ? tempProfile.shopName : (profile?.shopName || 'Your Shop')}</div>
-                            <div className="text-slate-400 text-[8px] mb-3">{isEditing ? tempProfile.address : (profile?.address || 'Your Address')}</div>
-                            <div className="border-b border-dashed border-slate-300 my-2"></div>
-                            <div className="flex justify-between my-1"><span>Masala Chai</span><span>15.00</span></div>
-                            <div className="flex justify-between my-1"><span>Sandwich</span><span>45.00</span></div>
-                            <div className="border-b border-dashed border-slate-300 my-2"></div>
-                            <div className="flex justify-between font-bold text-slate-800"><span>TOTAL</span><span>₹60.00</span></div>
-                            <div className="mt-4 text-slate-500 italic">"{isEditing ? tempProfile.receiptFooter : (profile?.receiptFooter || 'Thank you!')}"</div>
+                        <div className="bg-white p-4 shadow-sm border border-slate-200 mx-auto max-w-[220px] text-center font-mono text-[10px] leading-tight relative overflow-hidden">
+                            {/* Brand Color Header Strip */}
+                            <div 
+                                className="absolute top-0 left-0 right-0 h-1.5"
+                                style={{ backgroundColor: isEditing ? tempProfile.brandColor : (profile?.brandColor || '#10b981') }}
+                            />
+                            <div className="absolute -top-1 left-0 w-full h-2 bg-[radial-gradient(circle,transparent_50%,#fff_50%)] bg-[length:8px_8px] rotate-180" style={{ top: '6px' }}></div>
+                            
+                            <div className="pt-2">
+                                {/* Logo */}
+                                {(isEditing ? tempProfile.logoUrl : profile?.logoUrl) && (
+                                    <img 
+                                        src={isEditing ? tempProfile.logoUrl : profile?.logoUrl}
+                                        alt="Logo"
+                                        className="w-10 h-10 object-contain mx-auto mb-1 rounded"
+                                        onError={(e) => e.target.style.display = 'none'}
+                                    />
+                                )}
+                                
+                                {/* Header Text */}
+                                {(isEditing ? tempProfile.receiptHeader : profile?.receiptHeader) && (
+                                    <div 
+                                        className="text-[9px] font-bold mb-1"
+                                        style={{ color: isEditing ? tempProfile.brandColor : (profile?.brandColor || '#10b981') }}
+                                    >
+                                        {isEditing ? tempProfile.receiptHeader : profile?.receiptHeader}
+                                    </div>
+                                )}
+                                
+                                <div 
+                                    className="font-bold text-xs mb-0.5"
+                                    style={{ color: isEditing ? tempProfile.brandColor : (profile?.brandColor || '#10b981') }}
+                                >
+                                    {isEditing ? tempProfile.shopName : (profile?.shopName || 'Your Shop')}
+                                </div>
+                                <div className="text-slate-400 text-[8px] mb-2">{isEditing ? tempProfile.address : (profile?.address || 'Your Address')}</div>
+                                {(isEditing ? tempProfile.phone : profile?.phone) && (
+                                    <div className="text-slate-400 text-[8px] mb-2">📞 {isEditing ? tempProfile.phone : profile?.phone}</div>
+                                )}
+                                <div className="border-b border-dashed border-slate-300 my-2"></div>
+                                <div className="flex justify-between my-1"><span>Masala Chai</span><span>15.00</span></div>
+                                <div className="flex justify-between my-1"><span>Sandwich</span><span>45.00</span></div>
+                                <div className="border-b border-dashed border-slate-300 my-2"></div>
+                                <div 
+                                    className="flex justify-between font-bold"
+                                    style={{ color: isEditing ? tempProfile.brandColor : (profile?.brandColor || '#10b981') }}
+                                >
+                                    <span>TOTAL</span><span>₹60.00</span>
+                                </div>
+                                <div className="mt-3 text-slate-500 italic text-[9px]">"{isEditing ? tempProfile.receiptFooter : (profile?.receiptFooter || 'Thank you!')}"</div>
+                                
+                                {/* Brand Color Footer Strip */}
+                                <div 
+                                    className="absolute bottom-0 left-0 right-0 h-1"
+                                    style={{ backgroundColor: isEditing ? tempProfile.brandColor : (profile?.brandColor || '#10b981'), opacity: 0.3 }}
+                                />
+                            </div>
                             <div className="absolute -bottom-1 left-0 w-full h-2 bg-[radial-gradient(circle,transparent_50%,#fff_50%)] bg-[length:8px_8px]"></div>
                         </div>
                     </div>

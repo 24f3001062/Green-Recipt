@@ -81,6 +81,11 @@ const receiptSchema = new mongoose.Schema(
       shopName: { type: String, trim: true },
       merchantCode: { type: String, trim: true },
       address: { type: String, trim: true },
+      phone: { type: String, trim: true },
+      logoUrl: { type: String, trim: true },
+      receiptHeader: { type: String, trim: true },
+      receiptFooter: { type: String, trim: true },
+      brandColor: { type: String, trim: true, default: "#10b981" },
     },
     customerSnapshot: {
       name: { type: String, trim: true },

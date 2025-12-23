@@ -43,6 +43,16 @@ const merchantSchema = new mongoose.Schema(
 			trim: true,
 			default: "Thank you! Visit again.",
 		},
+		receiptHeader: {
+			type: String,
+			trim: true,
+			default: "",
+		},
+		brandColor: {
+			type: String,
+			trim: true,
+			default: "#10b981", // emerald-500
+		},
 		currency: {
 			type: String,
 			trim: true,

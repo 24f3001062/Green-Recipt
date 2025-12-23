@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { QrCode, Image, X, Calendar, Receipt, Trash2, CreditCard, Smartphone, EyeOff, CheckCircle, Check, Banknote, Loader2, ChevronRight, Clock, Store, ShoppingBag } from 'lucide-react';
+import { QrCode, Image, X, Calendar, Receipt, Trash2, CreditCard, Smartphone, EyeOff, CheckCircle, Check, Banknote, Loader2, ChevronRight, Clock, Store, ShoppingBag, MapPin, Phone } from 'lucide-react';
 import { updateReceipt, deleteReceipt as deleteReceiptApi } from '../../services/api';
 
 const ReceiptCard = ({ data, onDelete, onUpdate }) => {
@@ -11,6 +11,10 @@ const ReceiptCard = ({ data, onDelete, onUpdate }) => {
 
   const isQR = data.type === 'qr';
   const isPaid = data.status === 'completed';
+  
+  // Get merchant branding from snapshot
+  const branding = data.merchantSnapshot || {};
+  const brandColor = branding.brandColor || '#10b981';
 
   // Process payment - update backend and reflect locally
   const handlePayment = async (method) => {
@@ -122,24 +126,68 @@ const ReceiptCard = ({ data, onDelete, onUpdate }) => {
             onClick={(e) => e.stopPropagation()}
           >
             
-            {/* Modal Header */}
-            <div className={`p-4 md:p-5 flex justify-between items-center shrink-0 rounded-t-3xl ${isQR ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : 'bg-gradient-to-r from-blue-500 to-indigo-500'} text-white`}>
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-xl">
-                  {isQR ? <QrCode size={20} /> : <Image size={20} />}
-                </div>
+            {/* Modal Header - Uses Brand Color */}
+            <div 
+              className="p-4 md:p-5 flex justify-between items-center shrink-0 rounded-t-3xl text-white relative overflow-hidden"
+              style={{ 
+                background: `linear-gradient(135deg, ${brandColor} 0%, ${brandColor}dd 100%)`
+              }}
+            >
+              {/* Brand Color Overlay Pattern */}
+              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, white 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+              
+              <div className="flex items-center gap-3 relative z-10">
+                {/* Logo or Icon */}
+                {branding.logoUrl ? (
+                  <div className="w-12 h-12 bg-white rounded-xl p-1.5 shadow-lg">
+                    <img 
+                      src={branding.logoUrl} 
+                      alt="Logo" 
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentElement.innerHTML = `<div class="w-full h-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${brandColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>`;
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-sm">
+                    {isQR ? <QrCode size={20} /> : <Image size={20} />}
+                  </div>
+                )}
                 <div>
+                  {branding.receiptHeader && (
+                    <span className="text-[10px] font-bold opacity-90 uppercase tracking-wide">{branding.receiptHeader}</span>
+                  )}
+                  <h3 className="font-bold text-lg leading-tight">{data.merchant}</h3>
                   <span className="text-xs font-medium opacity-80">{isQR ? 'Digital Receipt' : 'Uploaded Receipt'}</span>
-                  <h3 className="font-bold text-lg">{data.merchant}</h3>
                 </div>
               </div>
               <button 
                 onClick={() => setIsOpen(false)} 
-                className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
+                className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors relative z-10"
               >
                 <X size={18}/>
               </button>
             </div>
+
+            {/* Merchant Info Bar */}
+            {(branding.address || branding.phone) && (
+              <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                {branding.address && (
+                  <span className="flex items-center gap-1">
+                    <MapPin size={12} style={{ color: brandColor }} />
+                    {branding.address}
+                  </span>
+                )}
+                {branding.phone && (
+                  <span className="flex items-center gap-1">
+                    <Phone size={12} style={{ color: brandColor }} />
+                    {branding.phone}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Content */}
             <div className="p-4 md:p-6 overflow-y-auto flex-1">
@@ -199,10 +247,17 @@ const ReceiptCard = ({ data, onDelete, onUpdate }) => {
               )}
 
               {/* Amount */}
-              <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 mb-4">
+              <div 
+                className="rounded-xl p-4 mb-4 relative overflow-hidden"
+                style={{ background: `linear-gradient(135deg, ${brandColor}10 0%, ${brandColor}05 100%)` }}
+              >
+                <div 
+                  className="absolute top-0 left-0 w-1 h-full rounded-l-xl"
+                  style={{ backgroundColor: brandColor }}
+                />
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-bold text-slate-500 uppercase">Total Amount</span>
-                  <span className="text-3xl font-bold text-slate-800">₹{data.amount}</span>
+                  <span className="text-3xl font-bold" style={{ color: brandColor }}>₹{data.amount}</span>
                 </div>
                 {isPaid && (
                   <div className={`mt-3 pt-3 border-t border-slate-200 flex items-center gap-2 ${paymentInfo.color}`}>
@@ -211,6 +266,18 @@ const ReceiptCard = ({ data, onDelete, onUpdate }) => {
                   </div>
                 )}
               </div>
+
+              {/* Receipt Footer Message */}
+              {(branding.receiptFooter || data.footer) && (
+                <div 
+                  className="text-center py-3 px-4 rounded-xl border border-dashed mb-4"
+                  style={{ borderColor: `${brandColor}40`, backgroundColor: `${brandColor}05` }}
+                >
+                  <p className="text-sm italic text-slate-600">
+                    "{branding.receiptFooter || data.footer}"
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Actions Footer */}

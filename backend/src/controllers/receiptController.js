@@ -32,6 +32,7 @@ const mapReceiptToClient = (receipt) => {
     id: receipt._id,
     merchant: receipt.merchantSnapshot?.shopName,
     merchantCode: receipt.merchantSnapshot?.merchantCode,
+    merchantSnapshot: receipt.merchantSnapshot || null,
     customerName: receipt.customerSnapshot?.name || null,
     customerEmail: receipt.customerSnapshot?.email || null,
     amount: receipt.total,
@@ -46,7 +47,7 @@ const mapReceiptToClient = (receipt) => {
     image: receipt.imageUrl,
     note: receipt.note,
     excludeFromStats: receipt.excludeFromStats,
-    footer: receipt.footer,
+    footer: receipt.footer || receipt.merchantSnapshot?.receiptFooter || "",
     status: receipt.status,
     paymentMethod: receipt.paymentMethod,
   };
@@ -121,9 +122,14 @@ export const createReceipt = async (req, res) => {
           shopName: merchant.shopName,
           merchantCode: merchant.merchantCode,
           address: merchant.address,
+          phone: merchant.phone,
+          logoUrl: merchant.logoUrl,
+          receiptHeader: merchant.receiptHeader || "",
+          receiptFooter: merchant.receiptFooter || "Thank you! Visit again.",
+          brandColor: merchant.brandColor || "#10b981",
         }
       : merchantName 
-        ? { shopName: merchantName, merchantCode: null, address: null }
+        ? { shopName: merchantName, merchantCode: null, address: null, phone: null, logoUrl: null, receiptHeader: "", receiptFooter: "", brandColor: "#10b981" }
         : null;
 
     const receipt = await Receipt.create({

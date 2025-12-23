@@ -13,7 +13,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Wallet,
-  TrendingUp
+  TrendingUp,
+  MapPin,
+  Phone as PhoneIcon
 } from 'lucide-react';
 import { MOCK_RECEIPTS } from './customerData';
 
@@ -343,30 +345,66 @@ const CustomerCalendar = () => {
             className="bg-white w-full max-w-md rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl animate-pop-in"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
-            <div className={`p-4 md:p-5 flex justify-between items-center ${
-              viewingReceipt.type === 'qr' 
-                ? 'bg-gradient-to-r from-emerald-500 to-teal-500' 
-                : 'bg-gradient-to-r from-blue-500 to-indigo-500'
-            } text-white`}>
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-xl">
-                  {viewingReceipt.type === 'qr' ? <QrCode size={20} /> : <Image size={20} />}
-                </div>
+            {/* Modal Header with Brand Color */}
+            <div 
+              className="p-4 md:p-5 flex justify-between items-center text-white relative overflow-hidden"
+              style={{ 
+                background: `linear-gradient(135deg, ${viewingReceipt.merchantSnapshot?.brandColor || (viewingReceipt.type === 'qr' ? '#10b981' : '#3b82f6')} 0%, ${viewingReceipt.merchantSnapshot?.brandColor || (viewingReceipt.type === 'qr' ? '#10b981' : '#3b82f6')}dd 100%)`
+              }}
+            >
+              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, white 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+              <div className="flex items-center gap-3 relative z-10">
+                {viewingReceipt.merchantSnapshot?.logoUrl ? (
+                  <div className="w-12 h-12 bg-white rounded-xl p-1.5 shadow-lg">
+                    <img 
+                      src={viewingReceipt.merchantSnapshot.logoUrl} 
+                      alt="Logo" 
+                      className="w-full h-full object-contain"
+                      onError={(e) => e.target.parentElement.style.display = 'none'}
+                    />
+                  </div>
+                ) : (
+                  <div className="p-2 bg-white/20 rounded-xl">
+                    {viewingReceipt.type === 'qr' ? <QrCode size={20} /> : <Image size={20} />}
+                  </div>
+                )}
                 <div>
+                  {viewingReceipt.merchantSnapshot?.receiptHeader && (
+                    <span className="text-[10px] font-bold opacity-90 uppercase tracking-wide block">
+                      {viewingReceipt.merchantSnapshot.receiptHeader}
+                    </span>
+                  )}
+                  <h3 className="font-bold text-lg leading-tight">{viewingReceipt.merchant}</h3>
                   <span className="text-xs font-medium opacity-80">
                     {viewingReceipt.type === 'qr' ? 'Digital Receipt' : 'Uploaded Receipt'}
                   </span>
-                  <h3 className="font-bold text-lg">{viewingReceipt.merchant}</h3>
                 </div>
               </div>
               <button 
                 onClick={() => setViewingReceipt(null)} 
-                className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
+                className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors relative z-10"
               >
                 <X size={18}/>
               </button>
             </div>
+
+            {/* Merchant Info Bar */}
+            {(viewingReceipt.merchantSnapshot?.address || viewingReceipt.merchantSnapshot?.phone) && (
+              <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                {viewingReceipt.merchantSnapshot?.address && (
+                  <span className="flex items-center gap-1">
+                    <MapPin size={12} style={{ color: viewingReceipt.merchantSnapshot?.brandColor || '#10b981' }} />
+                    {viewingReceipt.merchantSnapshot.address}
+                  </span>
+                )}
+                {viewingReceipt.merchantSnapshot?.phone && (
+                  <span className="flex items-center gap-1">
+                    <PhoneIcon size={12} style={{ color: viewingReceipt.merchantSnapshot?.brandColor || '#10b981' }} />
+                    {viewingReceipt.merchantSnapshot.phone}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Content */}
             <div className="p-4 md:p-6 max-h-[60vh] overflow-y-auto">
@@ -401,15 +439,38 @@ const CustomerCalendar = () => {
               )}
 
               {/* Total */}
-              <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4">
+              <div 
+                className="rounded-xl p-4 relative overflow-hidden"
+                style={{ background: `linear-gradient(135deg, ${viewingReceipt.merchantSnapshot?.brandColor || '#10b981'}10 0%, ${viewingReceipt.merchantSnapshot?.brandColor || '#10b981'}05 100%)` }}
+              >
+                <div 
+                  className="absolute top-0 left-0 w-1 h-full rounded-l-xl"
+                  style={{ backgroundColor: viewingReceipt.merchantSnapshot?.brandColor || '#10b981' }}
+                />
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-bold text-slate-500 uppercase">Total</span>
-                  <span className="text-3xl font-bold text-slate-800">₹{viewingReceipt.amount}</span>
+                  <span 
+                    className="text-3xl font-bold"
+                    style={{ color: viewingReceipt.merchantSnapshot?.brandColor || '#1e293b' }}
+                  >
+                    ₹{viewingReceipt.amount}
+                  </span>
                 </div>
               </div>
 
-              {viewingReceipt.footer && (
-                <p className="text-xs text-slate-400 text-center italic mt-4">"{viewingReceipt.footer}"</p>
+              {/* Footer Message */}
+              {(viewingReceipt.merchantSnapshot?.receiptFooter || viewingReceipt.footer) && (
+                <div 
+                  className="text-center py-3 px-4 rounded-xl border border-dashed mt-4"
+                  style={{ 
+                    borderColor: `${viewingReceipt.merchantSnapshot?.brandColor || '#10b981'}40`, 
+                    backgroundColor: `${viewingReceipt.merchantSnapshot?.brandColor || '#10b981'}05` 
+                  }}
+                >
+                  <p className="text-sm italic text-slate-600">
+                    "{viewingReceipt.merchantSnapshot?.receiptFooter || viewingReceipt.footer}"
+                  </p>
+                </div>
               )}
             </div>
           </div>

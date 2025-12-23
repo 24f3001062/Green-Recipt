@@ -285,6 +285,8 @@ export const getProfile = async (req, res) => {
           phone: account.phone || null,
           address: account.address || null,
           receiptFooter: account.receiptFooter || "Thank you! Visit again.",
+          receiptHeader: account.receiptHeader || "",
+          brandColor: account.brandColor || "#10b981",
           currency: account.currency || "INR",
           merchantCode: account.merchantCode || null,
           logoUrl: account.logoUrl || null,
@@ -320,13 +322,16 @@ export const updateProfile = async (req, res) => {
 
     if (isMerchant) {
       // Merchant profile updates
-      const { shopName, ownerName, email, phone, address, receiptFooter, currency, categories } = req.body;
+      const { shopName, ownerName, email, phone, address, receiptFooter, receiptHeader, brandColor, logoUrl, currency, categories } = req.body;
 
       if (shopName) updates.shopName = shopName.trim();
       if (ownerName !== undefined) updates.ownerName = ownerName?.trim() || null;
       if (phone !== undefined) updates.phone = phone?.trim() || null;
       if (address !== undefined) updates.address = address?.trim() || null;
       if (receiptFooter !== undefined) updates.receiptFooter = receiptFooter?.trim() || "Thank you! Visit again.";
+      if (receiptHeader !== undefined) updates.receiptHeader = receiptHeader?.trim() || "";
+      if (brandColor !== undefined) updates.brandColor = brandColor?.trim() || "#10b981";
+      if (logoUrl !== undefined) updates.logoUrl = logoUrl?.trim() || null;
       if (currency) updates.currency = currency.trim();
       if (categories !== undefined) updates.categories = categories;
 
@@ -356,6 +361,8 @@ export const updateProfile = async (req, res) => {
         phone: account.phone || null,
         address: account.address || null,
         receiptFooter: account.receiptFooter || "Thank you! Visit again.",
+        receiptHeader: account.receiptHeader || "",
+        brandColor: account.brandColor || "#10b981",
         currency: account.currency || "INR",
         merchantCode: account.merchantCode || null,
         logoUrl: account.logoUrl || null,
