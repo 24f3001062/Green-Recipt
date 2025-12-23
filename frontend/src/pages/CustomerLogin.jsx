@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { loginUser, setSession } from "../services/api.js";
+import { Receipt, Mail, Lock, Eye, EyeOff } from "lucide-react"; // 👈 Used Lucide for consistent icons
 
 const CustomerLogin = () => {
   const navigate = useNavigate();
@@ -8,6 +9,9 @@ const CustomerLogin = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // 👁️ VISIBILITY STATE
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -29,13 +33,13 @@ const CustomerLogin = () => {
     <div className="bg-gradient-to-br from-slate-50 via-white to-green-50 min-h-screen flex items-center justify-center p-4 font-sans text-slate-900">
       <div className="w-full max-w-[420px]">
         {/* Logo Section */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-2">
           <Link
             to="/"
             className="inline-flex items-center gap-2 mb-4 hover:opacity-80 transition"
           >
             <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white text-sm shadow-lg shadow-green-500/30">
-              <i className="fas fa-receipt"></i>
+              <Receipt size={20} />
             </div>
             <span className="text-xl font-bold text-slate-900">
               GreenReceipt
@@ -56,46 +60,61 @@ const CustomerLogin = () => {
 
           <form onSubmit={handleLogin} className="space-y-5">
             {error && <div className="text-sm text-red-600">{error}</div>}
+            
+            {/* Email Field */}
             <div>
               <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 ml-1">
                 Email Address
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <i className="fas fa-envelope text-slate-400"></i>
+                  <Mail className="text-slate-400" size={20} />
                 </div>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600/50 focus:bg-white transition-all placeholder-slate-400"
+                  className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600/50 focus:bg-white transition-all placeholder-slate-400 text-slate-800"
                   placeholder="you@example.com"
                 />
               </div>
             </div>
 
+            {/* Password Field with Toggle */}
             <div>
               <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 ml-1">
                 Password
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <i className="fas fa-lock text-slate-400"></i>
+                  <Lock className="text-slate-400" size={20} />
                 </div>
+                
+                {/* 👇 DYNAMIC TYPE: text or password */}
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600/50 focus:bg-white transition-all placeholder-slate-400"
+                  className="w-full pl-11 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600/50 focus:bg-white transition-all placeholder-slate-400 text-slate-800"
                   placeholder="••••••••"
                 />
+
+                {/* 👁️ TOGGLE BUTTON */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
+
               <div className="flex justify-end mt-2">
                 <Link
                   to="/forgot-password"
-                  state={{ role: "customer" }} // 👈 Pass the role so backend knows where to look!
+                  state={{ role: "customer" }}
                   className="text-xs font-semibold text-emerald-600 hover:text-green-700"
                 >
                   Forgot Password?
