@@ -13,6 +13,7 @@ import MerchantDashboard from './pages/MerchantDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import OnboardingWizard from './components/onboarding/OnboardingWizard';
 
 function App() {
   return (
@@ -21,7 +22,7 @@ function App() {
         {/* 1. The Landing Page */}
         <Route path="/" element={<Home />} />
 
-        {/* 2. Customer Routes */}
+        {/* 2. Customer Routes*/}
         <Route path="/customer-signup" element={<CustomerSignup />} />
         <Route path="/verify-customer" element={<CustomerVerify />} />
         <Route path="/customer-login" element={<CustomerLogin />} />
@@ -42,7 +43,7 @@ function App() {
         {/* 3. Merchant Routes (Keep commented for now) */}
         <Route path="/merchant-signup" element={<MerchantSignup />} />
         <Route path="/verify-merchant" element={<MerchantVerify />} />
-        <Route path="/merchant-login" element={<MerchantLogin />} />
+        <Route path="/merchant-login" element={<MerchantLogin />} /> 
 
         <Route
           path="/merchant-dashboard"
@@ -53,10 +54,23 @@ function App() {
           }
         />
 
+        {/* <Route 
+          path="/test-onboarding" 
+          element={
+            <OnboardingWizard 
+              onComplete={(data) => console.log("Onboarding Data:", data)} 
+            />
+          } 
+        /> */}
+
         {/* 4. 404 Fallback */}
         <Route path="*" element={<Home />} />
       </Routes>
     </Router>
+
+    
+   
+  
   );
 }
 
