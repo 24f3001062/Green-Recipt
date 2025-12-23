@@ -1,19 +1,54 @@
 import React, { useState } from 'react';
-import { QrCode, Image, X, Calendar, Receipt, Trash2, CreditCard, Smartphone, EyeOff, CheckCircle, Check } from 'lucide-react';
+import { QrCode, Image, X, Calendar, Receipt, Trash2, CreditCard, Smartphone, EyeOff, CheckCircle, Check, Banknote, Loader2 } from 'lucide-react';
+import { updateReceipt, deleteReceipt as deleteReceiptApi } from '../../services/api';
 
 const ReceiptCard = ({ data, onDelete, onUpdate }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState(
-    data.status === 'completed' ? 'Paid' : null
+    data.status === 'completed' ? (data.paymentMethod === 'cash' ? 'Cash' : data.paymentMethod === 'upi' ? 'UPI' : 'Paid') : null
   );
 
   const isQR = data.type === 'qr';
 
-  // Fake payment; just reflect locally and mark as completed
-  const handleFakePay = (methodLabel) => {
-    const updated = { ...data, status: 'completed' };
-    onUpdate(updated);
-    setPaymentStatus(methodLabel);
+  // Process payment - update backend and reflect locally
+  const handlePayment = async (method) => {
+    if (isProcessing) return;
+    
+    setIsProcessing(true);
+    try {
+      const paymentMethod = method === 'UPI' ? 'upi' : 'cash';
+      const { data: updatedReceipt } = await updateReceipt(data.id, {
+        paymentMethod,
+        status: 'completed'
+      });
+      
+      // Update local state with backend response
+      onUpdate(updatedReceipt);
+      setPaymentStatus(method);
+    } catch (error) {
+      console.error('Payment update failed:', error);
+      alert('Failed to process payment. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Delete receipt from backend
+  const handleDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete this receipt?")) return;
+    
+    setIsProcessing(true);
+    try {
+      await deleteReceiptApi(data.id);
+      onDelete(data.id);
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('Failed to delete receipt. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -107,28 +142,42 @@ const ReceiptCard = ({ data, onDelete, onUpdate }) => {
                
                <div className="text-center space-y-2">
                  <p className="text-[10px] text-slate-300 uppercase tracking-widest font-bold">Stored in GreenReceipt Vault</p>
-                 {paymentStatus && (
-                    <p className="text-xs text-emerald-600 font-bold flex items-center gap-1 justify-center"><Check size={14}/> Paid via {paymentStatus}</p>
+                 {data.status === 'completed' && (
+                    <p className="text-xs text-emerald-600 font-bold flex items-center gap-1 justify-center">
+                      <Check size={14}/> Paid via {data.paymentMethod === 'cash' ? 'Cash' : data.paymentMethod === 'upi' ? 'UPI' : data.paymentMethod === 'card' ? 'Card' : data.paymentMethod || 'Unknown'}
+                    </p>
                  )}
                </div>
             </div>
 
             {/* Actions Footer */}
             <div className="p-4 bg-white border-t border-slate-100 flex justify-between items-center">
-                <button onClick={() => onDelete(data.id)} className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors">
-                    <Trash2 size={16} /> Delete
+                <button 
+                    onClick={handleDelete} 
+                    disabled={isProcessing}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors disabled:opacity-50"
+                >
+                    {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} Delete
                 </button>
                 {data.status === 'completed' ? (
                   <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs">
-                    <Check size={14}/> Payment Complete
+                    <Check size={14}/> Paid via {data.paymentMethod === 'cash' ? 'Cash' : data.paymentMethod === 'upi' ? 'UPI' : data.paymentMethod || 'Unknown'}
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    <button onClick={() => handleFakePay('UPI')} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors">
-                      <Smartphone size={16} /> Pay UPI
+                    <button 
+                        onClick={() => handlePayment('UPI')} 
+                        disabled={isProcessing}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                    >
+                      {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Smartphone size={16} />} Pay UPI
                     </button>
-                    <button onClick={() => handleFakePay('Bank')} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors">
-                      <CreditCard size={16} /> Pay Cash
+                    <button 
+                        onClick={() => handlePayment('Cash')} 
+                        disabled={isProcessing}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors disabled:opacity-50"
+                    >
+                      {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Banknote size={16} />} Pay Cash
                     </button>
                   </div>
                 )}

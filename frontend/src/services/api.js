@@ -124,6 +124,8 @@ export const fetchMerchantReceipts = (page = 1, limit = 50) =>
 export const createReceipt = (payload) => api.post("/receipts", payload);
 export const claimReceipt = (payload) => api.post("/receipts/claim", payload);
 export const markReceiptPaid = (id) => api.patch(`/receipts/${id}/mark-paid`);
+export const updateReceipt = (id, payload) => api.patch(`/receipts/${id}`, payload);
+export const deleteReceipt = (id) => api.delete(`/receipts/${id}`);
 export const getReceiptById = (id) => api.get(`/receipts/${id}`);
 export const fetchCustomerAnalytics = () => api.get("/analytics/customer");
 export const fetchMerchantAnalytics = () => api.get("/analytics/merchant");

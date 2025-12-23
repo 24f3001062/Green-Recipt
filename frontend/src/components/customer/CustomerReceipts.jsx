@@ -51,11 +51,9 @@ const CustomerReceipts = () => {
 
   // ——— CRUD ACTIONS ———
   
-  // 🗑️ DELETE
+  // 🗑️ DELETE (called after API call succeeds in ReceiptCard)
   const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this receipt?")) {
-      setReceipts(prev => prev.filter(r => r.id !== id));
-    }
+    setReceipts(prev => prev.filter(r => r.id !== id));
   };
 
   // ✏️ UPDATE

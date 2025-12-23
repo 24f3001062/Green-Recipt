@@ -488,9 +488,49 @@ const CustomerInsights = () => {
           {paymentMethods?.length > 0 && (
             <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
               <h3 className="font-bold text-slate-700 mb-4">Payment Methods</h3>
+              
+              {/* Payment Summary Cards - UPI vs Cash */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                {/* UPI Card */}
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-4 rounded-xl border border-emerald-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-2 bg-emerald-500 rounded-lg">
+                      <Smartphone size={18} className="text-white" />
+                    </div>
+                    <span className="font-bold text-emerald-800">UPI Payments</span>
+                  </div>
+                  <p className="text-2xl font-bold text-emerald-700">
+                    ₹{(paymentMethods.find(pm => pm.method?.toLowerCase() === 'upi')?.total || 0).toLocaleString('en-IN')}
+                  </p>
+                  <p className="text-xs text-emerald-600 mt-1">
+                    {paymentMethods.find(pm => pm.method?.toLowerCase() === 'upi')?.count || 0} transactions
+                  </p>
+                </div>
+                
+                {/* Cash Card */}
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-2 bg-amber-500 rounded-lg">
+                      <Banknote size={18} className="text-white" />
+                    </div>
+                    <span className="font-bold text-amber-800">Cash Payments</span>
+                  </div>
+                  <p className="text-2xl font-bold text-amber-700">
+                    ₹{(paymentMethods.find(pm => pm.method?.toLowerCase() === 'cash')?.total || 0).toLocaleString('en-IN')}
+                  </p>
+                  <p className="text-xs text-amber-600 mt-1">
+                    {paymentMethods.find(pm => pm.method?.toLowerCase() === 'cash')?.count || 0} transactions
+                  </p>
+                </div>
+              </div>
+
+              {/* All Payment Methods List */}
               <div className="grid grid-cols-2 gap-3">
                 {paymentMethods.map((pm, i) => {
                   const Icon = getPaymentIcon(pm.method);
+                  const percentage = paymentMethods.reduce((sum, p) => sum + p.total, 0) > 0 
+                    ? Math.round((pm.total / paymentMethods.reduce((sum, p) => sum + p.total, 0)) * 100) 
+                    : 0;
                   return (
                     <div key={i} className="p-3 bg-slate-50 rounded-xl flex items-center gap-3">
                       <div className="p-2 bg-white rounded-lg shadow-sm">
@@ -498,7 +538,7 @@ const CustomerInsights = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-slate-700 text-sm capitalize">{pm.method}</p>
-                        <p className="text-xs text-slate-400">{pm.count} times</p>
+                        <p className="text-xs text-slate-400">{pm.count} times • {percentage}%</p>
                       </div>
                       <p className="font-bold text-slate-800 text-sm">₹{pm.total.toLocaleString('en-IN')}</p>
                     </div>

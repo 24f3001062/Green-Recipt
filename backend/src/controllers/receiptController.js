@@ -289,3 +289,73 @@ export const getReceiptById = async (req, res) => {
     res.status(500).json({ message: "Failed to load receipt" });
   }
 };
+
+export const updateReceipt = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { paymentMethod, status, note, excludeFromStats, category } = req.body;
+
+    const receipt = await Receipt.findById(id);
+    if (!receipt) {
+      return res.status(404).json({ message: "Receipt not found" });
+    }
+
+    // Check ownership - customers can update their receipts, merchants can update their receipts
+    const isOwner =
+      (req.user.role === "customer" && receipt.userId?.toString() === req.user.id) ||
+      (req.user.role === "merchant" && receipt.merchantId?.toString() === req.user.id);
+
+    if (!isOwner) {
+      return res.status(403).json({ message: "Not authorized to update this receipt" });
+    }
+
+    // Update allowed fields
+    if (paymentMethod !== undefined) {
+      receipt.paymentMethod = paymentMethod;
+    }
+    if (status !== undefined) {
+      receipt.status = status;
+    }
+    if (note !== undefined) {
+      receipt.note = note;
+    }
+    if (excludeFromStats !== undefined) {
+      receipt.excludeFromStats = Boolean(excludeFromStats);
+    }
+    if (category !== undefined) {
+      receipt.category = category;
+    }
+
+    await receipt.save();
+    res.json(mapReceiptToClient(receipt.toObject()));
+  } catch (error) {
+    console.error("updateReceipt error", error);
+    res.status(500).json({ message: "Failed to update receipt" });
+  }
+};
+
+export const deleteReceipt = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const receipt = await Receipt.findById(id);
+    if (!receipt) {
+      return res.status(404).json({ message: "Receipt not found" });
+    }
+
+    // Check ownership - customers can delete their receipts, merchants can delete their receipts
+    const isOwner =
+      (req.user.role === "customer" && receipt.userId?.toString() === req.user.id) ||
+      (req.user.role === "merchant" && receipt.merchantId?.toString() === req.user.id);
+
+    if (!isOwner) {
+      return res.status(403).json({ message: "Not authorized to delete this receipt" });
+    }
+
+    await Receipt.findByIdAndDelete(id);
+    res.json({ message: "Receipt deleted successfully" });
+  } catch (error) {
+    console.error("deleteReceipt error", error);
+    res.status(500).json({ message: "Failed to delete receipt" });
+  }
+};

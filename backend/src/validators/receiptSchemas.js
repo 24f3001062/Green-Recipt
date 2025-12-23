@@ -52,3 +52,14 @@ export const claimReceiptSchema = {
 };
 
 export const receiptIdParamSchema = { params: z.object({ id: objectId }) };
+
+export const updateReceiptSchema = {
+  params: z.object({ id: objectId }),
+  body: z.object({
+    paymentMethod: z.enum(["upi", "card", "cash", "other"]).optional(),
+    status: z.enum(["completed", "pending", "void"]).optional(),
+    note: z.string().trim().max(500).optional(),
+    excludeFromStats: z.boolean().optional(),
+    category: z.string().trim().max(100).optional(),
+  }),
+};
