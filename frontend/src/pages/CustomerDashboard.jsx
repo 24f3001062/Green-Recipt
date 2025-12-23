@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Scanner } from '@yudiel/react-qr-scanner'; // 👈 NEW LIBRARY
 import CustomerSidebar from '../components/customer/CustomerSidebar';
 import CustomerHome from '../components/customer/CustomerHome';
@@ -8,14 +8,44 @@ import CustomerInsights from '../components/customer/CustomerInsights';
 import CustomerProfile from '../components/customer/CustomerProfile';
 import CustomerNotifications from '../components/customer/CustomerNotifications';
 import { ScanLine, Bell, X, CheckCircle, AlertCircle } from 'lucide-react';
-import { createReceipt, claimReceipt } from '../services/api';
+import { createReceipt, claimReceipt, fetchCustomerReceipts } from '../services/api';
 
 const CustomerDashboard = () => {
   const [activeTab, setActiveTab] = useState('home');
+  const [receipts, setReceipts] = useState([]);
   
   // 📸 SCANNER STATE
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null); // null | 'success' | 'error'
+
+  // Load receipts for eco impact calculation
+  useEffect(() => {
+    const loadReceipts = async () => {
+      try {
+        const { data } = await fetchCustomerReceipts();
+        setReceipts(data);
+        localStorage.setItem('customerReceipts', JSON.stringify(data));
+      } catch (e) {
+        // Fallback to localStorage
+        const cached = JSON.parse(localStorage.getItem('customerReceipts') || '[]');
+        setReceipts(cached);
+      }
+    };
+    loadReceipts();
+
+    // Listen for receipt updates
+    const handleUpdate = () => {
+      const cached = JSON.parse(localStorage.getItem('customerReceipts') || '[]');
+      setReceipts(cached);
+    };
+    window.addEventListener('customer-receipts-updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    
+    return () => {
+      window.removeEventListener('customer-receipts-updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
 
   // Trigger Scanner Modal
   const handleGlobalScan = () => {
@@ -109,7 +139,7 @@ const CustomerDashboard = () => {
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
       
-      <CustomerSidebar activeTab={activeTab} onNavigate={setActiveTab} />
+      <CustomerSidebar activeTab={activeTab} onNavigate={setActiveTab} receipts={receipts} />
 
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
         {/* MOBILE HEADER */}

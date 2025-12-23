@@ -407,7 +407,6 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
           </div>
         )}
       </div>
-      </div>
 
       {/* ========== UPLOAD DETAILS MODAL ========== */}
       {pendingFile && (

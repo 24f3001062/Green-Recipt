@@ -1,8 +1,40 @@
-import React from 'react';
-import { Home, FileText, Calendar, PieChart, User, Receipt, Bell, Leaf, Sparkles } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Home, FileText, Calendar, PieChart, User, Receipt, Bell, Leaf, Sparkles, TreePine, Droplets } from 'lucide-react';
 
-const CustomerSidebar = ({ activeTab, onNavigate }) => {
+const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
   
+  // Calculate Eco Impact based on receipts
+  const ecoImpact = useMemo(() => {
+    // Average paper receipt = 3.5g (including thermal paper coating)
+    // Each digital receipt saves approximately 3.5g of paper
+    const paperPerReceipt = 0.0035; // kg
+    const treeSavingRate = 0.06; // kg paper per small tree saved (simplified)
+    const waterPerKgPaper = 10; // liters of water per kg paper
+    
+    const totalReceipts = receipts.length;
+    const paperSaved = totalReceipts * paperPerReceipt;
+    const treeContribution = paperSaved / treeSavingRate;
+    const waterSaved = paperSaved * waterPerKgPaper;
+    
+    // Get this month's receipts
+    const now = new Date();
+    const thisMonthReceipts = receipts.filter(r => {
+      const receiptDate = new Date(r.date || r.createdAt);
+      return receiptDate.getMonth() === now.getMonth() && 
+             receiptDate.getFullYear() === now.getFullYear();
+    });
+    const monthlyPaperSaved = thisMonthReceipts.length * paperPerReceipt;
+    
+    return {
+      totalReceipts,
+      monthlyReceipts: thisMonthReceipts.length,
+      paperSaved: paperSaved.toFixed(2),
+      monthlyPaperSaved: monthlyPaperSaved.toFixed(2),
+      treeContribution: treeContribution.toFixed(1),
+      waterSaved: waterSaved.toFixed(0),
+    };
+  }, [receipts]);
+
   // Navigation Items
   const navItems = [
     { id: 'home', icon: Home, label: 'Home' },
@@ -71,14 +103,43 @@ const CustomerSidebar = ({ activeTab, onNavigate }) => {
           })}
         </nav>
 
-        {/* Footer */}
+        {/* Footer - Eco Impact */}
         <div className="p-4 border-t border-slate-100">
           <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-4 rounded-xl border border-emerald-100">
-            <div className="flex items-center gap-2 text-emerald-700 mb-2">
+            <div className="flex items-center gap-2 text-emerald-700 mb-3">
               <Sparkles size={16} />
               <span className="text-xs font-bold uppercase">Eco Impact</span>
             </div>
-            <p className="text-sm text-emerald-800 font-medium">You've saved 1.2kg of paper this month! 🌱</p>
+            
+            {/* Main stat */}
+            <p className="text-sm text-emerald-800 font-medium mb-3">
+              You've saved <span className="font-bold text-emerald-700">{ecoImpact.monthlyPaperSaved}kg</span> of paper this month! 🌱
+            </p>
+            
+            {/* Detailed stats */}
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <div className="bg-white/60 rounded-lg p-2 text-center">
+                <div className="flex items-center justify-center gap-1 text-emerald-600 mb-0.5">
+                  <Receipt size={12} />
+                </div>
+                <p className="text-lg font-bold text-emerald-700">{ecoImpact.monthlyReceipts}</p>
+                <p className="text-[9px] text-emerald-600 font-medium">This Month</p>
+              </div>
+              <div className="bg-white/60 rounded-lg p-2 text-center">
+                <div className="flex items-center justify-center gap-1 text-teal-600 mb-0.5">
+                  <Droplets size={12} />
+                </div>
+                <p className="text-lg font-bold text-teal-700">{ecoImpact.waterSaved}L</p>
+                <p className="text-[9px] text-teal-600 font-medium">Water Saved</p>
+              </div>
+            </div>
+            
+            {/* Total all-time */}
+            <div className="mt-3 pt-3 border-t border-emerald-200/50 text-center">
+              <p className="text-[10px] text-emerald-600">
+                All time: <span className="font-bold">{ecoImpact.totalReceipts} receipts</span> • <span className="font-bold">{ecoImpact.paperSaved}kg</span> paper saved
+              </p>
+            </div>
           </div>
         </div>
       </aside>
