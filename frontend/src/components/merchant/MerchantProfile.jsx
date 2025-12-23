@@ -224,11 +224,11 @@ const MerchantProfile = () => {
                     <Store size={16} /> Food & Beverage • Merchant
                 </p>
                 <div className="mt-4 flex flex-wrap justify-center md:justify-start gap-3">
-                    {profile?.merchantCode && (
+                    {/* {profile?.merchantCode && (
                       <span className="px-3 py-1 bg-white/20 rounded-full text-xs font-bold backdrop-blur-sm border border-white/10">
                           {profile.merchantCode}
                       </span>
-                    )}
+                    )} */}
                     {profile?.isVerified && (
                       <span className="px-3 py-1 bg-emerald-800/30 rounded-full text-xs font-bold backdrop-blur-sm border border-white/10 flex items-center gap-1">
                           <ShieldCheck size={12} /> Verified
@@ -375,7 +375,7 @@ const MerchantProfile = () => {
                 
                 <div className="space-y-4">
                     {/* Brand Color */}
-                    <div>
+                    {/* <div>
                         <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1">
                             <Palette size={12} /> Brand Color
                         </label>
@@ -403,7 +403,7 @@ const MerchantProfile = () => {
                                 ))}
                             </div>
                         </div>
-                    </div>
+                    </div> */}
 
                     {/* Logo URL */}
                     <div>
@@ -421,7 +421,7 @@ const MerchantProfile = () => {
                     </div>
 
                     {/* Header Text */}
-                    <div>
+                    {/* <div>
                         <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1">
                             <Type size={12} /> Header Text (optional)
                         </label>
@@ -433,7 +433,7 @@ const MerchantProfile = () => {
                              placeholder="e.g. ★ Premium Coffee Shop ★"
                              className={`w-full px-3 py-2 text-sm rounded-lg border outline-none transition-all ${isEditing ? 'border-emerald-500' : 'bg-slate-50 border-slate-200'}`}
                         />
-                    </div>
+                    </div> */}
 
                     {/* Footer Message */}
                     <div>
