@@ -150,7 +150,7 @@ connectDB();
 // 2. ✅ CORS (Critical: Must be before routes)
 const allowedOrigins = process.env.CLIENT_URL
     ? process.env.CLIENT_URL.split(",")
-    : ["http://localhost:5173", "https://your-frontend-app.vercel.app"]; // Add your real Vercel domain here
+    : ["http://localhost:5173", "https://green-recipt.vercel.app"]; // Add your real Vercel domain here
 
 const corsOptions = {
     origin: (origin, callback) => {
