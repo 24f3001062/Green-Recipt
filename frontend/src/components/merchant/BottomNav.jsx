@@ -111,48 +111,110 @@
 
 // export default BottomNav;
 
+// import React from 'react';
+// import { NavLink } from 'react-router-dom';
+// import { Home, History, BarChart3, Package, User } from 'lucide-react';
+
+// const BottomNav = () => {
+//   // Helper for styling active/inactive links
+//   const navClass = ({ isActive }) => 
+//     `flex flex-1 flex-col items-center justify-center gap-1 p-2 transition-colors duration-200 ${
+//       isActive ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-600'
+//     }`;
+
+//   return (
+//     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 h-[65px] px-2 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-50 flex justify-between items-center md:hidden pb-safe">
+      
+//       {/* 1. HOME */}
+//       <NavLink to="/merchant/overview" className={navClass}>
+//         <Home className="w-6 h-6" />
+//         <span className="text-[10px] font-medium">Home</span>
+//       </NavLink>
+
+      
+//       {/* 3. INSIGHTS (Replaced the + Button) */}
+//       <NavLink to="/merchant/insights" className={navClass}>
+//         <BarChart3 className="w-6 h-6" />
+//         <span className="text-[10px] font-medium">Insights</span>
+//       </NavLink>
+
+      
+//       {/* 2. HISTORY */}
+
+//       <NavLink to="/merchant/calendar" className={navClass}>
+//         <History className="w-6 h-6" />
+//         <span className="text-[10px] font-medium">History</span>
+//       </NavLink>
+
+//       {/* 4. ITEMS */}
+//       <NavLink to="/merchant/items" className={navClass}>
+//         <Package className="w-6 h-6" />
+//         <span className="text-[10px] font-medium">Items</span>
+//       </NavLink>
+
+//       {/* 5. PROFILE (Renamed from Menu) */}
+//       <NavLink to="/merchant/profile" className={navClass}>
+//         <User className="w-6 h-6" />
+//         <span className="text-[10px] font-medium">Profile</span>
+//       </NavLink>
+
+//     </div>
+//   );
+// };
+
+// export default BottomNav;
+
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, History, BarChart3, Package, User } from 'lucide-react';
+import { Home, BarChart3, Plus, Package, FileClock } from 'lucide-react';
 
 const BottomNav = () => {
-  // Helper for styling active/inactive links
+  // Standard Nav Item Style (Gray)
   const navClass = ({ isActive }) => 
-    `flex flex-1 flex-col items-center justify-center gap-1 p-2 transition-colors duration-200 ${
+    `flex flex-1 flex-col items-center justify-center gap-1 h-full transition-colors duration-200 ${
       isActive ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-600'
     }`;
+
+  // Center Button Style (Highlighted but Contained)
+  const centerBtnClass = "flex flex-col items-center justify-center h-full w-full";
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 h-[65px] px-2 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-50 flex justify-between items-center md:hidden pb-safe">
       
       {/* 1. HOME */}
       <NavLink to="/merchant/overview" className={navClass}>
-        <Home className="w-6 h-6" />
-        <span className="text-[10px] font-medium">Home</span>
+        <Home strokeWidth={2.5} className="w-6 h-6" />
+        <span className="text-[10px] font-bold">Home</span>
       </NavLink>
 
-      {/* 2. HISTORY */}
-      <NavLink to="/merchant/calendar" className={navClass}>
-        <History className="w-6 h-6" />
-        <span className="text-[10px] font-medium">History</span>
-      </NavLink>
-
-      {/* 3. INSIGHTS (Replaced the + Button) */}
+      {/* 2. INSIGHTS */}
       <NavLink to="/merchant/insights" className={navClass}>
-        <BarChart3 className="w-6 h-6" />
-        <span className="text-[10px] font-medium">Insights</span>
+        <BarChart3 strokeWidth={2.5} className="w-6 h-6" />
+        <span className="text-[10px] font-bold">Insights</span>
       </NavLink>
 
-      {/* 4. ITEMS */}
+      {/* 3. CENTER ACTION (Create Bill) - Highlighted & Contained */}
+      <div className="flex flex-1 items-center justify-center h-full relative">
+        <NavLink to="/merchant/billing" className={centerBtnClass}>
+            {/* The Green Highlight Circle */}
+            <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center shadow-md shadow-emerald-200 active:scale-95 transition-transform">
+                <Plus strokeWidth={3} className="w-6 h-6 text-white" />
+            </div>
+            {/* Optional: Label below */}
+            <span className="text-[10px] font-bold text-emerald-700 mt-1">Bill</span>
+        </NavLink>
+      </div>
+
+      {/* 4. ITEMS (Inventory) */}
       <NavLink to="/merchant/items" className={navClass}>
-        <Package className="w-6 h-6" />
-        <span className="text-[10px] font-medium">Items</span>
+        <Package strokeWidth={2.5} className="w-6 h-6" />
+        <span className="text-[10px] font-bold">Items</span>
       </NavLink>
 
-      {/* 5. PROFILE (Renamed from Menu) */}
-      <NavLink to="/merchant/profile" className={navClass}>
-        <User className="w-6 h-6" />
-        <span className="text-[10px] font-medium">Profile</span>
+      {/* 5. HISTORY (or Profile) */}
+      <NavLink to="/merchant/calendar" className={navClass}>
+        <FileClock strokeWidth={2.5} className="w-6 h-6" />
+        <span className="text-[10px] font-bold">History</span>
       </NavLink>
 
     </div>
