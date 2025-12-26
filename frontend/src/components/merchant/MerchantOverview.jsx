@@ -548,23 +548,24 @@ const MerchantOverview = () => {
     <div className="space-y-6 animate-fade-in max-w-6xl mx-auto pb-20">
       {/* NEW TOP BAR */}
       {/* NEW TOP BAR */}
-      <div className="flex md:hidden items-center justify-between h-12 px-1 mb-2 border-b border-slate-100 bg-white/80 backdrop-blur-md sticky top-0 z-40">
-        {/* 1. Invisible Spacer (Matches button width for perfect centering) */}
-        <div className="w-8"></div>
+      <div className="flex md:hidden items-center justify-between py-2 mb-4 border-b border-slate-200">
+        {/* 1. Invisible Spacer (Adjusted width to match new button size) */}
+        <div className="w-9"></div>
 
-        {/* 2. Center Title (Tighter leading to fix vertical alignment) */}
-        <h1 className="text-lg font-bold tracking-tight leading-none pt-1">
+        {/* 2. Center Title (Reduced text size slightly for proportion) */}
+        <h1 className="text-lg font-extrabold tracking-tight">
           <span className="text-emerald-600">Green</span>
-          <span className="text-slate-900">Receipt</span>
+          <span className="text-slate-800">Receipt</span>
         </h1>
 
-        {/* 3. Professional Profile Button */}
+        {/* 3. Right Profile Button (Smaller: w-9 h-9) */}
         <button
           onClick={() => navigate("/merchant/profile")}
-          className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all active:scale-95"
+          className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors active:scale-95"
           aria-label="Profile"
         >
-          <User size={16} strokeWidth={2.5} />
+          {/* Increased strokeWidth makes the icon look sharper and less 'wireframe-like' */}
+          <User size={18} strokeWidth={2.5} />
         </button>
       </div>
       {/* Header */}
