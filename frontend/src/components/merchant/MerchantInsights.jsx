@@ -144,7 +144,17 @@ const MerchantInsights = () => {
     const list = [];
     const { insights, topItems, summary } = analytics;
 
-    // Peak time suggestion
+    // Only show suggestions when there's actual data
+    if (!insights?.hasData) {
+      return [{
+        icon: Sparkles,
+        title: 'Start Your Journey',
+        desc: 'Create your first bill to unlock personalized insights and recommendations!',
+        type: 'info',
+      }];
+    }
+
+    // Peak time suggestion - only if we have peak hour data
     if (insights?.peakHour) {
       list.push({
         icon: Clock,
@@ -154,17 +164,17 @@ const MerchantInsights = () => {
       });
     }
 
-    // Slow day suggestion
-    if (insights?.slowestDay?.name) {
+    // Slow day suggestion - only if we have slowest day data
+    if (insights?.slowestDay) {
       list.push({
         icon: CalendarX,
         title: `Boost ${insights.slowestDay.name} Sales`,
-        desc: `${insights.slowestDay.name} is your slowest day. Consider running a special offer like "${insights.slowestDay.name} Deals" to attract more customers.`,
+        desc: `${insights.slowestDay.name} is your slowest day with ${insights.slowestDay.salesCount} sale${insights.slowestDay.salesCount !== 1 ? 's' : ''}. Consider running a special offer like "${insights.slowestDay.name} Deals" to attract more customers.`,
         type: 'tip',
       });
     }
 
-    // Top item combo suggestion
+    // Top item combo suggestion - only if we have at least 2 items
     if (topItems?.length >= 2) {
       list.push({
         icon: Package,
@@ -198,6 +208,7 @@ const MerchantInsights = () => {
   if (loading) return <InsightsSkeleton />;
 
   const { summary, insights, topItems, paymentMethods, topCustomers, recentActivity } = analytics || {};
+  const hasNoSalesData = !insights?.hasData;
 
   return (
     <div className="space-y-6 animate-fade-in max-w-5xl mx-auto pb-10">
@@ -220,6 +231,24 @@ const MerchantInsights = () => {
       {error && (
         <div className="flex items-center gap-2 p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm">
           <AlertTriangle size={18} /> {error}
+        </div>
+      )}
+
+      {/* Empty State Banner - Show when no sales data */}
+      {hasNoSalesData && !error && (
+        <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-8 rounded-2xl border border-slate-200 text-center">
+          <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-4">
+            <BarChart3 size={32} className="text-slate-400" />
+          </div>
+          <h3 className="text-xl font-bold text-slate-700 mb-2">No Sales Data Available Yet</h3>
+          <p className="text-slate-500 text-sm max-w-md mx-auto mb-4">
+            Your sales insights will appear here once you start generating bills. 
+            Create your first bill to unlock powerful analytics and recommendations!
+          </p>
+          <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
+            <Clock size={14} />
+            <span>Analytics update automatically with each new transaction</span>
+          </div>
         </div>
       )}
 
@@ -256,32 +285,76 @@ const MerchantInsights = () => {
                 <div className="flex items-center gap-2 text-emerald-800 font-bold mb-1">
                   <Clock size={18} /> Peak Sales Time
                 </div>
-                <p className="text-4xl font-bold text-emerald-600 mt-2">
-                  {insights?.peakHour?.formatted || '12:00 PM'}
-                </p>
-                <p className="text-xs text-emerald-700 mt-2 font-medium">
-                  {insights?.peakHour?.salesCount || 0} sales • ₹{(insights?.peakHour?.totalRevenue || 0).toLocaleString('en-IN')} revenue
-                </p>
+                {insights?.peakHour ? (
+                  <>
+                    <p className="text-4xl font-bold text-emerald-600 mt-2">
+                      {insights.peakHour.formatted}
+                    </p>
+                    <p className="text-xs text-emerald-700 mt-2 font-medium">
+                      {insights.peakHour.salesCount} sale{insights.peakHour.salesCount !== 1 ? 's' : ''} • ₹{(insights.peakHour.totalRevenue || 0).toLocaleString('en-IN')} revenue
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold text-emerald-600/50 mt-2">
+                      No data yet
+                    </p>
+                    <p className="text-xs text-emerald-700/70 mt-2 font-medium">
+                      Insights will appear after your first sale
+                    </p>
+                  </>
+                )}
               </div>
               <Clock className="absolute -right-4 -bottom-4 text-emerald-200 opacity-50" size={120} />
             </div>
 
-            {/* Slowest Day Card */}
-            <div className="bg-orange-50 p-6 rounded-2xl border border-orange-100 relative overflow-hidden">
+            {/* Busiest Day Card */}
+            <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 relative overflow-hidden">
               <div className="relative z-10">
-                <div className="flex items-center gap-2 text-orange-800 font-bold mb-1">
-                  <CalendarX size={18} /> Slowest Day
+                <div className="flex items-center gap-2 text-blue-800 font-bold mb-1">
+                  <Calendar size={18} /> Busiest Day
                 </div>
-                <p className="text-4xl font-bold text-orange-600 mt-2">
-                  {insights?.slowestDay?.name || 'N/A'}
-                </p>
-                <p className="text-xs text-orange-700 mt-2 font-medium">
-                  {insights?.slowestDay?.salesCount || 0} sales • Consider running a special offer!
-                </p>
+                {insights?.busiestDay ? (
+                  <>
+                    <p className="text-4xl font-bold text-blue-600 mt-2">
+                      {insights.busiestDay.name}
+                    </p>
+                    <p className="text-xs text-blue-700 mt-2 font-medium">
+                      {insights.busiestDay.salesCount} sale{insights.busiestDay.salesCount !== 1 ? 's' : ''} • ₹{(insights.busiestDay.totalRevenue || 0).toLocaleString('en-IN')} revenue
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold text-blue-600/50 mt-2">
+                      No data yet
+                    </p>
+                    <p className="text-xs text-blue-700/70 mt-2 font-medium">
+                      Need sales across multiple days to identify patterns
+                    </p>
+                  </>
+                )}
               </div>
-              <CalendarX className="absolute -right-4 -bottom-4 text-orange-200 opacity-50" size={120} />
+              <Calendar className="absolute -right-4 -bottom-4 text-blue-200 opacity-50" size={120} />
             </div>
           </div>
+
+          {/* Slowest Day Alert Card (if busiest and slowest are different) */}
+          {insights?.slowestDay && insights?.busiestDay && insights.slowestDay.dayOfWeek !== insights.busiestDay.dayOfWeek && (
+            <div className="bg-orange-50 p-5 rounded-2xl border border-orange-100">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-orange-100 rounded-xl">
+                  <CalendarX size={24} className="text-orange-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-orange-800">Slowest Day: {insights.slowestDay.name}</h4>
+                  <p className="text-sm text-orange-700 mt-1">
+                    Only {insights.slowestDay.salesCount} sale{insights.slowestDay.salesCount !== 1 ? 's' : ''} (₹{(insights.slowestDay.totalRevenue || 0).toLocaleString('en-IN')}) compared to {insights.busiestDay.salesCount} on {insights.busiestDay.name}.
+                    Consider running "{insights.slowestDay.name} Special" promotions!
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Quick Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -320,7 +393,7 @@ const MerchantInsights = () => {
           </div>
 
           {/* Daily Sales Chart */}
-          {chartData.length > 0 && (
+          {chartData.length > 0 ? (
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-slate-700">Daily Sales</h3>
@@ -331,6 +404,16 @@ const MerchantInsights = () => {
                 {chartData.filter((_, i) => i % 2 === 0).map((d, i) => (
                   <span key={i}>{d.label}</span>
                 ))}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-slate-700">Daily Sales</h3>
+                <span className="text-xs text-slate-400">Last 14 days</span>
+              </div>
+              <div className="h-[100px] flex items-center justify-center text-slate-400 text-sm">
+                Sales chart will appear after your first transaction
               </div>
             </div>
           )}
@@ -393,7 +476,11 @@ const MerchantInsights = () => {
 
             <div className="space-y-4">
               {(topItems || []).length === 0 && (
-                <p className="text-sm text-slate-500 text-center py-6">No sales data yet</p>
+                <div className="text-center py-8">
+                  <Package size={40} className="text-slate-300 mx-auto mb-3" />
+                  <p className="text-sm text-slate-500">No item sales data yet</p>
+                  <p className="text-xs text-slate-400 mt-1">Your top-selling items will appear here after your first sale</p>
+                </div>
               )}
               {(topItems || []).map((item, idx) => {
                 const colors = ['bg-emerald-500', 'bg-blue-500', 'bg-orange-500', 'bg-purple-500', 'bg-pink-500'];
@@ -425,14 +512,14 @@ const MerchantInsights = () => {
           </div>
 
           {/* Top Customers */}
-          {topCustomers?.length > 0 && (
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-slate-700 flex items-center gap-2">
-                  <Users size={18} className="text-blue-500" /> Top Customers
-                </h3>
-                <Award size={18} className="text-amber-500" />
-              </div>
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                <Users size={18} className="text-blue-500" /> Top Customers
+              </h3>
+              <Award size={18} className="text-amber-500" />
+            </div>
+            {topCustomers?.length > 0 ? (
               <div className="space-y-3">
                 {topCustomers.map((customer, i) => (
                   <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
@@ -442,15 +529,21 @@ const MerchantInsights = () => {
                       </div>
                       <div>
                         <p className="font-semibold text-slate-700 text-sm">{customer.name}</p>
-                        <p className="text-xs text-slate-400">{customer.visits} visits</p>
+                        <p className="text-xs text-slate-400">{customer.visits} visit{customer.visits !== 1 ? 's' : ''}</p>
                       </div>
                     </div>
                     <p className="font-bold text-slate-800">₹{customer.totalSpent.toLocaleString('en-IN')}</p>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="text-center py-8">
+                <Users size={40} className="text-slate-300 mx-auto mb-3" />
+                <p className="text-sm text-slate-500">No customer data yet</p>
+                <p className="text-xs text-slate-400 mt-1">Customer insights will appear once registered customers make purchases</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -458,7 +551,7 @@ const MerchantInsights = () => {
       {activeTab === 'trends' && (
         <div className="space-y-6 animate-fade-in">
           {/* Monthly Trend */}
-          {monthlyChartData.length > 0 && (
+          {monthlyChartData.length > 0 ? (
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-slate-700">Monthly Trend</h3>
@@ -469,6 +562,16 @@ const MerchantInsights = () => {
                 {monthlyChartData.map((d, i) => (
                   <span key={i}>{d.label}</span>
                 ))}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-slate-700">Monthly Trend</h3>
+                <span className="text-xs text-slate-400">Last 6 months</span>
+              </div>
+              <div className="h-[120px] flex items-center justify-center text-slate-400 text-sm">
+                Monthly trends will appear as you accumulate sales data
               </div>
             </div>
           )}
@@ -514,9 +617,9 @@ const MerchantInsights = () => {
           </div>
 
           {/* Recent Activity */}
-          {recentActivity?.length > 0 && (
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-              <h3 className="font-bold text-slate-700 mb-4">Recent Activity</h3>
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+            <h3 className="font-bold text-slate-700 mb-4">Recent Activity</h3>
+            {recentActivity?.length > 0 ? (
               <div className="space-y-3">
                 {recentActivity.map((activity, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
@@ -527,15 +630,21 @@ const MerchantInsights = () => {
                       <p className="font-medium text-slate-700 text-sm truncate">{activity.customer}</p>
                       <p className="text-xs text-slate-400">
                         {formatISTDisplay(toIST(activity.date), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                        {' • '}{activity.itemCount} items • {activity.paymentMethod}
+                        {' • '}{activity.itemCount} item{activity.itemCount !== 1 ? 's' : ''} • {activity.paymentMethod}
                       </p>
                     </div>
                     <p className="font-bold text-slate-700">₹{activity.amount.toLocaleString('en-IN')}</p>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="text-center py-8">
+                <Receipt size={40} className="text-slate-300 mx-auto mb-3" />
+                <p className="text-sm text-slate-500">No recent activity yet</p>
+                <p className="text-xs text-slate-400 mt-1">Your latest transactions will appear here</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

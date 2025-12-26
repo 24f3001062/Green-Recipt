@@ -2,6 +2,7 @@ import Receipt from "../models/Receipt.js";
 import Merchant from "../models/Merchant.js";
 import User from "../models/User.js";
 import { getNowIST, normalizeToIST, formatISTDate, formatISTTime, toIST } from "../utils/timezone.js";
+import { clearAnalyticsCache } from "./analyticsController.js";
 
 const normalizeItems = (items = []) =>
   items.map((item) => ({
@@ -157,6 +158,14 @@ export const createReceipt = async (req, res) => {
       customerSnapshot,
     });
 
+    // Clear analytics cache for affected users so insights update immediately
+    if (merchant?._id) {
+      clearAnalyticsCache(merchant._id.toString());
+    }
+    if (userId) {
+      clearAnalyticsCache(userId.toString());
+    }
+
     res.status(201).json(mapReceiptToClient(receipt.toObject()));
   } catch (error) {
     console.error("createReceipt error", error);
@@ -246,6 +255,13 @@ export const markReceiptPaid = async (req, res) => {
     receipt.paidAt = getNowIST(); // Record when payment was confirmed (IST)
     
     await receipt.save();
+
+    // Clear analytics cache so insights update immediately with new payment data
+    clearAnalyticsCache(req.user.id);
+    if (receipt.userId) {
+      clearAnalyticsCache(receipt.userId.toString());
+    }
+
     res.json(mapReceiptToClient(receipt.toObject()));
   } catch (error) {
     console.error("markReceiptPaid error", error);

@@ -529,7 +529,11 @@ const MerchantOverview = () => { // 👈 Removed unused 'onNavigate' prop
             </div>
             <div className="space-y-5">
                {trendingItems.length === 0 ? (
-                 <p className="text-slate-400 text-center py-4 text-sm">No sales data yet</p>
+                 <div className="text-center py-6">
+                   <ShoppingBag size={36} className="text-slate-300 mx-auto mb-3" />
+                   <p className="text-slate-500 text-sm">No item sales data yet</p>
+                   <p className="text-xs text-slate-400 mt-1">Trending items will appear after your first sale</p>
+                 </div>
                ) : (
                  trendingItems.map((item, i) => (
                    <div key={i}>
@@ -538,7 +542,7 @@ const MerchantOverview = () => { // 👈 Removed unused 'onNavigate' prop
                          <span className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold">{i + 1}</span>
                          {item.name}
                        </span>
-                       <span className="text-slate-500">{item.count} sold • ₹{item.revenue}</span>
+                       <span className="text-slate-500">{item.count} sold • ₹{item.revenue.toLocaleString('en-IN')}</span>
                      </div>
                      <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
                        <div 

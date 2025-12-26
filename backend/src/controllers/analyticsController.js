@@ -542,26 +542,41 @@ export const getMerchantAnalytics = async (req, res) => {
     const lastWeekTotal = lastWeek[0]?.total || 0;
     const daysInMonth = now.getDate();
     const avgPerDay = daysInMonth > 0 ? Math.round(thisMonthTotal / daysInMonth) : 0;
+    const totalReceiptsThisMonth = thisMonth[0]?.count || 0;
 
     const monthOverMonthChange = lastMonthTotal > 0 
       ? Math.round(((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100) 
-      : 0;
+      : (thisMonthTotal > 0 ? 100 : 0);
     const weekOverWeekChange = lastWeekTotal > 0 
       ? Math.round(((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100) 
-      : 0;
+      : (thisWeekTotal > 0 ? 100 : 0);
 
-    // Peak hour analysis
-    const peakHour = hourlySales[0] || { _id: 12, count: 0, total: 0 };
+    // Format hour for display (IST format)
     const formatHour = (h) => {
       if (h === 0) return "12:00 AM";
       if (h === 12) return "12:00 PM";
       return h < 12 ? `${h}:00 AM` : `${h - 12}:00 PM`;
     };
 
-    // Slowest day analysis
+    // Weekday names for display
     const weekdayNames = ["", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const slowestDay = weekdaySales[0] || { _id: 1, count: 0, total: 0 };
-    const busiestDay = weekdaySales[weekdaySales.length - 1] || { _id: 1, count: 0, total: 0 };
+
+    // Peak hour analysis - ONLY from actual data, null if no sales
+    // hourlySales is sorted by count DESC, so first item is peak
+    const hasSalesData = totalReceiptsThisMonth > 0;
+    const peakHourData = hourlySales.length > 0 ? hourlySales[0] : null;
+    
+    // Slowest/Busiest day analysis - ONLY from actual data
+    // weekdaySales is sorted by count ASC, so first is slowest, last is busiest
+    const slowestDayData = weekdaySales.length > 0 ? weekdaySales[0] : null;
+    const busiestDayData = weekdaySales.length > 0 ? weekdaySales[weekdaySales.length - 1] : null;
+
+    // Calculate time range with most/least sales for hourly distribution
+    const getTimeRange = (hour) => {
+      if (hour === null || hour === undefined) return null;
+      const endHour = (hour + 1) % 24;
+      return `${formatHour(hour)} - ${formatHour(endHour)}`;
+    };
 
     // Calculate top item percentage for progress bars
     const maxItemQuantity = topItems[0]?.totalQuantity || 1;
@@ -597,38 +612,57 @@ export const getMerchantAnalytics = async (req, res) => {
         },
       },
 
-      // Insights
+      // Insights - Only populated when actual data exists
       insights: {
-        peakHour: {
-          hour: peakHour._id,
-          formatted: formatHour(peakHour._id),
-          salesCount: peakHour.count,
-          totalRevenue: peakHour.total,
-        },
-        slowestDay: {
-          dayOfWeek: slowestDay._id,
-          name: weekdayNames[slowestDay._id] || "Unknown",
-          salesCount: slowestDay.count,
-          totalRevenue: slowestDay.total,
-        },
-        busiestDay: {
-          dayOfWeek: busiestDay._id,
-          name: weekdayNames[busiestDay._id] || "Unknown",
-          salesCount: busiestDay.count,
-          totalRevenue: busiestDay.total,
-        },
+        // Peak hour - null if no sales data exists
+        peakHour: peakHourData ? {
+          hour: peakHourData._id,
+          formatted: formatHour(peakHourData._id),
+          timeRange: getTimeRange(peakHourData._id),
+          salesCount: peakHourData.count,
+          totalRevenue: peakHourData.total,
+        } : null,
+        
+        // Slowest day - null if no weekday sales distribution exists
+        slowestDay: slowestDayData ? {
+          dayOfWeek: slowestDayData._id,
+          name: weekdayNames[slowestDayData._id] || "Unknown",
+          salesCount: slowestDayData.count,
+          totalRevenue: slowestDayData.total,
+        } : null,
+        
+        // Busiest day - null if no weekday sales distribution exists
+        busiestDay: busiestDayData ? {
+          dayOfWeek: busiestDayData._id,
+          name: weekdayNames[busiestDayData._id] || "Unknown",
+          salesCount: busiestDayData.count,
+          totalRevenue: busiestDayData.total,
+        } : null,
+        
+        // Hourly distribution - only actual hours with sales
         hourlyDistribution: hourlySales.map((h) => ({
           hour: h._id,
           formatted: formatHour(h._id),
+          timeRange: getTimeRange(h._id),
           count: h.count,
           total: h.total,
         })),
+        
+        // Weekday distribution - only actual days with sales
         weekdayDistribution: weekdaySales.map((w) => ({
           dayOfWeek: w._id,
           name: weekdayNames[w._id] || "Unknown",
           count: w.count,
           total: w.total,
         })),
+        
+        // Metadata about data sufficiency
+        hasData: hasSalesData,
+        dataPoints: {
+          totalReceipts: totalReceiptsThisMonth,
+          daysWithSales: weekdaySales.length,
+          hoursWithSales: hourlySales.length,
+        },
       },
 
       categories: categoryBreakdown.map((b) => ({
