@@ -349,10 +349,19 @@
 // export default MerchantOverview;
 
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, Clock, X, User, Flame, Smartphone, Banknote, Wallet } from 'lucide-react';
-import { fetchMerchantReceipts } from '../../services/api';
-import { getNowIST } from '../../utils/timezone';
+import { useNavigate } from "react-router-dom";
+import {
+  ShoppingBag,
+  Clock,
+  X,
+  User,
+  Flame,
+  Smartphone,
+  Banknote,
+  Wallet,
+} from "lucide-react";
+import { fetchMerchantReceipts } from "../../services/api";
+import { getNowIST } from "../../utils/timezone";
 
 const MerchantOverview = () => {
   // 👈 Removed unused 'onNavigate' prop
@@ -395,13 +404,18 @@ const MerchantOverview = () => {
 
   const toDateString = (input) => {
     const d = toValidDate(input);
-    return d ? d.toISOString().split('T')[0] : null;
+    return d ? d.toISOString().split("T")[0] : null;
   };
 
   // Filter Logic
-  const todayStr = getNowIST().toISOString().split('T')[0];
-  const todaysBills = sales.filter((bill) => toDateString(bill.date) === todayStr);
-  const totalSales = todaysBills.reduce((sum, bill) => sum + (bill.total ?? bill.amount ?? 0), 0); 
+  const todayStr = getNowIST().toISOString().split("T")[0];
+  const todaysBills = sales.filter(
+    (bill) => toDateString(bill.date) === todayStr
+  );
+  const totalSales = todaysBills.reduce(
+    (sum, bill) => sum + (bill.total ?? bill.amount ?? 0),
+    0
+  );
   const billCount = todaysBills.length;
 
   // --- 📊 NEW LOGIC FOR DASHBOARD CARD ---
@@ -409,22 +423,29 @@ const MerchantOverview = () => {
   // 1. Current Month Logic
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
-  
+
   const monthBills = sales.filter((bill) => {
     const d = toValidDate(bill.date);
     if (!d) return false;
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   });
 
-  const monthSales = monthBills.reduce((sum, bill) => sum + (bill.total ?? bill.amount ?? 0), 0);
-  
+  const monthSales = monthBills.reduce(
+    (sum, bill) => sum + (bill.total ?? bill.amount ?? 0),
+    0
+  );
+
   // 2. Split UPI vs Cash
   const upiSales = monthBills
-    .filter(b => (b.paymentMethod || '').toLowerCase().includes('upi') || (b.paymentMethod || '').toLowerCase().includes('online'))
+    .filter(
+      (b) =>
+        (b.paymentMethod || "").toLowerCase().includes("upi") ||
+        (b.paymentMethod || "").toLowerCase().includes("online")
+    )
     .reduce((sum, b) => sum + (b.total ?? b.amount ?? 0), 0);
 
   const cashSales = monthBills
-    .filter(b => (b.paymentMethod || '').toLowerCase().includes('cash'))
+    .filter((b) => (b.paymentMethod || "").toLowerCase().includes("cash"))
     .reduce((sum, b) => sum + (b.total ?? b.amount ?? 0), 0);
 
   // 3. Yearly Logic (Simple filter)
@@ -446,7 +467,7 @@ const MerchantOverview = () => {
   const day = firstDayOfWeek.getDay();
   const diff = firstDayOfWeek.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
   firstDayOfWeek.setDate(diff);
-  firstDayOfWeek.setHours(0,0,0,0);
+  firstDayOfWeek.setHours(0, 0, 0, 0);
 
   const weekBills = sales.filter((bill) => {
     const billDate = toValidDate(bill.date);
@@ -454,8 +475,10 @@ const MerchantOverview = () => {
     return billDate >= firstDayOfWeek && billDate <= todayDate;
   });
 
-  const weekSales = weekBills.reduce((sum, bill) => sum + (bill.total ?? bill.amount ?? 0), 0);
-  
+  const weekSales = weekBills.reduce(
+    (sum, bill) => sum + (bill.total ?? bill.amount ?? 0),
+    0
+  );
 
   // Trending Items Logic - Using IST for 7-day window
   const trendingItems = useMemo(() => {
@@ -525,22 +548,23 @@ const MerchantOverview = () => {
     <div className="space-y-6 animate-fade-in max-w-6xl mx-auto pb-20">
       {/* NEW TOP BAR */}
       {/* NEW TOP BAR */}
-      <div className="flex md:hidden items-center justify-between py-3 mb-6 border-b border-slate-200">
-        {/* 1. Invisible Spacer (Keeps title perfectly centered) */}
-        <div className="w-10"></div>
+      <div className="flex md:hidden items-center justify-between h-12 px-1 mb-2 border-b border-slate-100 bg-white/80 backdrop-blur-md sticky top-0 z-40">
+        {/* 1. Invisible Spacer (Matches button width for perfect centering) */}
+        <div className="w-8"></div>
 
-        {/* 2. Center Title (Split Colors) */}
-        <h1 className="text-xl font-extrabold tracking-tight">
+        {/* 2. Center Title (Tighter leading to fix vertical alignment) */}
+        <h1 className="text-lg font-bold tracking-tight leading-none pt-1">
           <span className="text-emerald-600">Green</span>
-          <span className="text-slate-800">Receipt</span>
+          <span className="text-slate-900">Receipt</span>
         </h1>
 
-        {/* 3. Right Profile Button */}
+        {/* 3. Professional Profile Button */}
         <button
           onClick={() => navigate("/merchant/profile")}
-          className="w-10 h-10 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50 active:scale-95 transition-all"
+          className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all active:scale-95"
+          aria-label="Profile"
         >
-          <User size={20} />
+          <User size={16} strokeWidth={2.5} />
         </button>
       </div>
       {/* Header */}
@@ -556,24 +580,25 @@ const MerchantOverview = () => {
         <div className="text-right">
           <p className="text-xs font-bold text-slate-400 uppercase">Today</p>
           <p className="text-slate-800 font-medium">
-            {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            {new Date().toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
           </p>
         </div>
       </div>
 
       {/* Metric Cards */}
-    
 
       {/* MERCHANT DASHBOARD CARD (Customer Style) */}
       <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 md:p-8 rounded-2xl md:rounded-3xl shadow-2xl shadow-slate-900/20 text-white relative overflow-hidden">
-        
         {/* Decorative elements */}
         <div className="absolute top-0 right-0 w-48 md:w-64 h-48 md:h-64 bg-emerald-500/10 rounded-full -mr-24 md:-mr-32 -mt-24 md:-mt-32 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-32 md:w-48 h-32 md:h-48 bg-emerald-500/10 rounded-full -ml-16 md:-ml-24 -mb-16 md:-mb-24 blur-2xl" />
-        
+
         <div className="relative z-10">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 md:gap-6">
-            
             {/* Left Side: Main Stat (TODAY) */}
             <div>
               <div className="flex items-center gap-2 mb-2 md:mb-3">
@@ -583,30 +608,38 @@ const MerchantOverview = () => {
                 {/* Optional: You can add percentage change here if you calculate yesterday's sales */}
               </div>
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight">
-                ₹{totalSales.toLocaleString('en-IN')}
+                ₹{totalSales.toLocaleString("en-IN")}
               </h2>
               <p className="text-slate-400 text-xs md:text-sm mt-1.5 md:mt-2">
                 {todaysBills.length} receipts today
               </p>
             </div>
-            
+
             {/* Right Side: Quick Stats - UPI & Cash */}
             <div className="flex flex-row md:flex-col gap-2 md:gap-3">
               {/* UPI */}
               <div className="flex-1 md:flex-none bg-white/10 backdrop-blur-sm px-3 md:px-4 py-2 md:py-3 rounded-xl">
                 <div className="flex items-center gap-1.5 md:gap-2 text-emerald-400 mb-0.5 md:mb-1">
                   <Smartphone size={12} className="md:w-[14px] md:h-[14px]" />
-                  <span className="text-[10px] md:text-xs font-medium">UPI</span>
+                  <span className="text-[10px] md:text-xs font-medium">
+                    UPI
+                  </span>
                 </div>
-                <p className="text-base md:text-xl font-bold">₹{upiSales.toLocaleString('en-IN')}</p>
+                <p className="text-base md:text-xl font-bold">
+                  ₹{upiSales.toLocaleString("en-IN")}
+                </p>
               </div>
               {/* Cash */}
               <div className="flex-1 md:flex-none bg-white/10 backdrop-blur-sm px-3 md:px-4 py-2 md:py-3 rounded-xl">
                 <div className="flex items-center gap-1.5 md:gap-2 text-amber-400 mb-0.5 md:mb-1">
                   <Banknote size={12} className="md:w-[14px] md:h-[14px]" />
-                  <span className="text-[10px] md:text-xs font-medium">Cash</span>
+                  <span className="text-[10px] md:text-xs font-medium">
+                    Cash
+                  </span>
                 </div>
-                <p className="text-base md:text-xl font-bold">₹{cashSales.toLocaleString('en-IN')}</p>
+                <p className="text-base md:text-xl font-bold">
+                  ₹{cashSales.toLocaleString("en-IN")}
+                </p>
               </div>
             </div>
           </div>
@@ -614,21 +647,36 @@ const MerchantOverview = () => {
           {/* Bottom Grid: Period Summary */}
           <div className="grid grid-cols-3 gap-3 md:gap-4 mt-4 md:mt-6 pt-4 md:pt-6 border-t border-white/10">
             <div>
-              <p className="text-slate-400 text-[10px] md:text-xs font-medium">This Month</p>
-              <p className="text-sm md:text-xl font-bold mt-0.5 md:mt-1">₹{monthSales.toLocaleString('en-IN')}</p>
+              <p className="text-slate-400 text-[10px] md:text-xs font-medium">
+                This Month
+              </p>
+              <p className="text-sm md:text-xl font-bold mt-0.5 md:mt-1">
+                ₹{monthSales.toLocaleString("en-IN")}
+              </p>
             </div>
             <div>
-              <p className="text-slate-400 text-[10px] md:text-xs font-medium">Bills (Month)</p>
-              <p className="text-sm md:text-xl font-bold mt-0.5 md:mt-1">{monthBills.length}</p>
+              <p className="text-slate-400 text-[10px] md:text-xs font-medium">
+                Bills (Month)
+              </p>
+              <p className="text-sm md:text-xl font-bold mt-0.5 md:mt-1">
+                {monthBills.length}
+              </p>
             </div>
             <div>
-              <p className="text-slate-400 text-[10px] md:text-xs font-medium">This Week</p>
-              <p className="text-sm md:text-xl font-bold mt-0.5 md:mt-1">₹{weekSales.toLocaleString('en-IN')}</p>
+              <p className="text-slate-400 text-[10px] md:text-xs font-medium">
+                This Week
+              </p>
+              <p className="text-sm md:text-xl font-bold mt-0.5 md:mt-1">
+                ₹{weekSales.toLocaleString("en-IN")}
+              </p>
             </div>
           </div>
         </div>
-        
-        <Wallet className="absolute -right-4 md:-right-6 -bottom-4 md:-bottom-6 text-white/5" size={80} />
+
+        <Wallet
+          className="absolute -right-4 md:-right-6 -bottom-4 md:-bottom-6 text-white/5"
+          size={80}
+        />
       </div>
 
       {/* Recent Activity & Trending */}
@@ -689,36 +737,42 @@ const MerchantOverview = () => {
 
         {/* Trending Items */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-bold text-slate-800">Trending Items</h3>
-              <div className="flex items-center gap-1 text-orange-500">
-                <Flame size={16} />
-                <span className="text-xs font-bold">This Week</span>
-              </div>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-bold text-slate-800">Trending Items</h3>
+            <div className="flex items-center gap-1 text-orange-500">
+              <Flame size={16} />
+              <span className="text-xs font-bold">This Week</span>
             </div>
-            <div className="space-y-5">
-               {trendingItems.length === 0 ? (
-                 <p className="text-slate-400 text-center py-4 text-sm">No sales data yet</p>
-               ) : (
-                 trendingItems.map((item, i) => (
-                   <div key={i}>
-                     <div className="flex justify-between text-xs font-bold text-slate-600 mb-1.5">
-                       <span className="flex items-center gap-2">
-                         <span className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold">{i + 1}</span>
-                         {item.name}
-                       </span>
-                       <span className="text-slate-500">{item.count} sold • ₹{item.revenue}</span>
-                     </div>
-                     <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                       <div 
-                         className={`h-full ${item.color} rounded-full transition-all duration-700`} 
-                         style={{ width: `${item.percentage}%` }}
-                       />
-                     </div>
-                   </div>
-                 ))
-               )}
-            </div>
+          </div>
+          <div className="space-y-5">
+            {trendingItems.length === 0 ? (
+              <p className="text-slate-400 text-center py-4 text-sm">
+                No sales data yet
+              </p>
+            ) : (
+              trendingItems.map((item, i) => (
+                <div key={i}>
+                  <div className="flex justify-between text-xs font-bold text-slate-600 mb-1.5">
+                    <span className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold">
+                        {i + 1}
+                      </span>
+                      {item.name}
+                    </span>
+                    <span className="text-slate-500">
+                      {item.count} sold • ₹{item.revenue}
+                    </span>
+                  </div>
+                  <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${item.color} rounded-full transition-all duration-700`}
+                      style={{ width: `${item.percentage}%` }}
+                    />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 

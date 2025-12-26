@@ -52,13 +52,13 @@
 //             </ProtectedRoute>
 //           }
 //         />
-//         {/* <Route 
-//           path="/test-onboarding" 
+//         {/* <Route
+//           path="/test-onboarding"
 //           element={
-//             <OnboardingWizard 
-//               onComplete={(data) => console.log("Onboarding Data:", data)} 
+//             <OnboardingWizard
+//               onComplete={(data) => console.log("Onboarding Data:", data)}
 //             />
-//           } 
+//           }
 //         /> */}
 //         {/* 4. 404 Fallback */}
 //         <Route path="*" element={<Home />} />
@@ -107,7 +107,7 @@
 //         <Route path="/customer-login" element={<CustomerLogin />} />
 //         <Route path="/customer-signup" element={<CustomerSignup />} />
 //         <Route path="/verify-customer" element={<CustomerVerify />} />
-        
+
 //         <Route
 //           path="/customer-dashboard"
 //           element={
@@ -126,13 +126,13 @@
 //             We use "/merchant/*" so it captures all sub-pages (e.g., /merchant/billing).
 //             We wrap the WHOLE thing in ProtectedRoute so the dashboard checks login.
 //         */}
-//         <Route 
-//           path="/merchant/*" 
+//         <Route
+//           path="/merchant/*"
 //           element={
 //             <ProtectedRoute role="merchant">
 //               <MerchantDashboard />
 //             </ProtectedRoute>
-//           } 
+//           }
 //         />
 
 //         {/* 4. 404 Fallback */}
@@ -144,9 +144,9 @@
 
 // export default App;
 
-
 import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import AppWalkthrough from "./components/onboarding/AppWalkthrough";
 
 // 1. 👇 Import Splash Screen only
 import ServerAwake from "./components/common/ServerAwake";
@@ -156,7 +156,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 
 // Pages & Components
 import Home from "./pages/Home";
-import AuthSelection from './components/auth/AuthSelection';
+import AuthSelection from "./components/auth/AuthSelection";
 
 // Customer Pages
 import CustomerLogin from "./pages/CustomerLogin";
@@ -168,7 +168,7 @@ import CustomerDashboard from "./pages/CustomerDashboard";
 import MerchantLogin from "./pages/MerchantLogin";
 import MerchantSignup from "./pages/MerchantSignup";
 import MerchantVerify from "./pages/MerchantVerify";
-import MerchantDashboard from "./pages/MerchantDashboard"; 
+import MerchantDashboard from "./pages/MerchantDashboard";
 
 // Utils
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -199,7 +199,10 @@ function App() {
           <Route path="/customer-login" element={<CustomerLogin />} />
           <Route path="/customer-signup" element={<CustomerSignup />} />
           <Route path="/verify-customer" element={<CustomerVerify />} />
-          
+
+          {/* TEMP: Preview Route (Delete this later) */}
+          <Route path="/test-tour" element={<AppWalkthrough />} />
+
           <Route
             path="/customer-dashboard"
             element={
@@ -215,13 +218,13 @@ function App() {
           <Route path="/verify-merchant" element={<MerchantVerify />} />
 
           {/* Merchant Dashboard (Wildcard handles sub-routes) */}
-          <Route 
-            path="/merchant/*" 
+          <Route
+            path="/merchant/*"
             element={
               <ProtectedRoute role="merchant">
                 <MerchantDashboard />
               </ProtectedRoute>
-            } 
+            }
           />
 
           {/* 4. 404 Fallback */}
