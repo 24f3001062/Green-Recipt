@@ -294,26 +294,8 @@ export const completeOnboarding = async (req, res) => {
 			});
 		}
 
-		// Check if merchant has at least one category
-		const categoryCount = await Category.countDocuments({ merchantId: req.user.id });
-		if (categoryCount === 0) {
-			return res.status(400).json({
-				message: "Please add at least one category",
-				requiredStep: 3,
-			});
-		}
-
-		// Check if merchant has at least one item
-		const itemCount = await Item.countDocuments({ merchantId: req.user.id });
-		if (itemCount === 0) {
-			return res.status(400).json({
-				message: "Please add at least one item",
-				requiredStep: 4,
-			});
-		}
-
 		merchant.isProfileComplete = true;
-		merchant.onboardingStep = 5;
+		merchant.onboardingStep = Math.max(merchant.onboardingStep, 2);
 		await merchant.save();
 
 		res.json({

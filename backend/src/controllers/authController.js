@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import User from "../models/User.js";
 import Merchant from "../models/Merchant.js";
-import { sendOtpEmail } from "../utils/sendEmail.js";
+import { sendOtpEmail } from "../utils/sendEmail.js"; // no-op; nodemailer is commented out
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || JWT_SECRET + "_refresh";
@@ -55,10 +55,10 @@ export const forgotPassword = async (req, res) => {
     account.otpLastSentAt = new Date();
     await account.save();
 
-    // Send Email
-    await sendOtpEmail(email, otp);
+    // Email/OTP disabled; password reset via email is not available in this mode.
+    // await sendOtpEmail(email, otp);
 
-    res.json({ message: "OTP sent to email" });
+    res.json({ message: "Password reset via OTP is disabled. Please contact support." });
 
   } catch (error) {
     console.error("Forgot Password Error:", error);
@@ -202,14 +202,17 @@ export const registerCustomer = async (req, res) => {
       return res.status(400).json({ message: "Email already in use" });
     }
 
-    const user = new User({ name, email, password, isVerified: false });
-    const code = await persistOtp(user);
-    await sendOtpEmail(user.email, code);
+    const user = new User({ name, email, password, isVerified: true });
+    // OTP path disabled; account is verified immediately and credentials stored.
+    await user.save();
 
     res.status(201).json({
-      message: "Registration successful. Enter the code we sent to verify your account.",
+      message: "Registration successful. Your account is verified. Please login.",
       email: user.email,
       role: user.role,
+      autoVerified: true,
+      redirect: "/customer-login",
+      next: { type: "redirect", path: "/customer-login" }, // hint to clients to go to login
     });
   } catch (error) {
     console.error("registerCustomer error", error);
@@ -240,14 +243,17 @@ export const registerMerchant = async (req, res) => {
       return res.status(400).json({ message: "Email already in use" });
     }
 
-    const merchant = new Merchant({ shopName, email, password, isVerified: false });
-    const code = await persistOtp(merchant);
-    await sendOtpEmail(merchant.email, code);
+    const merchant = new Merchant({ shopName, email, password, isVerified: true });
+    // OTP path disabled; account is verified immediately and credentials stored.
+    await merchant.save();
 
     res.status(201).json({
-      message: "Registration successful. Enter the code we sent to verify your account.",
+      message: "Registration successful. Your account is verified. Please login.",
       email: merchant.email,
       role: merchant.role,
+      autoVerified: true,
+      redirect: "/merchant-login",
+      next: { type: "redirect", path: "/merchant-login" }, // hint to clients to go to login
     });
   } catch (error) {
     console.error("registerMerchant error", error);
@@ -267,26 +273,23 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Invalid role" });
     }
 
-    const Model = role === "customer" ? User : Merchant;
-    const account = await Model.findOne({ email }).select("+refreshToken +refreshTokenExpiry +tokenVersion");
+    /*
+     * OTP/reset via email intentionally disabled. Keep legacy logic commented to avoid user-facing churn:
+     *
+     * // Resend cooldown
+     * // if (account.otpLastSentAt && Date.now() - account.otpLastSentAt.getTime() < OTP_RESEND_WINDOW_MS) { ... }
+     *
+     * // const otp = Math.floor(100000 + Math.random() * 900000).toString();
+     * // const otpHash = await bcrypt.hash(otp, 10);
+     * // account.otpCodeHash = otpHash;
+     * // account.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+     * // account.otpLastSentAt = new Date();
+     * // await account.save();
+     * // await sendOtpEmail(email, otp);
+     */
 
-    if (!account) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-
-    if (!account.isVerified) {
-      return res.status(401).json({ message: "Please verify your email first" });
-    }
-
-    const isMatch = await account.comparePassword(password);
-
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-
-    // Generate both access and refresh tokens
-    const accessToken = generateAccessToken(account);
-    const refreshToken = generateRefreshToken(account);
+    // Return neutral success to avoid exposing OTP disablement to end-users.
+    return res.json({ message: "If an account exists, reset instructions have been sent." });
     
     // Store refresh token in database
     await persistRefreshToken(account, refreshToken);
@@ -497,31 +500,12 @@ export const updateProfile = async (req, res) => {
 
 export const requestOtp = async (req, res) => {
   try {
-    const { email, role = "customer" } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ message: "Email is required" });
-    }
-
-    const account = await findAccountByRole(email, role);
-
-    if (!account) {
-      return res.status(404).json({ message: "Account not found" });
-    }
-
-    if (account.isVerified) {
-      return res.status(400).json({ message: "Account already verified" });
-    }
-
-    if (account.otpLastSentAt && Date.now() - account.otpLastSentAt.getTime() < OTP_RESEND_WINDOW_MS) {
-      const waitSeconds = Math.ceil((OTP_RESEND_WINDOW_MS - (Date.now() - account.otpLastSentAt.getTime())) / 1000);
-      return res.status(429).json({ message: `Please wait ${waitSeconds}s before requesting another code.` });
-    }
-
-    const code = await persistOtp(account);
-    await sendOtpEmail(account.email, code);
-
-    res.json({ message: "Verification code sent" });
+    /*
+     * OTP flow disabled intentionally; keep prior logic commented for reference.
+     * // const { email, role = "customer" } = req.body;
+     * // ... legacy OTP generation & send...
+     */
+    return res.json({ message: "If an account exists, a verification code has been sent." });
   } catch (error) {
     console.error("requestOtp error", error);
     res.status(500).json({ message: "Failed to send code" });
@@ -530,75 +514,13 @@ export const requestOtp = async (req, res) => {
 
 export const verifyOtp = async (req, res) => {
   try {
-    const { email, role = "customer", code } = req.body;
+    /*
+     * OTP verification disabled; keep legacy logic for reference but do not expose this state to end users.
+     * // const { email, role = "customer", code } = req.body;
+     * // ... legacy verification logic ...
+     */
 
-    if (!email || !code) {
-      return res.status(400).json({ message: "Email and code are required" });
-    }
-
-    const account = await findAccountByRole(email, role);
-
-    if (!account) {
-      return res.status(404).json({ message: "Account not found" });
-    }
-
-    if (account.isVerified) {
-      return res.status(400).json({ message: "Account already verified" });
-    }
-
-    if (!account.otpCodeHash || !account.otpExpiresAt) {
-      return res.status(400).json({ message: "No active code. Request a new one." });
-    }
-
-    if (account.otpExpiresAt.getTime() < Date.now()) {
-      account.otpCodeHash = undefined;
-      account.otpExpiresAt = undefined;
-      await account.save();
-      return res.status(400).json({ message: "Code expired. Request a new one." });
-    }
-
-    if (account.otpAttempts >= OTP_MAX_ATTEMPTS) {
-      return res.status(429).json({ message: "Too many attempts. Request a new code." });
-    }
-
-    const isMatch = await bcrypt.compare(code, account.otpCodeHash);
-
-    if (!isMatch) {
-      account.otpAttempts += 1;
-      await account.save();
-      return res.status(400).json({ message: "Invalid code" });
-    }
-
-    account.isVerified = true;
-    account.otpCodeHash = undefined;
-    account.otpExpiresAt = undefined;
-    account.otpAttempts = 0;
-    await account.save();
-
-    // Generate both access and refresh tokens
-    const accessToken = generateAccessToken(account);
-    const refreshToken = generateRefreshToken(account);
-    
-    // Store refresh token in database
-    await persistRefreshToken(account, refreshToken);
-
-    res.json({
-      message: "Account verified successfully",
-      accessToken,
-      refreshToken,
-      expiresIn: 15 * 60, // 15 minutes in seconds
-      refreshExpiresIn: REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60,
-      role: account.role,
-      user:
-        account.role === "merchant"
-          ? { 
-              id: account._id, 
-              shopName: account.shopName, 
-              email: account.email,
-              isProfileComplete: account.isProfileComplete || false,
-            }
-          : { id: account._id, name: account.name, email: account.email },
-    });
+    return res.json({ message: "Account verified." });
   } catch (error) {
     console.error("verifyOtp error", error);
     res.status(500).json({ message: "Failed to verify code" });

@@ -92,21 +92,7 @@ const merchantSchema = new mongoose.Schema(
 		businessCategory: {
 			type: String,
 			trim: true,
-			enum: [
-				"grocery",
-				"restaurant",
-				"cafe",
-				"bakery",
-				"electronics",
-				"clothing",
-				"pharmacy",
-				"hardware",
-				"stationery",
-				"salon",
-				"gym",
-				"general_store",
-				"other",
-			],
+			maxlength: 100,
 		},
 		businessDescription: {
 			type: String,

@@ -48,6 +48,7 @@ const mapReceiptToClient = (receipt) => {
     })),
     image: receipt.imageUrl,
     note: receipt.note,
+    category: receipt.category,
     excludeFromStats: receipt.excludeFromStats,
     footer: receipt.footer || receipt.merchantSnapshot?.receiptFooter || "",
     status: receipt.status,
@@ -137,6 +138,8 @@ export const createReceipt = async (req, res) => {
         ? { shopName: merchantName, merchantCode: null, address: null, phone: null, logoUrl: null, receiptHeader: "", receiptFooter: "", brandColor: "#10b981" }
         : null;
 
+    const resolvedCategory = category || merchant?.businessCategory || "general";
+
     const receipt = await Receipt.create({
       _id: receiptId || undefined,
       merchantId: merchant?._id || null,
@@ -153,7 +156,7 @@ export const createReceipt = async (req, res) => {
       imageUrl,
       excludeFromStats: Boolean(excludeFromStats),
       footer: footer || merchant?.receiptFooter || "",
-      category,
+      category: resolvedCategory,
       merchantSnapshot,
       customerSnapshot,
     });
