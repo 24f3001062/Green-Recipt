@@ -1361,7 +1361,7 @@ const MerchantProfile = () => {
                     </button>
                 </div>
                 <p className="text-emerald-100 font-medium mt-1 flex items-center justify-center md:justify-start gap-2">
-                    <Store size={16} /> Food & Beverage • Merchant
+                    <Store size={16} /> {profile?.businessCategory || 'General Store'} • Merchant
                 </p>
                 <div className="mt-4 flex flex-wrap justify-center md:justify-start gap-3">
                     {profile?.isVerified && (

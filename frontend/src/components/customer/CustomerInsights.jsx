@@ -126,21 +126,43 @@ const StatCard = ({ icon: Icon, label, value, subValue, trend, trendValue, color
 // ============== CATEGORY ITEM ==============
 const getCategoryConfig = (category) => {
   const name = (category || '').toLowerCase();
-  if (name.includes('food') || name.includes('restaurant') || name.includes('snack')) {
+  
+  // Food & Beverages
+  if (name.includes('food') || name.includes('restaurant') || name.includes('snack') || name.includes('cafe') || name.includes('bakery')) {
     return { icon: Coffee, color: 'text-orange-500', bg: 'bg-orange-500', light: 'bg-orange-50' };
   }
-  if (name.includes('drink') || name.includes('beverage')) {
+  if (name.includes('drink') || name.includes('beverage') || name.includes('juice') || name.includes('bar')) {
     return { icon: Coffee, color: 'text-amber-500', bg: 'bg-amber-500', light: 'bg-amber-50' };
   }
-  if (name.includes('shop') || name.includes('retail') || name.includes('cloth')) {
+  
+  // Retail & Shopping
+  if (name.includes('shop') || name.includes('retail') || name.includes('cloth') || name.includes('fashion') || name.includes('apparel')) {
     return { icon: ShoppingBag, color: 'text-blue-500', bg: 'bg-blue-500', light: 'bg-blue-50' };
   }
-  if (name.includes('grocery') || name.includes('mart')) {
+  if (name.includes('grocery') || name.includes('mart') || name.includes('supermarket') || name.includes('store') || name.includes('general')) {
     return { icon: Package, color: 'text-green-500', bg: 'bg-green-500', light: 'bg-green-50' };
   }
-  if (name.includes('travel') || name.includes('transport')) {
+  
+  // Services & Transportation
+  if (name.includes('travel') || name.includes('transport') || name.includes('fuel') || name.includes('petrol') || name.includes('gas')) {
     return { icon: Zap, color: 'text-purple-500', bg: 'bg-purple-500', light: 'bg-purple-50' };
   }
+  if (name.includes('health') || name.includes('pharmacy') || name.includes('medical') || name.includes('hospital')) {
+    return { icon: Activity, color: 'text-red-500', bg: 'bg-red-500', light: 'bg-red-50' };
+  }
+  if (name.includes('salon') || name.includes('spa') || name.includes('beauty') || name.includes('parlor')) {
+    return { icon: Star, color: 'text-pink-500', bg: 'bg-pink-500', light: 'bg-pink-50' };
+  }
+  
+  // Entertainment & Services
+  if (name.includes('entertainment') || name.includes('movie') || name.includes('gaming') || name.includes('cinema')) {
+    return { icon: Flame, color: 'text-rose-500', bg: 'bg-rose-500', light: 'bg-rose-50' };
+  }
+  if (name.includes('electronics') || name.includes('tech') || name.includes('mobile') || name.includes('computer')) {
+    return { icon: Smartphone, color: 'text-indigo-500', bg: 'bg-indigo-500', light: 'bg-indigo-50' };
+  }
+  
+  // Default
   return { icon: Leaf, color: 'text-emerald-500', bg: 'bg-emerald-500', light: 'bg-emerald-50' };
 };
 
@@ -398,20 +420,24 @@ const CustomerInsights = () => {
                 <Store size={18} className="text-slate-400" />
               </div>
               <div className="space-y-3">
-                {topMerchants.slice(0, 3).map((merchant, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center text-sm font-bold text-slate-600">
-                        {(merchant.name || 'U')[0].toUpperCase()}
+                {topMerchants.slice(0, 3).map((merchant, i) => {
+                  const config = getCategoryConfig(merchant.businessCategory);
+                  const Icon = config.icon;
+                  return (
+                    <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 ${config.light} rounded-full flex items-center justify-center`}>
+                          <Icon className={config.color} size={18} />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-700 text-sm">{merchant.name}</p>
+                          <p className="text-xs text-slate-400">{merchant.visits} visits • {merchant.businessCategory || 'General'}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-slate-700 text-sm">{merchant.name}</p>
-                        <p className="text-xs text-slate-400">{merchant.visits} visits</p>
-                      </div>
+                      <p className="font-bold text-slate-800">₹{merchant.totalSpent.toLocaleString('en-IN')}</p>
                     </div>
-                    <p className="font-bold text-slate-800">₹{merchant.totalSpent.toLocaleString('en-IN')}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

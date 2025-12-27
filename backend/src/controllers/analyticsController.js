@@ -100,12 +100,24 @@ export const getCustomerAnalytics = async (req, res) => {
         { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
       ]),
 
-      // Category breakdown (this month)
+      // Category breakdown (this month) - uses receipt category which falls back to merchant businessCategory
       Receipt.aggregate([
         { $match: { ...baseMatch, transactionDate: { $gte: startOfMonth } } },
         {
+          $addFields: {
+            // Use category if set, otherwise use merchant's businessCategory, fallback to "general"
+            resolvedCategory: {
+              $cond: {
+                if: { $and: [{ $ne: ["$category", null] }, { $ne: ["$category", ""] }, { $ne: ["$category", "general"] }] },
+                then: "$category",
+                else: { $ifNull: ["$merchantSnapshot.businessCategory", "general"] }
+              }
+            }
+          }
+        },
+        {
           $group: {
-            _id: "$category",
+            _id: "$resolvedCategory",
             totalSpent: { $sum: "$total" },
             count: { $sum: 1 },
             avgTransaction: { $avg: "$total" },
@@ -128,12 +140,15 @@ export const getCustomerAnalytics = async (req, res) => {
         { $sort: { total: -1 } },
       ]),
 
-      // Top merchants (this month)
+      // Top merchants (this month) - includes businessCategory for display
       Receipt.aggregate([
         { $match: { ...baseMatch, transactionDate: { $gte: startOfMonth } } },
         {
           $group: {
-            _id: "$merchantSnapshot.shopName",
+            _id: {
+              shopName: "$merchantSnapshot.shopName",
+              businessCategory: "$merchantSnapshot.businessCategory",
+            },
             totalSpent: { $sum: "$total" },
             count: { $sum: 1 },
             lastVisit: { $max: "$transactionDate" },
@@ -186,7 +201,7 @@ export const getCustomerAnalytics = async (req, res) => {
       Receipt.find(baseMatch)
         .sort({ transactionDate: -1 })
         .limit(5)
-        .select("merchantSnapshot.shopName total transactionDate category paymentMethod")
+        .select("merchantSnapshot.shopName merchantSnapshot.businessCategory total transactionDate category paymentMethod")
         .lean(),
 
       // Top items across all receipts (this month)
@@ -277,7 +292,8 @@ export const getCustomerAnalytics = async (req, res) => {
 
       // Top merchants
       topMerchants: merchantBreakdown.map((m) => ({
-        name: m._id || "Unknown",
+        name: m._id?.shopName || "Unknown",
+        businessCategory: m._id?.businessCategory || "general",
         totalSpent: m.totalSpent,
         visits: m.count,
         lastVisit: m.lastVisit,
@@ -301,9 +317,10 @@ export const getCustomerAnalytics = async (req, res) => {
       // Recent activity
       recentActivity: recentReceipts.map((r) => ({
         merchant: r.merchantSnapshot?.shopName || "Unknown",
+        businessCategory: r.merchantSnapshot?.businessCategory || r.category || "general",
         amount: r.total,
         date: r.transactionDate,
-        category: r.category,
+        category: r.category || r.merchantSnapshot?.businessCategory || "general",
         paymentMethod: r.paymentMethod,
       })),
 

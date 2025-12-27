@@ -86,6 +86,7 @@ const receiptSchema = new mongoose.Schema(
       receiptHeader: { type: String, trim: true },
       receiptFooter: { type: String, trim: true },
       brandColor: { type: String, trim: true, default: "#10b981" },
+      businessCategory: { type: String, trim: true },
     },
     customerSnapshot: {
       name: { type: String, trim: true },

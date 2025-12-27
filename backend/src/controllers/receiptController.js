@@ -30,11 +30,15 @@ const mapReceiptToClient = (receipt) => {
   const isoDate = formatISTDate(transactionDateIST);
   const time = formatISTTime(transactionDateIST);
 
+  // Use receipt category first, fall back to merchant's businessCategory, then "general"
+  const resolvedCategory = receipt.category || receipt.merchantSnapshot?.businessCategory || "general";
+
   return {
     id: receipt._id,
     merchant: receipt.merchantSnapshot?.shopName,
     merchantCode: receipt.merchantSnapshot?.merchantCode,
     merchantSnapshot: receipt.merchantSnapshot || null,
+    businessCategory: receipt.merchantSnapshot?.businessCategory || null,
     customerName: receipt.customerSnapshot?.name || null,
     customerEmail: receipt.customerSnapshot?.email || null,
     amount: receipt.total,
@@ -48,7 +52,7 @@ const mapReceiptToClient = (receipt) => {
     })),
     image: receipt.imageUrl,
     note: receipt.note,
-    category: receipt.category,
+    category: resolvedCategory,
     excludeFromStats: receipt.excludeFromStats,
     footer: receipt.footer || receipt.merchantSnapshot?.receiptFooter || "",
     status: receipt.status,
@@ -127,15 +131,16 @@ export const createReceipt = async (req, res) => {
       ? {
           shopName: merchant.shopName,
           merchantCode: merchant.merchantCode,
-          address: merchant.address,
+          address: merchant.addressLine || (merchant.address ? `${merchant.address.street || ''}, ${merchant.address.city || ''}`.trim().replace(/^,\s*|,\s*$/g, '') : null),
           phone: merchant.phone,
           logoUrl: merchant.logoUrl,
           receiptHeader: merchant.receiptHeader || "",
           receiptFooter: merchant.receiptFooter || "Thank you! Visit again.",
           brandColor: merchant.brandColor || "#10b981",
+          businessCategory: merchant.businessCategory || "general",
         }
       : merchantName 
-        ? { shopName: merchantName, merchantCode: null, address: null, phone: null, logoUrl: null, receiptHeader: "", receiptFooter: "", brandColor: "#10b981" }
+        ? { shopName: merchantName, merchantCode: null, address: null, phone: null, logoUrl: null, receiptHeader: "", receiptFooter: "", brandColor: "#10b981", businessCategory: category || "general" }
         : null;
 
     const resolvedCategory = category || merchant?.businessCategory || "general";
