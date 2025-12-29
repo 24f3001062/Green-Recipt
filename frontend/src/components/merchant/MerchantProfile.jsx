@@ -1141,6 +1141,7 @@ import {
 } from 'lucide-react';
 import { fetchProfile, updateProfile, fetchMerchantAnalytics, clearSession } from '../../services/api';
 import { formatISTDisplay } from '../../utils/timezone';
+import { useTheme } from '../../contexts/ThemeContext';
 
 // ============== TOAST NOTIFICATION ==============
 const Toast = ({ message, type = 'success', onClose }) => {
@@ -1164,20 +1165,24 @@ const Toast = ({ message, type = 'success', onClose }) => {
 };
 
 // ============== SKELETON LOADER ==============
-const ProfileSkeleton = () => (
-  <div className="space-y-6 animate-pulse max-w-4xl mx-auto pb-10">
-    <div className="bg-slate-200 rounded-2xl h-48" />
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 bg-slate-200 rounded-2xl h-80" />
-      <div className="space-y-6">
-        <div className="bg-slate-200 rounded-2xl h-64" />
-        <div className="bg-slate-200 rounded-2xl h-48" />
+const ProfileSkeleton = () => {
+  const { isDark } = useTheme();
+  return (
+    <div className="space-y-6 animate-pulse max-w-4xl mx-auto pb-10">
+      <div className={`${isDark ? 'bg-slate-800' : 'bg-slate-200'} rounded-2xl h-48`} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className={`lg:col-span-2 ${isDark ? 'bg-slate-800' : 'bg-slate-200'} rounded-2xl h-80`} />
+        <div className="space-y-6">
+          <div className={`${isDark ? 'bg-slate-800' : 'bg-slate-200'} rounded-2xl h-64`} />
+          <div className={`${isDark ? 'bg-slate-800' : 'bg-slate-200'} rounded-2xl h-48`} />
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const MerchantProfile = () => {
+  const { isDark } = useTheme();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1382,19 +1387,19 @@ const MerchantProfile = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* 2️⃣ DETAILS FORM */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+        <div className={`lg:col-span-2 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl border shadow-sm overflow-hidden`}>
+            <div className={`p-6 border-b ${isDark ? 'border-slate-700 bg-slate-800' : 'border-slate-100 bg-slate-50/50'} flex justify-between items-center`}>
                 <div>
-                    <h2 className="font-bold text-slate-800 text-lg">Business Details</h2>
+                    <h2 className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'} text-lg`}>Business Details</h2>
                     <p className="text-slate-400 text-xs mt-0.5">Contact info & location</p>
                 </div>
                 {!isEditing ? (
-                    <button onClick={handleEdit} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:text-emerald-600 hover:border-emerald-200 transition-all shadow-sm">
+                    <button onClick={handleEdit} className={`flex items-center gap-2 px-4 py-2 ${isDark ? 'bg-slate-700 border-slate-600 text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50' : 'bg-white border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-200'} border rounded-xl text-sm font-bold transition-all shadow-sm`}>
                         <Edit2 size={14} /> Edit
                     </button>
                 ) : (
                     <div className="flex gap-2">
-                        <button onClick={handleCancel} disabled={saving} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50">
+                        <button onClick={handleCancel} disabled={saving} className={`p-2 ${isDark ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-400 hover:bg-slate-100'} rounded-lg transition-colors disabled:opacity-50`}>
                             <X size={20} />
                         </button>
                         <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50">
@@ -1411,35 +1416,35 @@ const MerchantProfile = () => {
                         <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 ml-1">Shop Name</label>
                         <div className="relative">
                             <Store className="absolute left-3 top-3 text-slate-400" size={18} />
-                            <input disabled={!isEditing} type="text" value={isEditing ? tempProfile.shopName : (profile?.shopName || '')} onChange={(e) => setTempProfile({...tempProfile, shopName: e.target.value})} className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none font-medium transition-all ${isEditing ? 'bg-white border-emerald-500 ring-1 ring-emerald-500' : 'bg-slate-50 border-slate-200 text-slate-600'}`}/>
+                            <input disabled={!isEditing} type="text" value={isEditing ? tempProfile.shopName : (profile?.shopName || '')} onChange={(e) => setTempProfile({...tempProfile, shopName: e.target.value})} className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none font-medium transition-all ${isEditing ? (isDark ? 'bg-slate-700 border-emerald-500 ring-1 ring-emerald-500 text-white' : 'bg-white border-emerald-500 ring-1 ring-emerald-500') : (isDark ? 'bg-slate-700 border-slate-600 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600')}`}/>
                         </div>
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 ml-1">Owner Name</label>
                         <div className="relative">
                             <User className="absolute left-3 top-3 text-slate-400" size={18} />
-                            <input disabled={!isEditing} type="text" value={isEditing ? tempProfile.ownerName : (profile?.ownerName || '')} onChange={(e) => setTempProfile({...tempProfile, ownerName: e.target.value})} className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none font-medium transition-all ${isEditing ? 'bg-white border-emerald-500 ring-1 ring-emerald-500' : 'bg-slate-50 border-slate-200 text-slate-600'}`}/>
+                            <input disabled={!isEditing} type="text" value={isEditing ? tempProfile.ownerName : (profile?.ownerName || '')} onChange={(e) => setTempProfile({...tempProfile, ownerName: e.target.value})} className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none font-medium transition-all ${isEditing ? (isDark ? 'bg-slate-700 border-emerald-500 ring-1 ring-emerald-500 text-white' : 'bg-white border-emerald-500 ring-1 ring-emerald-500') : (isDark ? 'bg-slate-700 border-slate-600 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600')}`}/>
                         </div>
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 ml-1">Phone Number</label>
                         <div className="relative">
                             <Phone className="absolute left-3 top-3 text-slate-400" size={18} />
-                            <input disabled={!isEditing} type="text" value={isEditing ? tempProfile.phone : (profile?.phone || '')} onChange={(e) => setTempProfile({...tempProfile, phone: e.target.value})} className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none font-medium transition-all ${isEditing ? 'bg-white border-emerald-500 ring-1 ring-emerald-500' : 'bg-slate-50 border-slate-200 text-slate-600'}`}/>
+                            <input disabled={!isEditing} type="text" value={isEditing ? tempProfile.phone : (profile?.phone || '')} onChange={(e) => setTempProfile({...tempProfile, phone: e.target.value})} className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none font-medium transition-all ${isEditing ? (isDark ? 'bg-slate-700 border-emerald-500 ring-1 ring-emerald-500 text-white' : 'bg-white border-emerald-500 ring-1 ring-emerald-500') : (isDark ? 'bg-slate-700 border-slate-600 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600')}`}/>
                         </div>
                     </div>
                     <div className="col-span-1 md:col-span-2">
                         <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 ml-1">Email Address</label>
                         <div className="relative">
                             <Mail className="absolute left-3 top-3 text-slate-400" size={18} />
-                            <input disabled={!isEditing} type="email" value={isEditing ? tempProfile.email : (profile?.email || '')} onChange={(e) => setTempProfile({...tempProfile, email: e.target.value})} className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none font-medium transition-all ${isEditing ? 'bg-white border-emerald-500 ring-1 ring-emerald-500' : 'bg-slate-50 border-slate-200 text-slate-600'}`}/>
+                            <input disabled={!isEditing} type="email" value={isEditing ? tempProfile.email : (profile?.email || '')} onChange={(e) => setTempProfile({...tempProfile, email: e.target.value})} className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none font-medium transition-all ${isEditing ? (isDark ? 'bg-slate-700 border-emerald-500 ring-1 ring-emerald-500 text-white' : 'bg-white border-emerald-500 ring-1 ring-emerald-500') : (isDark ? 'bg-slate-700 border-slate-600 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600')}`}/>
                         </div>
                     </div>
                      <div className="col-span-1 md:col-span-2">
                         <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 ml-1">Shop Address</label>
                         <div className="relative">
                             <MapPin className="absolute left-3 top-3 text-slate-400" size={18} />
-                            <textarea disabled={!isEditing} rows="2" value={isEditing ? tempProfile.address : (profile?.address || '')} onChange={(e) => setTempProfile({...tempProfile, address: e.target.value})} className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none font-medium transition-all resize-none ${isEditing ? 'bg-white border-emerald-500 ring-1 ring-emerald-500' : 'bg-slate-50 border-slate-200 text-slate-600'}`}/>
+                            <textarea disabled={!isEditing} rows="2" value={isEditing ? tempProfile.address : (profile?.address || '')} onChange={(e) => setTempProfile({...tempProfile, address: e.target.value})} className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none font-medium transition-all resize-none ${isEditing ? (isDark ? 'bg-slate-700 border-emerald-500 ring-1 ring-emerald-500 text-white' : 'bg-white border-emerald-500 ring-1 ring-emerald-500') : (isDark ? 'bg-slate-700 border-slate-600 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600')}`}/>
                         </div>
                     </div>
                 </div>
@@ -1448,8 +1453,8 @@ const MerchantProfile = () => {
 
         {/* 3️⃣ BRANDING & LOGO */}
         <div className="space-y-6">
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl border shadow-sm p-6`}>
+                <h3 className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'} mb-4 flex items-center gap-2`}>
                     <Receipt size={18} className="text-emerald-600"/> Receipt Branding
                 </h3>
                 
@@ -1460,7 +1465,7 @@ const MerchantProfile = () => {
                             <ImageIcon size={12} /> Store Logo
                         </label>
                         <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden relative group">
+                            <div className={`w-16 h-16 rounded-lg border ${isDark ? 'border-slate-600 bg-slate-700' : 'border-slate-200 bg-slate-50'} flex items-center justify-center overflow-hidden relative group`}>
                                 {(isEditing ? tempProfile.logoUrl : profile?.logoUrl) ? (
                                     <img src={isEditing ? tempProfile.logoUrl : profile?.logoUrl} alt="Logo" className="w-full h-full object-cover"/>
                                 ) : (
@@ -1481,11 +1486,11 @@ const MerchantProfile = () => {
 
                     <div>
                         <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Footer Message</label>
-                        <input disabled={!isEditing} type="text" value={isEditing ? tempProfile.receiptFooter : (profile?.receiptFooter || '')} onChange={(e) => setTempProfile({...tempProfile, receiptFooter: e.target.value})} placeholder="e.g. Thank you, visit again!" className={`w-full px-3 py-2 text-sm rounded-lg border outline-none transition-all ${isEditing ? 'border-emerald-500' : 'bg-slate-50 border-slate-200'}`}/>
+                        <input disabled={!isEditing} type="text" value={isEditing ? tempProfile.receiptFooter : (profile?.receiptFooter || '')} onChange={(e) => setTempProfile({...tempProfile, receiptFooter: e.target.value})} placeholder="e.g. Thank you, visit again!" className={`w-full px-3 py-2 text-sm rounded-lg border outline-none transition-all ${isEditing ? (isDark ? 'bg-slate-700 border-emerald-500 text-white' : 'border-emerald-500') : (isDark ? 'bg-slate-700 border-slate-600 text-slate-300' : 'bg-slate-50 border-slate-200')}`}/>
                     </div>
 
                     {/* LIVE PREVIEW */}
-                    <div className="mt-4 bg-slate-100 p-4 rounded-xl">
+                    <div className={`mt-4 ${isDark ? 'bg-slate-900' : 'bg-slate-100'} p-4 rounded-xl`}>
                         <p className="text-[10px] text-slate-400 font-bold uppercase text-center mb-2">Live Customer Preview</p>
                         <div className="bg-white p-4 shadow-sm border border-slate-200 mx-auto max-w-[220px] text-center font-mono text-[10px] leading-tight relative overflow-hidden">
                             <div className="absolute top-0 left-0 right-0 h-1.5" style={{ backgroundColor: isEditing ? tempProfile.brandColor : (profile?.brandColor || '#10b981') }}/>
@@ -1508,23 +1513,23 @@ const MerchantProfile = () => {
             </div>
 
             {/* 4️⃣ STATS & LOGOUT */}
-            <div className="bg-emerald-50 rounded-2xl border border-emerald-100 p-6 relative overflow-hidden">
+            <div className={`${isDark ? 'bg-emerald-900/10 border-emerald-900/30' : 'bg-emerald-50 border-emerald-100'} rounded-2xl border p-6 relative overflow-hidden`}>
                 <div className="relative z-10">
-                    <h3 className="font-bold text-emerald-900 mb-1 flex items-center gap-2"><Leaf size={18} className="text-emerald-600" /> Your Green Impact</h3>
-                    <p className="text-xs text-emerald-700 mb-6">Since joining, you have saved:</p>
+                    <h3 className={`font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-900'} mb-1 flex items-center gap-2`}><Leaf size={18} className="text-emerald-600" /> Your Green Impact</h3>
+                    <p className={`text-xs ${isDark ? 'text-emerald-500' : 'text-emerald-700'} mb-6`}>Since joining, you have saved:</p>
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-white/60 p-3 rounded-xl border border-emerald-100/50">
-                            <p className="text-2xl font-bold text-emerald-800">{stats.paperSaved} <span className="text-xs font-normal text-emerald-600">kg</span></p>
+                        <div className={`${isDark ? 'bg-slate-800/60 border-emerald-900/30' : 'bg-white/60 border-emerald-100/50'} p-3 rounded-xl border`}>
+                            <p className={`text-2xl font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-800'}`}>{stats.paperSaved} <span className="text-xs font-normal text-emerald-600">kg</span></p>
                             <p className="text-[10px] font-bold text-emerald-500 uppercase">Paper Saved</p>
                         </div>
-                        <div className="bg-white/60 p-3 rounded-xl border border-emerald-100/50">
-                            <p className="text-2xl font-bold text-emerald-800">{stats.totalReceipts.toLocaleString()}</p>
+                        <div className={`${isDark ? 'bg-slate-800/60 border-emerald-900/30' : 'bg-white/60 border-emerald-100/50'} p-3 rounded-xl border`}>
+                            <p className={`text-2xl font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-800'}`}>{stats.totalReceipts.toLocaleString()}</p>
                             <p className="text-[10px] font-bold text-emerald-500 uppercase">Digital Bills</p>
                         </div>
                     </div>
                 </div>
             </div>
-            <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors border border-red-100"><LogOut size={16} /> Logout Account</button>
+            <button onClick={handleLogout} className={`w-full flex items-center justify-center gap-2 px-4 py-3 ${isDark ? 'bg-slate-800 border-red-900/30 text-red-400 hover:bg-red-900/20' : 'bg-red-50 text-red-600 hover:bg-red-100 border-red-100'} rounded-xl font-bold transition-colors border`}><LogOut size={16} /> Logout Account</button>
         </div>
       </div>
     </div>

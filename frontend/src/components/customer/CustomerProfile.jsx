@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { fetchProfile, updateProfile, clearSession, changePassword, deleteAccount, fetchCustomerAnalytics } from '../../services/api';
 import { formatISTDisplay } from '../../utils/timezone';
+import { useTheme } from '../../contexts/ThemeContext';
 
 // ============== TOAST NOTIFICATION COMPONENT ==============
 const Toast = ({ message, type = 'success', onClose }) => {
@@ -29,38 +30,42 @@ const Toast = ({ message, type = 'success', onClose }) => {
 };
 
 // ============== SKELETON LOADER ==============
-const ProfileSkeleton = () => (
-  <div className="max-w-xl mx-auto space-y-6 pb-20 animate-pulse">
-    <div className="h-8 bg-slate-200 rounded w-40" />
-    <div className="bg-white p-6 rounded-2xl border border-slate-100">
-      <div className="flex items-center gap-4">
-        <div className="w-16 h-16 bg-slate-200 rounded-full" />
-        <div className="flex-1 space-y-2">
-          <div className="h-5 bg-slate-200 rounded w-32" />
-          <div className="h-4 bg-slate-200 rounded w-48" />
+const ProfileSkeleton = () => {
+  const { isDark } = useTheme();
+  return (
+    <div className="max-w-xl mx-auto space-y-6 pb-20 animate-pulse">
+      <div className={`h-8 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded w-40`} />
+      <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-6 rounded-2xl border`}>
+        <div className="flex items-center gap-4">
+          <div className={`w-16 h-16 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded-full`} />
+          <div className="flex-1 space-y-2">
+            <div className={`h-5 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded w-32`} />
+            <div className={`h-4 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded w-48`} />
+          </div>
         </div>
       </div>
+      <div className="grid grid-cols-3 gap-4">
+        {[1, 2, 3].map(i => <div key={i} className={`h-24 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded-2xl`} />)}
+      </div>
+      <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl border p-4 space-y-4`}>
+        {[1, 2, 3, 4].map(i => <div key={i} className={`h-12 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded-lg`} />)}
+      </div>
     </div>
-    <div className="grid grid-cols-3 gap-4">
-      {[1, 2, 3].map(i => <div key={i} className="h-24 bg-slate-200 rounded-2xl" />)}
-    </div>
-    <div className="bg-white rounded-2xl border border-slate-100 p-4 space-y-4">
-      {[1, 2, 3, 4].map(i => <div key={i} className="h-12 bg-slate-200 rounded-lg" />)}
-    </div>
-  </div>
-);
+  );
+};
 
 // ============== MODAL COMPONENT ==============
 const Modal = ({ isOpen, onClose, title, children }) => {
+  const { isDark } = useTheme();
   if (!isOpen) return null;
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-scale-in overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-slate-100">
-          <h3 className="font-bold text-slate-800">{title}</h3>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-            <X size={18} />
+      <div className={`${isDark ? 'bg-slate-900' : 'bg-white'} rounded-2xl w-full max-w-md shadow-2xl animate-scale-in overflow-hidden`}>
+        <div className={`flex items-center justify-between p-4 border-b ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
+          <h3 className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{title}</h3>
+          <button onClick={onClose} className={`p-2 ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'} rounded-full transition-colors`}>
+            <X size={18} className={isDark ? 'text-slate-400' : 'text-slate-600'} />
           </button>
         </div>
         <div className="p-4">{children}</div>
@@ -71,6 +76,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 
 // ============== MAIN COMPONENT ==============
 const CustomerProfile = () => {
+  const { isDark } = useTheme();
   // Core state
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -314,13 +320,13 @@ const CustomerProfile = () => {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-800">My Profile</h2>
+        <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>My Profile</h2>
         <button 
           onClick={handleRefresh}
           disabled={refreshing}
-          className="p-2 hover:bg-slate-100 rounded-full transition-colors disabled:opacity-50"
+          className={`p-2 ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'} rounded-full transition-colors disabled:opacity-50`}
         >
-          <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
+          <RefreshCw size={18} className={`${refreshing ? 'animate-spin' : ''} ${isDark ? 'text-slate-400' : 'text-slate-600'}`} />
         </button>
       </div>
 
@@ -353,25 +359,25 @@ const CustomerProfile = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm text-center">
+        <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-4 rounded-2xl border shadow-sm text-center`}>
           <Receipt className="mx-auto mb-2 text-emerald-500" size={24} />
-          <p className="text-2xl font-bold text-slate-800">{stats.receiptCount}</p>
+          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{stats.receiptCount}</p>
           <p className="text-xs text-slate-500">Receipts</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm text-center">
+        <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-4 rounded-2xl border shadow-sm text-center`}>
           <TrendingUp className="mx-auto mb-2 text-blue-500" size={24} />
-          <p className="text-2xl font-bold text-slate-800">₹{stats.totalSpent.toLocaleString()}</p>
+          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>₹{stats.totalSpent.toLocaleString()}</p>
           <p className="text-xs text-slate-500">Total Spent</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm text-center">
+        <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-4 rounded-2xl border shadow-sm text-center`}>
           <Calendar className="mx-auto mb-2 text-purple-500" size={24} />
-          <p className="text-2xl font-bold text-slate-800">{stats.receiptCount > 0 ? Math.ceil(stats.totalSpent / stats.receiptCount) : 0}</p>
+          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{stats.receiptCount > 0 ? Math.ceil(stats.totalSpent / stats.receiptCount) : 0}</p>
           <p className="text-xs text-slate-500">Avg/Receipt</p>
         </div>
       </div>
 
       {/* Section Tabs */}
-      <div className="flex gap-2 bg-slate-100 p-1 rounded-xl">
+      <div className={`flex gap-2 ${isDark ? 'bg-slate-800' : 'bg-slate-100'} p-1 rounded-xl`}>
         {[
           { id: 'personal', label: 'Personal', icon: User },
           { id: 'address', label: 'Address', icon: MapPin },
@@ -382,7 +388,7 @@ const CustomerProfile = () => {
             onClick={() => setActiveSection(tab.id)}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
               activeSection === tab.id 
-                ? 'bg-white text-emerald-600 shadow-sm' 
+                ? `${isDark ? 'bg-slate-700 text-emerald-400' : 'bg-white text-emerald-600'} shadow-sm` 
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
@@ -394,9 +400,9 @@ const CustomerProfile = () => {
 
       {/* Personal Info Section */}
       {activeSection === 'personal' && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden animate-fade-in">
-          <div className="p-4 border-b border-slate-100 bg-slate-50">
-            <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+        <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl border shadow-sm overflow-hidden animate-fade-in`}>
+          <div className={`p-4 border-b ${isDark ? 'border-slate-700 bg-slate-800' : 'border-slate-100 bg-slate-50'}`}>
+            <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-700'} flex items-center gap-2`}>
               <User size={18} className="text-emerald-500" />
               Personal Information
             </h3>
@@ -410,7 +416,7 @@ const CustomerProfile = () => {
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
                 placeholder="Enter your full name"
               />
             </div>
@@ -422,7 +428,7 @@ const CustomerProfile = () => {
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm(f => ({ ...f, email: e.target.value }))}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
                 placeholder="you@example.com"
               />
             </div>
@@ -434,7 +440,7 @@ const CustomerProfile = () => {
                 type="tel"
                 value={form.phone}
                 onChange={(e) => setForm(f => ({ ...f, phone: e.target.value }))}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
                 placeholder="+91 98765 43210"
               />
             </div>
@@ -444,9 +450,9 @@ const CustomerProfile = () => {
 
       {/* Address Section */}
       {activeSection === 'address' && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden animate-fade-in">
-          <div className="p-4 border-b border-slate-100 bg-slate-50">
-            <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+        <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl border shadow-sm overflow-hidden animate-fade-in`}>
+          <div className={`p-4 border-b ${isDark ? 'border-slate-700 bg-slate-800' : 'border-slate-100 bg-slate-50'}`}>
+            <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-700'} flex items-center gap-2`}>
               <MapPin size={18} className="text-emerald-500" />
               Address Details
             </h3>
@@ -460,7 +466,7 @@ const CustomerProfile = () => {
                 type="text"
                 value={form.line1}
                 onChange={(e) => setForm(f => ({ ...f, line1: e.target.value }))}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
                 placeholder="Street address, apartment, etc."
               />
             </div>
@@ -472,7 +478,7 @@ const CustomerProfile = () => {
                 type="text"
                 value={form.line2}
                 onChange={(e) => setForm(f => ({ ...f, line2: e.target.value }))}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
                 placeholder="Landmark, building name (optional)"
               />
             </div>
@@ -485,7 +491,7 @@ const CustomerProfile = () => {
                   type="text"
                   value={form.city}
                   onChange={(e) => setForm(f => ({ ...f, city: e.target.value }))}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                  className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
                   placeholder="Mumbai"
                 />
               </div>
@@ -497,7 +503,7 @@ const CustomerProfile = () => {
                   type="text"
                   value={form.state}
                   onChange={(e) => setForm(f => ({ ...f, state: e.target.value }))}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                  className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
                   placeholder="Maharashtra"
                 />
               </div>
@@ -511,7 +517,7 @@ const CustomerProfile = () => {
                   type="text"
                   value={form.postalCode}
                   onChange={(e) => setForm(f => ({ ...f, postalCode: e.target.value }))}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                  className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
                   placeholder="400001"
                 />
               </div>
@@ -523,7 +529,7 @@ const CustomerProfile = () => {
                   type="text"
                   value={form.country}
                   onChange={(e) => setForm(f => ({ ...f, country: e.target.value }))}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                  className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
                   placeholder="India"
                 />
               </div>
@@ -535,24 +541,24 @@ const CustomerProfile = () => {
       {/* Security Section */}
       {activeSection === 'security' && (
         <div className="space-y-4 animate-fade-in">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-slate-100 bg-slate-50">
-              <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+          <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl border shadow-sm overflow-hidden`}>
+            <div className={`p-4 border-b ${isDark ? 'border-slate-700 bg-slate-800' : 'border-slate-100 bg-slate-50'}`}>
+              <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-700'} flex items-center gap-2`}>
                 <Shield size={18} className="text-emerald-500" />
                 Security Settings
               </h3>
             </div>
-            <div className="divide-y divide-slate-100">
+            <div className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-slate-100'}`}>
               <button
                 onClick={() => setShowPasswordModal(true)}
-                className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                className={`w-full p-4 flex items-center justify-between ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-50'} transition-colors`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                  <div className={`p-2 ${isDark ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-blue-600'} rounded-lg`}>
                     <Lock size={18} />
                   </div>
                   <div className="text-left">
-                    <p className="font-medium text-slate-700">Change Password</p>
+                    <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>Change Password</p>
                     <p className="text-xs text-slate-400">Update your account password</p>
                   </div>
                 </div>
@@ -561,20 +567,20 @@ const CustomerProfile = () => {
               
               <div className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                  <div className={`p-2 ${isDark ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-50 text-emerald-600'} rounded-lg`}>
                     <CheckCircle size={18} />
                   </div>
                   <div className="text-left">
-                    <p className="font-medium text-slate-700">Email Verified</p>
+                    <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>Email Verified</p>
                     <p className="text-xs text-slate-400">{profile?.email}</p>
                   </div>
                 </div>
                 {profile?.isVerified ? (
-                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
+                  <span className={`text-xs font-bold ${isDark ? 'text-emerald-400 bg-emerald-900/30' : 'text-emerald-600 bg-emerald-50'} px-3 py-1 rounded-full`}>
                     Verified
                   </span>
                 ) : (
-                  <span className="text-xs font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full">
+                  <span className={`text-xs font-bold ${isDark ? 'text-amber-400 bg-amber-900/30' : 'text-amber-600 bg-amber-50'} px-3 py-1 rounded-full`}>
                     Pending
                   </span>
                 )}
@@ -583,9 +589,9 @@ const CustomerProfile = () => {
           </div>
 
           {/* Danger Zone */}
-          <div className="bg-red-50 rounded-2xl border border-red-100 overflow-hidden">
-            <div className="p-4 border-b border-red-100">
-              <h3 className="font-semibold text-red-700 flex items-center gap-2">
+          <div className={`${isDark ? 'bg-red-900/10 border-red-900/30' : 'bg-red-50 border-red-100'} rounded-2xl border overflow-hidden`}>
+            <div className={`p-4 border-b ${isDark ? 'border-red-900/30' : 'border-red-100'}`}>
+              <h3 className={`font-semibold ${isDark ? 'text-red-400' : 'text-red-700'} flex items-center gap-2`}>
                 <AlertTriangle size={18} />
                 Danger Zone
               </h3>
@@ -593,12 +599,12 @@ const CustomerProfile = () => {
             <div className="p-4">
               <button
                 onClick={() => setShowDeleteModal(true)}
-                className="w-full p-3 flex items-center justify-between bg-white border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
+                className={`w-full p-3 flex items-center justify-between ${isDark ? 'bg-slate-800 border-red-900/30 hover:bg-red-900/20' : 'bg-white border-red-200 hover:bg-red-50'} border rounded-xl transition-colors`}
               >
                 <div className="flex items-center gap-3">
                   <Trash2 size={18} className="text-red-500" />
                   <div className="text-left">
-                    <p className="font-medium text-red-700">Delete Account</p>
+                    <p className={`font-medium ${isDark ? 'text-red-400' : 'text-red-700'}`}>Delete Account</p>
                     <p className="text-xs text-red-400">Permanently delete your account and data</p>
                   </div>
                 </div>
@@ -617,7 +623,7 @@ const CustomerProfile = () => {
           className={`w-full p-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
             hasChanges 
               ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-700' 
-              : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              : `${isDark ? 'bg-slate-800 text-slate-600' : 'bg-slate-100 text-slate-400'} cursor-not-allowed`
           } disabled:opacity-60`}
         >
           {saving ? (
@@ -637,7 +643,7 @@ const CustomerProfile = () => {
       {/* Logout Button */}
       <button 
         onClick={handleLogout}
-        className="w-full bg-white border border-slate-200 text-slate-600 p-4 rounded-2xl font-medium flex items-center justify-center gap-2 hover:bg-slate-50 hover:border-red-200 hover:text-red-600 transition-all"
+        className={`w-full ${isDark ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:border-red-900/30 hover:text-red-400' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-red-200 hover:text-red-600'} border p-4 rounded-2xl font-medium flex items-center justify-center gap-2 transition-all`}
       >
         <LogOut size={18} /> Log Out
       </button>
@@ -663,7 +669,7 @@ const CustomerProfile = () => {
                 type={showPasswords.current ? 'text' : 'password'}
                 value={passwordForm.currentPassword}
                 onChange={(e) => setPasswordForm(f => ({ ...f, currentPassword: e.target.value }))}
-                className="w-full px-4 py-3 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-emerald-500"
+                className={`w-full px-4 py-3 pr-12 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm outline-none focus:border-emerald-500`}
                 placeholder="Enter current password"
                 required
               />
@@ -685,7 +691,7 @@ const CustomerProfile = () => {
                 type={showPasswords.new ? 'text' : 'password'}
                 value={passwordForm.newPassword}
                 onChange={(e) => setPasswordForm(f => ({ ...f, newPassword: e.target.value }))}
-                className="w-full px-4 py-3 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-emerald-500"
+                className={`w-full px-4 py-3 pr-12 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm outline-none focus:border-emerald-500`}
                 placeholder="Min. 6 characters"
                 required
                 minLength={6}
@@ -708,7 +714,7 @@ const CustomerProfile = () => {
                 type={showPasswords.confirm ? 'text' : 'password'}
                 value={passwordForm.confirmPassword}
                 onChange={(e) => setPasswordForm(f => ({ ...f, confirmPassword: e.target.value }))}
-                className="w-full px-4 py-3 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-emerald-500"
+                className={`w-full px-4 py-3 pr-12 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm outline-none focus:border-emerald-500`}
                 placeholder="Confirm new password"
                 required
               />
@@ -748,8 +754,8 @@ const CustomerProfile = () => {
         title="Delete Account"
       >
         <div className="space-y-4">
-          <div className="p-4 bg-red-50 border border-red-100 rounded-xl">
-            <p className="text-sm text-red-700">
+          <div className={`p-4 ${isDark ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50 border-red-100'} border rounded-xl`}>
+            <p className={`text-sm ${isDark ? 'text-red-400' : 'text-red-700'}`}>
               <strong>Warning:</strong> This action is irreversible. All your data, receipts, and account information will be permanently deleted.
             </p>
           </div>
@@ -761,7 +767,7 @@ const CustomerProfile = () => {
               type="text"
               value={deleteConfirmation}
               onChange={(e) => setDeleteConfirmation(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-red-500"
+              className={`w-full px-4 py-3 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm outline-none focus:border-red-500`}
               placeholder="DELETE"
             />
           </div>
