@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { Home, FileText, Calendar, PieChart, User, Receipt, Bell, Leaf, Sparkles, TreePine, Droplets } from 'lucide-react';
 import { getNowIST } from '../../utils/timezone';
 import { useTheme } from '../../contexts/ThemeContext';
-import ThemeToggle from '../common/ThemeToggle';
 
 const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
   const { isDark } = useTheme();
@@ -77,7 +76,6 @@ const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
                 <p className={`text-[10px] font-medium -mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Go paperless</p>
               </div>
             </div>
-            <ThemeToggle size="small" />
           </div>
         </div>
 

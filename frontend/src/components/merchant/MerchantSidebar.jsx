@@ -234,7 +234,6 @@ import {
   LogOut
 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
-import ThemeToggle from '../common/ThemeToggle';
 
 const MerchantSidebar = ({ isOpen, onClose }) => {
   const { isDark } = useTheme();
@@ -345,7 +344,6 @@ const MerchantSidebar = ({ isOpen, onClose }) => {
           
           {/* Theme Toggle & Close Button */}
           <div className="flex items-center gap-2">
-            <ThemeToggle size="small" />
             {/* Close Button (Mobile) */}
             <button onClick={onClose} className={`md:hidden p-2 rounded-full transition-all ${
               isDark 
