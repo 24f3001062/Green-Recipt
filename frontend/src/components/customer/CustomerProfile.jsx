@@ -79,6 +79,8 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 // ============== MAIN COMPONENT ==============
 const CustomerProfile = () => {
   const { isDark } = useTheme();
+  const { t, i18n } = useTranslation();
+  
   // Core state
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -164,7 +166,7 @@ const CustomerProfile = () => {
         });
       }
     } catch (e) {
-      setToast({ message: 'Unable to load profile', type: 'error' });
+      setToast({ message: t('profile.messages.loadFailed'), type: 'error' });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -196,15 +198,15 @@ const CustomerProfile = () => {
   // ============== VALIDATION ==============
   const validateForm = () => {
     if (form.name.trim().length < 2) {
-      setToast({ message: 'Name must be at least 2 characters', type: 'error' });
+      setToast({ message: t('profile.messages.nameTooShort'), type: 'error' });
       return false;
     }
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      setToast({ message: 'Please enter a valid email', type: 'error' });
+      setToast({ message: t('profile.messages.invalidEmail'), type: 'error' });
       return false;
     }
     if (form.phone && form.phone.length < 7) {
-      setToast({ message: 'Phone number must be at least 7 digits', type: 'error' });
+      setToast({ message: t('profile.messages.phoneTooShort'), type: 'error' });
       return false;
     }
     return true;
@@ -213,7 +215,7 @@ const CustomerProfile = () => {
   // ============== HANDLERS ==============
   const handleSave = async () => {
     if (!hasChanges) {
-      setToast({ message: 'No changes to save', type: 'warning' });
+      setToast({ message: t('profile.messages.noChanges'), type: 'warning' });
       return;
     }
     if (!validateForm()) return;
@@ -248,11 +250,11 @@ const CustomerProfile = () => {
       const { data } = await updateProfile(payload);
       setProfile(data);
       setOriginalForm({ ...form });
-      setToast({ message: 'Profile updated successfully!', type: 'success' });
+      setToast({ message: t('profile.messages.profileUpdated'), type: 'success' });
     } catch (e) {
       // Rollback on error
       setForm(previousForm);
-      setToast({ message: e?.response?.data?.message || 'Failed to update profile', type: 'error' });
+      setToast({ message: e?.response?.data?.message || t('profile.messages.updateFailed'), type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -262,11 +264,11 @@ const CustomerProfile = () => {
     e.preventDefault();
     
     if (passwordForm.newPassword.length < 6) {
-      setToast({ message: 'Password must be at least 6 characters', type: 'error' });
+      setToast({ message: t('profile.messages.passwordTooShort'), type: 'error' });
       return;
     }
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setToast({ message: 'Passwords do not match', type: 'error' });
+      setToast({ message: t('profile.messages.passwordMismatch'), type: 'error' });
       return;
     }
 
@@ -276,11 +278,11 @@ const CustomerProfile = () => {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
       });
-      setToast({ message: 'Password changed successfully!', type: 'success' });
+      setToast({ message: t('profile.messages.passwordChanged'), type: 'success' });
       setShowPasswordModal(false);
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (e) {
-      setToast({ message: e?.response?.data?.message || 'Failed to change password', type: 'error' });
+      setToast({ message: e?.response?.data?.message || t('profile.messages.passwordChangeFailed'), type: 'error' });
     } finally {
       setChangingPassword(false);
     }
@@ -288,7 +290,7 @@ const CustomerProfile = () => {
 
   const handleDeleteAccount = async () => {
     if (deleteConfirmation !== 'DELETE') {
-      setToast({ message: 'Please type DELETE to confirm', type: 'error' });
+      setToast({ message: t('profile.messages.deleteConfirm'), type: 'error' });
       return;
     }
 
@@ -298,16 +300,22 @@ const CustomerProfile = () => {
       clearSession();
       window.location.href = '/';
     } catch (e) {
-      setToast({ message: e?.response?.data?.message || 'Failed to delete account', type: 'error' });
+      setToast({ message: e?.response?.data?.message || t('profile.messages.deleteFailed'), type: 'error' });
       setDeleting(false);
     }
   };
 
   const handleLogout = () => {
-    if (window.confirm("Are you sure you want to log out?")) {
+    if (window.confirm(t('profile.messages.logoutConfirm'))) {
       clearSession();
       window.location.href = '/customer-login';
     }
+  };
+
+  // Language change handler
+  const handleLanguageChange = (lang) => {
+    i18n.changeLanguage(lang);
+    localStorage.setItem('greenreceipt-lang', lang);
   };
 
   const handleRefresh = () => loadProfile(true);
@@ -322,7 +330,7 @@ const CustomerProfile = () => {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>My Profile</h2>
+        <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('profile.title')}</h2>
         <button 
           onClick={handleRefresh}
           disabled={refreshing}
@@ -350,10 +358,10 @@ const CustomerProfile = () => {
           </div>
           
           <div className="min-w-0 flex-1">
-            <h3 className="text-xl font-bold truncate">{profile?.name || 'Your Name'}</h3>
+            <h3 className="text-xl font-bold truncate">{profile?.name || t('profile.yourName')}</h3>
             <p className="text-emerald-100 text-sm truncate">{profile?.email}</p>
             {memberSince && (
-              <p className="text-emerald-200/70 text-xs mt-1">Member since {memberSince}</p>
+              <p className="text-emerald-200/70 text-xs mt-1">{t('profile.memberSince', { date: memberSince })}</p>
             )}
           </div>
         </div>
@@ -364,26 +372,26 @@ const CustomerProfile = () => {
         <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-4 rounded-2xl border shadow-sm text-center`}>
           <Receipt className="mx-auto mb-2 text-emerald-500" size={24} />
           <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{stats.receiptCount}</p>
-          <p className="text-xs text-slate-500">Receipts</p>
+          <p className="text-xs text-slate-500">{t('profile.stats.receipts')}</p>
         </div>
         <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-4 rounded-2xl border shadow-sm text-center`}>
           <TrendingUp className="mx-auto mb-2 text-blue-500" size={24} />
           <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>₹{stats.totalSpent.toLocaleString()}</p>
-          <p className="text-xs text-slate-500">Total Spent</p>
+          <p className="text-xs text-slate-500">{t('profile.stats.totalSpent')}</p>
         </div>
         <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-4 rounded-2xl border shadow-sm text-center`}>
           <Calendar className="mx-auto mb-2 text-purple-500" size={24} />
           <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{stats.receiptCount > 0 ? Math.ceil(stats.totalSpent / stats.receiptCount) : 0}</p>
-          <p className="text-xs text-slate-500">Avg/Receipt</p>
+          <p className="text-xs text-slate-500">{t('profile.stats.avgPerReceipt')}</p>
         </div>
       </div>
 
       {/* Section Tabs */}
       <div className={`flex gap-2 ${isDark ? 'bg-slate-800' : 'bg-slate-100'} p-1 rounded-xl`}>
         {[
-          { id: 'personal', label: 'Personal', icon: User },
-          { id: 'address', label: 'Address', icon: MapPin },
-          { id: 'security', label: 'Security', icon: Shield },
+          { id: 'personal', label: t('profile.tabs.personal'), icon: User },
+          { id: 'address', label: t('profile.tabs.address'), icon: MapPin },
+          { id: 'security', label: t('profile.tabs.security'), icon: Shield },
         ].map(tab => (
           <button
             key={tab.id}
@@ -406,44 +414,44 @@ const CustomerProfile = () => {
           <div className={`p-4 border-b ${isDark ? 'border-slate-700 bg-slate-800' : 'border-slate-100 bg-slate-50'}`}>
             <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-700'} flex items-center gap-2`}>
               <User size={18} className="text-emerald-500" />
-              Personal Information
+              {t('profile.personal.title')}
             </h3>
           </div>
           <div className="p-4 space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                Full Name *
+                {t('profile.personal.fullName')} *
               </label>
               <input
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))}
                 className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
-                placeholder="Enter your full name"
+                placeholder={t('profile.personal.fullNamePlaceholder')}
               />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                Email Address
+                {t('profile.personal.email')}
               </label>
               <input
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm(f => ({ ...f, email: e.target.value }))}
                 className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
-                placeholder="you@example.com"
+                placeholder={t('profile.personal.emailPlaceholder')}
               />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                Phone Number
+                {t('profile.personal.phone')}
               </label>
               <input
                 type="tel"
                 value={form.phone}
                 onChange={(e) => setForm(f => ({ ...f, phone: e.target.value }))}
                 className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
-                placeholder="+91 98765 43210"
+                placeholder={t('profile.personal.phonePlaceholder')}
               />
             </div>
           </div>
@@ -456,83 +464,83 @@ const CustomerProfile = () => {
           <div className={`p-4 border-b ${isDark ? 'border-slate-700 bg-slate-800' : 'border-slate-100 bg-slate-50'}`}>
             <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-700'} flex items-center gap-2`}>
               <MapPin size={18} className="text-emerald-500" />
-              Address Details
+              {t('profile.address.title')}
             </h3>
           </div>
           <div className="p-4 space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                Address Line 1
+                {t('profile.address.line1')}
               </label>
               <input
                 type="text"
                 value={form.line1}
                 onChange={(e) => setForm(f => ({ ...f, line1: e.target.value }))}
                 className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
-                placeholder="Street address, apartment, etc."
+                placeholder={t('profile.address.line1Placeholder')}
               />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                Address Line 2
+                {t('profile.address.line2')}
               </label>
               <input
                 type="text"
                 value={form.line2}
                 onChange={(e) => setForm(f => ({ ...f, line2: e.target.value }))}
                 className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
-                placeholder="Landmark, building name (optional)"
+                placeholder={t('profile.address.line2Placeholder')}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  City
+                  {t('profile.address.city')}
                 </label>
                 <input
                   type="text"
                   value={form.city}
                   onChange={(e) => setForm(f => ({ ...f, city: e.target.value }))}
                   className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
-                  placeholder="Mumbai"
+                  placeholder={t('profile.address.cityPlaceholder')}
                 />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  State
+                  {t('profile.address.state')}
                 </label>
                 <input
                   type="text"
                   value={form.state}
                   onChange={(e) => setForm(f => ({ ...f, state: e.target.value }))}
                   className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
-                  placeholder="Maharashtra"
+                  placeholder={t('profile.address.statePlaceholder')}
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Postal Code
+                  {t('profile.address.postalCode')}
                 </label>
                 <input
                   type="text"
                   value={form.postalCode}
                   onChange={(e) => setForm(f => ({ ...f, postalCode: e.target.value }))}
                   className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
-                  placeholder="400001"
+                  placeholder={t('profile.address.postalCodePlaceholder')}
                 />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Country
+                  {t('profile.address.country')}
                 </label>
                 <input
                   type="text"
                   value={form.country}
                   onChange={(e) => setForm(f => ({ ...f, country: e.target.value }))}
                   className={`w-full px-4 py-3 ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all`}
-                  placeholder="India"
+                  placeholder={t('profile.address.countryPlaceholder')}
                 />
               </div>
             </div>
@@ -547,7 +555,7 @@ const CustomerProfile = () => {
             <div className={`p-4 border-b ${isDark ? 'border-slate-700 bg-slate-800' : 'border-slate-100 bg-slate-50'}`}>
               <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-700'} flex items-center gap-2`}>
                 <Shield size={18} className="text-emerald-500" />
-                Security Settings
+                {t('profile.security.title')}
               </h3>
             </div>
             <div className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-slate-100'}`}>
@@ -560,8 +568,8 @@ const CustomerProfile = () => {
                     <Lock size={18} />
                   </div>
                   <div className="text-left">
-                    <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>Change Password</p>
-                    <p className="text-xs text-slate-400">Update your account password</p>
+                    <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>{t('profile.security.changePassword')}</p>
+                    <p className="text-xs text-slate-400">{t('profile.security.changePasswordDesc')}</p>
                   </div>
                 </div>
                 <ChevronRight size={18} className="text-slate-400" />
@@ -573,17 +581,17 @@ const CustomerProfile = () => {
                     <CheckCircle size={18} />
                   </div>
                   <div className="text-left">
-                    <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>Email Verified</p>
+                    <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>{t('profile.security.emailVerified')}</p>
                     <p className="text-xs text-slate-400">{profile?.email}</p>
                   </div>
                 </div>
                 {profile?.isVerified ? (
                   <span className={`text-xs font-bold ${isDark ? 'text-emerald-400 bg-emerald-900/30' : 'text-emerald-600 bg-emerald-50'} px-3 py-1 rounded-full`}>
-                    Verified
+                    {t('profile.verified')}
                   </span>
                 ) : (
                   <span className={`text-xs font-bold ${isDark ? 'text-amber-400 bg-amber-900/30' : 'text-amber-600 bg-amber-50'} px-3 py-1 rounded-full`}>
-                    Pending
+                    {t('profile.pending')}
                   </span>
                 )}
               </div>
@@ -595,7 +603,7 @@ const CustomerProfile = () => {
             <div className={`p-4 border-b ${isDark ? 'border-red-900/30' : 'border-red-100'}`}>
               <h3 className={`font-semibold ${isDark ? 'text-red-400' : 'text-red-700'} flex items-center gap-2`}>
                 <AlertTriangle size={18} />
-                Danger Zone
+                {t('profile.dangerZone.title')}
               </h3>
             </div>
             <div className="p-4">
@@ -606,8 +614,8 @@ const CustomerProfile = () => {
                 <div className="flex items-center gap-3">
                   <Trash2 size={18} className="text-red-500" />
                   <div className="text-left">
-                    <p className={`font-medium ${isDark ? 'text-red-400' : 'text-red-700'}`}>Delete Account</p>
-                    <p className="text-xs text-red-400">Permanently delete your account and data</p>
+                    <p className={`font-medium ${isDark ? 'text-red-400' : 'text-red-700'}`}>{t('profile.dangerZone.deleteAccount')}</p>
+                    <p className="text-xs text-red-400">{t('profile.dangerZone.deleteAccountDesc')}</p>
                   </div>
                 </div>
                 <ChevronRight size={18} className="text-red-400" />
@@ -631,16 +639,55 @@ const CustomerProfile = () => {
           {saving ? (
             <>
               <Loader2 size={18} className="animate-spin" />
-              Saving...
+              {t('profile.saveButton.saving')}
             </>
           ) : (
             <>
               <Save size={18} />
-              {hasChanges ? 'Save Changes' : 'No Changes'}
+              {hasChanges ? t('profile.saveButton.saveChanges') : t('profile.saveButton.noChanges')}
             </>
           )}
         </button>
       )}
+
+      {/* Language Settings */}
+      <div className={`w-full mb-4 p-4 rounded-2xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+        <div className="flex items-center gap-3 mb-3">
+          <div className={`p-2 rounded-lg ${isDark ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+            <Globe size={18} />
+          </div>
+          <div className="text-left">
+            <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>{t('profile.language.title')}</p>
+            <p className="text-xs text-slate-400">{t('profile.language.selectLanguage')}</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleLanguageChange('en')}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${
+              i18n.language === 'en'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
+                : isDark
+                  ? 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            {t('profile.language.english')}
+          </button>
+          <button
+            onClick={() => handleLanguageChange('hi')}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${
+              i18n.language === 'hi'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
+                : isDark
+                  ? 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            {t('profile.language.hindi')}
+          </button>
+        </div>
+      </div>
 
       {/* Appearance Settings */}
       <div className={`w-full mb-4 p-4 rounded-2xl border flex items-center justify-between ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
@@ -649,8 +696,8 @@ const CustomerProfile = () => {
             <Palette size={18} />
           </div>
           <div className="text-left">
-            <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>Dark Mode</p>
-            <p className="text-xs text-slate-400">Switch theme</p>
+            <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>{t('profile.appearance.darkMode')}</p>
+            <p className="text-xs text-slate-400">{t('profile.appearance.switchTheme')}</p>
           </div>
         </div>
         <ThemeToggle />
@@ -661,10 +708,10 @@ const CustomerProfile = () => {
         onClick={handleLogout}
         className={`w-full ${isDark ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:border-red-900/30 hover:text-red-400' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-red-200 hover:text-red-600'} border p-4 rounded-2xl font-medium flex items-center justify-center gap-2 transition-all`}
       >
-        <LogOut size={18} /> Log Out
+        <LogOut size={18} /> {t('common.logout')}
       </button>
       
-      <p className="text-center text-xs text-slate-400">Version 1.0.0 • GreenReceipt</p>
+      <p className="text-center text-xs text-slate-400">{t('common.version')} 1.0.0 • {t('common.appName')}</p>
 
       {/* Change Password Modal */}
       <Modal
@@ -673,12 +720,12 @@ const CustomerProfile = () => {
           setShowPasswordModal(false);
           setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
         }}
-        title="Change Password"
+        title={t('profile.security.changePassword')}
       >
         <form onSubmit={handleChangePassword} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-              Current Password
+              {t('profile.security.currentPassword')}
             </label>
             <div className="relative">
               <input
@@ -686,7 +733,7 @@ const CustomerProfile = () => {
                 value={passwordForm.currentPassword}
                 onChange={(e) => setPasswordForm(f => ({ ...f, currentPassword: e.target.value }))}
                 className={`w-full px-4 py-3 pr-12 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm outline-none focus:border-emerald-500`}
-                placeholder="Enter current password"
+                placeholder={t('profile.security.currentPasswordPlaceholder')}
                 required
               />
               <button
@@ -700,7 +747,7 @@ const CustomerProfile = () => {
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-              New Password
+              {t('profile.security.newPassword')}
             </label>
             <div className="relative">
               <input
@@ -708,7 +755,7 @@ const CustomerProfile = () => {
                 value={passwordForm.newPassword}
                 onChange={(e) => setPasswordForm(f => ({ ...f, newPassword: e.target.value }))}
                 className={`w-full px-4 py-3 pr-12 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm outline-none focus:border-emerald-500`}
-                placeholder="Min. 6 characters"
+                placeholder={t('profile.security.newPasswordPlaceholder')}
                 required
                 minLength={6}
               />
@@ -723,7 +770,7 @@ const CustomerProfile = () => {
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-              Confirm New Password
+              {t('profile.security.confirmPassword')}
             </label>
             <div className="relative">
               <input
@@ -731,7 +778,7 @@ const CustomerProfile = () => {
                 value={passwordForm.confirmPassword}
                 onChange={(e) => setPasswordForm(f => ({ ...f, confirmPassword: e.target.value }))}
                 className={`w-full px-4 py-3 pr-12 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200'} border rounded-xl text-sm outline-none focus:border-emerald-500`}
-                placeholder="Confirm new password"
+                placeholder={t('profile.security.confirmPasswordPlaceholder')}
                 required
               />
               <button
@@ -751,10 +798,10 @@ const CustomerProfile = () => {
             {changingPassword ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                Changing...
+                {t('profile.security.changing')}
               </>
             ) : (
-              'Update Password'
+              t('profile.security.updatePassword')
             )}
           </button>
         </form>
@@ -767,17 +814,17 @@ const CustomerProfile = () => {
           setShowDeleteModal(false);
           setDeleteConfirmation('');
         }}
-        title="Delete Account"
+        title={t('profile.dangerZone.deleteAccount')}
       >
         <div className="space-y-4">
           <div className={`p-4 ${isDark ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50 border-red-100'} border rounded-xl`}>
             <p className={`text-sm ${isDark ? 'text-red-400' : 'text-red-700'}`}>
-              <strong>Warning:</strong> This action is irreversible. All your data, receipts, and account information will be permanently deleted.
+              {t('profile.dangerZone.deleteWarning')}
             </p>
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-              Type "DELETE" to confirm
+              {t('profile.dangerZone.typeDelete')}
             </label>
             <input
               type="text"
@@ -795,12 +842,12 @@ const CustomerProfile = () => {
             {deleting ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                Deleting...
+                {t('profile.dangerZone.deleting')}
               </>
             ) : (
               <>
                 <Trash2 size={18} />
-                Delete My Account
+                {t('profile.dangerZone.deleteMyAccount')}
               </>
             )}
           </button>

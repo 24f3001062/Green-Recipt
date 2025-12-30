@@ -2,9 +2,11 @@ import React, { useMemo } from 'react';
 import { Home, FileText, Calendar, PieChart, User, Receipt, Bell, Leaf, Sparkles, TreePine, Droplets } from 'lucide-react';
 import { getNowIST } from '../../utils/timezone';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   
   // Calculate Eco Impact based on receipts
   const ecoImpact = useMemo(() => {
@@ -40,12 +42,12 @@ const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
 
   // Navigation Items
   const navItems = [
-    { id: 'home', icon: Home, label: 'Home' },
-    { id: 'receipts', icon: FileText, label: 'Receipts' },
-    { id: 'calendar', icon: Calendar, label: 'History' },
-    { id: 'insights', icon: PieChart, label: 'Insights' },
-    { id: 'notifications', icon: Bell, label: 'Alerts', hasBadge: true },
-    { id: 'profile', icon: User, label: 'Profile' },
+    { id: 'home', icon: Home, label: t('nav.home') },
+    { id: 'receipts', icon: FileText, label: t('nav.receipts') },
+    { id: 'calendar', icon: Calendar, label: t('nav.history') },
+    { id: 'insights', icon: PieChart, label: t('nav.insights') },
+    { id: 'notifications', icon: Bell, label: t('nav.alerts'), hasBadge: true },
+    { id: 'profile', icon: User, label: t('nav.profile') },
   ];
 
   // Mobile nav items (exclude notifications - shown in header)
@@ -72,8 +74,8 @@ const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
                 <Leaf size={20} />
               </div>
               <div>
-                <span className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>GreenReceipt</span>
-                <p className={`text-[10px] font-medium -mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Go paperless</p>
+                <span className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{t('common.appName')}</span>
+                <p className={`text-[10px] font-medium -mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('common.tagline')}</p>
               </div>
             </div>
           </div>
@@ -138,14 +140,14 @@ const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
               isDark ? 'text-emerald-400' : 'text-emerald-700'
             }`}>
               <Sparkles size={16} />
-              <span className="text-xs font-bold uppercase">Eco Impact</span>
+              <span className="text-xs font-bold uppercase">{t('ecoImpact.title')}</span>
             </div>
             
             {/* Main stat */}
             <p className={`text-sm font-medium mb-3 ${
               isDark ? 'text-emerald-300' : 'text-emerald-800'
             }`}>
-              You've saved <span className={`font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>{ecoImpact.monthlyPaperSaved}kg</span> of paper this month! 🌱
+              {t('ecoImpact.paperSaved', { amount: ecoImpact.monthlyPaperSaved })}
             </p>
             
             {/* Detailed stats */}
@@ -159,7 +161,7 @@ const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
                   <Receipt size={12} />
                 </div>
                 <p className={`text-lg font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>{ecoImpact.monthlyReceipts}</p>
-                <p className={`text-[9px] font-medium ${isDark ? 'text-emerald-500' : 'text-emerald-600'}`}>This Month</p>
+                <p className={`text-[9px] font-medium ${isDark ? 'text-emerald-500' : 'text-emerald-600'}`}>{t('ecoImpact.thisMonth')}</p>
               </div>
               <div className={`rounded-lg p-2 text-center ${
                 isDark ? 'bg-slate-800/50' : 'bg-white/60'
@@ -170,7 +172,7 @@ const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
                   <Droplets size={12} />
                 </div>
                 <p className={`text-lg font-bold ${isDark ? 'text-teal-400' : 'text-teal-700'}`}>{ecoImpact.waterSaved}L</p>
-                <p className={`text-[9px] font-medium ${isDark ? 'text-teal-500' : 'text-teal-600'}`}>Water Saved</p>
+                <p className={`text-[9px] font-medium ${isDark ? 'text-teal-500' : 'text-teal-600'}`}>{t('ecoImpact.waterSaved')}</p>
               </div>
             </div>
             
@@ -179,7 +181,7 @@ const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
               isDark ? 'border-emerald-500/20' : 'border-emerald-200/50'
             }`}>
               <p className={`text-[10px] ${isDark ? 'text-emerald-500' : 'text-emerald-600'}`}>
-                All time: <span className="font-bold">{ecoImpact.totalReceipts} receipts</span> • <span className="font-bold">{ecoImpact.paperSaved}kg</span> paper saved
+                {t('ecoImpact.allTime', { receipts: ecoImpact.totalReceipts, paper: ecoImpact.paperSaved })}
               </p>
             </div>
           </div>

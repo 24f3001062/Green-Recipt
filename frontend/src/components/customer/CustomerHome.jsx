@@ -11,6 +11,7 @@ import { fetchCustomerReceipts, createReceipt, fetchCustomerAnalytics } from '..
 import toast from 'react-hot-toast';
 import { getTodayIST, formatISTDateDisplay } from '../../utils/timezone';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 // ============== SKELETON LOADER ==============
 const HomeSkeleton = ({ isDark }) => (
@@ -68,6 +69,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, trend, trendValue, color
 // ============== MAIN COMPONENT ==============
 const CustomerHome = ({ onNavigate, onScanTrigger }) => {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   
   // 🟢 STATE
   const [receipts, setReceipts] = useState([]);
@@ -205,10 +207,10 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
       setManualMerchant("");
       setManualDate(getTodayIST()); // Reset to today IST
       setIncludeInStats(true);
-      toast.success("Receipt uploaded successfully!");
+      toast.success(t('receipts.uploadSuccess'));
     } catch (error) {
       console.error("Upload error:", error);
-      toast.error(error.response?.data?.message || "Failed to upload receipt");
+      toast.error(error.response?.data?.message || t('receipts.uploadFailed'));
     } finally {
       setIsUploading(false);
     }
@@ -220,13 +222,13 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
       {/* ========== HEADER ========== */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className={`text-xl md:text-3xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Dashboard</h1>
-          <p className={`text-xs md:text-sm mt-0.5 md:mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Your spending at a glance</p>
+          <h1 className={`text-xl md:text-3xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('dashboard.title')}</h1>
+          <p className={`text-xs md:text-sm mt-0.5 md:mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('dashboard.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <div className={`flex items-center gap-1 text-[10px] md:text-xs px-2 md:px-3 py-1 md:py-1.5 rounded-full ${isDark ? 'text-slate-300 bg-slate-700' : 'text-slate-400 bg-slate-100'}`}>
             <Sparkles size={10} className="text-emerald-500 md:w-3 md:h-3" />
-            <span>{receipts.length} receipts</span>
+            <span>{receipts.length} {t('common.receipts')}</span>
           </div>
         </div>
       </div>
@@ -242,7 +244,7 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
             <div>
               <div className="flex items-center gap-2 mb-2 md:mb-3">
                 <span className="px-2 md:px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider">
-                  This Month
+                  {t('dashboard.thisMonth')}
                 </span>
                 {monthChange !== 0 && (
                   <span className={`flex items-center gap-0.5 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-bold ${
@@ -257,7 +259,7 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
                 ₹{(summary?.thisMonth?.total || totalSpent).toLocaleString('en-IN')}
               </h2>
               <p className="text-slate-400 text-xs md:text-sm mt-1.5 md:mt-2">
-                {summary?.thisMonth?.count || receipts.length} receipts this month
+                {t('dashboard.receiptsThisMonth', { count: summary?.thisMonth?.count || receipts.length })}
               </p>
             </div>
             
@@ -266,14 +268,14 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
               <div className="flex-1 md:flex-none bg-white/10 backdrop-blur-sm px-3 md:px-4 py-2 md:py-3 rounded-xl">
                 <div className="flex items-center gap-1.5 md:gap-2 text-emerald-400 mb-0.5 md:mb-1">
                   <Smartphone size={12} className="md:w-[14px] md:h-[14px]" />
-                  <span className="text-[10px] md:text-xs font-medium">UPI</span>
+                  <span className="text-[10px] md:text-xs font-medium">{t('dashboard.upi')}</span>
                 </div>
                 <p className="text-base md:text-xl font-bold">₹{upiTotal.toLocaleString('en-IN')}</p>
               </div>
               <div className="flex-1 md:flex-none bg-white/10 backdrop-blur-sm px-3 md:px-4 py-2 md:py-3 rounded-xl">
                 <div className="flex items-center gap-1.5 md:gap-2 text-amber-400 mb-0.5 md:mb-1">
                   <Banknote size={12} className="md:w-[14px] md:h-[14px]" />
-                  <span className="text-[10px] md:text-xs font-medium">Cash</span>
+                  <span className="text-[10px] md:text-xs font-medium">{t('dashboard.cash')}</span>
                 </div>
                 <p className="text-base md:text-xl font-bold">₹{cashTotal.toLocaleString('en-IN')}</p>
               </div>
