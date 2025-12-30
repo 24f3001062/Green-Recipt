@@ -27,26 +27,48 @@ export const AuthProvider = ({ children }) => {
 
   /**
    * Initialize auth state from stored tokens
+   * On app load, attempts to refresh the access token using HTTP-only cookie
+   * This keeps users logged in for 21 days
    */
   const initializeAuth = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Check if we have stored credentials
-      const hasStoredAuth = api.isAuthenticated();
+      // Check if we have stored session data
+      const hasStoredSession = api.hasSession();
       
-      if (!hasStoredAuth) {
-        setIsAuthenticated(false);
-        setUser(null);
-        setRole(null);
+      if (!hasStoredSession) {
+        // No stored session, but try to refresh anyway (cookie might still be valid)
+        try {
+          const newToken = await api.refreshAccessToken();
+          if (newToken) {
+            // We have a valid refresh token cookie, get session info
+            const { data } = await api.validateSession();
+            if (data.valid) {
+              setUser(data.user);
+              setRole(data.role);
+              setIsAuthenticated(true);
+              // Store role/user for future checks
+              localStorage.setItem('role', data.role);
+              localStorage.setItem('user', JSON.stringify(data.user));
+            }
+          }
+        } catch (err) {
+          // No valid session
+          setIsAuthenticated(false);
+          setUser(null);
+          setRole(null);
+        }
         setIsLoading(false);
         return;
       }
 
-      // Try to validate session with backend
+      // Try to refresh access token using HTTP-only cookie
       try {
-        // If token is expired, this will trigger a refresh via interceptor
+        await api.refreshAccessToken();
+        
+        // Token refreshed successfully, validate session
         const { data } = await api.validateSession();
         
         if (data.valid) {
@@ -61,12 +83,19 @@ export const AuthProvider = ({ children }) => {
           setRole(null);
         }
       } catch (err) {
-        // If validation fails (network error, etc.), use stored data
-        // The interceptors will handle token refresh
+        // Refresh failed - either network error or 21 days expired
+        // Use stored data as fallback for offline scenarios
         const storedUser = api.getStoredUser();
         const storedRole = api.getStoredRole();
         
-        if (storedUser && storedRole) {
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          // Session expired (21 days passed), clear everything
+          api.clearSession();
+          setIsAuthenticated(false);
+          setUser(null);
+          setRole(null);
+        } else if (storedUser && storedRole) {
+          // Network error - use cached data
           setUser(storedUser);
           setRole(storedRole);
           setIsAuthenticated(true);
@@ -94,10 +123,9 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data } = await api.loginUser({ email, password, role: userRole });
       
-      // Store session data
+      // Store session data (refresh token is now in HTTP-only cookie)
       api.setSession({
         accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
         expiresIn: data.expiresIn,
         role: data.role,
         user: data.user,
@@ -120,10 +148,9 @@ export const AuthProvider = ({ children }) => {
    * Signup and verify handler (after OTP verification)
    */
   const handleVerification = useCallback((data) => {
-    // Store session data from verification response
+    // Store session data from verification response (refresh token in HTTP-only cookie)
     api.setSession({
       accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
       expiresIn: data.expiresIn,
       role: data.role,
       user: data.user,
@@ -140,11 +167,8 @@ export const AuthProvider = ({ children }) => {
    */
   const logout = useCallback(async () => {
     try {
-      const refreshToken = api.getRefreshToken();
-      if (refreshToken) {
-        // Try to invalidate refresh token on server
-        await api.logoutUser(refreshToken);
-      }
+      // Call logout API - server will clear HTTP-only cookie
+      await api.logoutUser();
     } catch (err) {
       // Ignore errors - we'll clear local session anyway
       console.log('Logout API call failed:', err.message);
@@ -214,8 +238,8 @@ export const AuthProvider = ({ children }) => {
     if (!isAuthenticated) return;
 
     const checkSession = () => {
-      // Check if tokens are still present
-      if (!api.isAuthenticated()) {
+      // Check if role is still present (basic session indicator)
+      if (!api.hasSession()) {
         setIsAuthenticated(false);
         setUser(null);
         setRole(null);

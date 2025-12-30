@@ -12,8 +12,17 @@ const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || JWT_SECRET + "_
 // TOKEN CONFIGURATION
 // ==========================================
 const ACCESS_TOKEN_EXPIRES_IN = "15m"; // Short-lived access token
-const REFRESH_TOKEN_EXPIRES_IN_DAYS = 7; // 7 days for refresh token (configurable)
+const REFRESH_TOKEN_EXPIRES_IN_DAYS = 21; // 21 days for refresh token (configurable)
 const REFRESH_TOKEN_EXPIRES_IN_MS = REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000;
+
+// Cookie configuration for refresh token
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+  maxAge: REFRESH_TOKEN_EXPIRES_IN_MS,
+  path: "/",
+};
 
 // Legacy support - used for simple token flows
 const JWT_EXPIRES_IN = "7d";
@@ -319,11 +328,13 @@ export const login = async (req, res) => {
     // Persist refresh token hash and metadata
     await persistRefreshToken(account, refreshToken);
 
+    // Set refresh token as HTTP-only cookie (secure, not accessible to JS)
+    res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
+
     res.json({
       accessToken,
-      refreshToken,
       expiresIn: 15 * 60, // 15 minutes in seconds
-      refreshExpiresIn: REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60, // 7 days in seconds
+      refreshExpiresIn: REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60, // 21 days in seconds
       role: account.role,
       user:
         account.role === "customer"
@@ -618,10 +629,11 @@ export const deleteAccount = async (req, res) => {
  */
 export const refreshAccessToken = async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    // Read refresh token from HTTP-only cookie (primary) or request body (fallback for migration)
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
     if (!refreshToken) {
-      return res.status(400).json({ message: "Refresh token is required" });
+      return res.status(401).json({ message: "No refresh token provided", code: "NO_REFRESH_TOKEN" });
     }
 
     // Verify the refresh token
@@ -629,6 +641,14 @@ export const refreshAccessToken = async (req, res) => {
     try {
       decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
     } catch (error) {
+      // Clear cookie so clients stop retrying with a bad/expired refresh token
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+        path: "/",
+      });
+
       if (error.name === "TokenExpiredError") {
         return res.status(401).json({ message: "Refresh token expired. Please login again.", code: "REFRESH_TOKEN_EXPIRED" });
       }
@@ -645,6 +665,12 @@ export const refreshAccessToken = async (req, res) => {
 
     // Check if refresh token is still valid in database
     if (!account.refreshToken || !account.refreshTokenExpiry) {
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+        path: "/",
+      });
       return res.status(401).json({ message: "Session expired. Please login again.", code: "SESSION_EXPIRED" });
     }
 
@@ -652,12 +678,24 @@ export const refreshAccessToken = async (req, res) => {
     if (account.refreshTokenExpiry < new Date()) {
       // Clear expired token
       await clearRefreshToken(account);
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+        path: "/",
+      });
       return res.status(401).json({ message: "Session expired. Please login again.", code: "SESSION_EXPIRED" });
     }
 
     // Verify token version matches (for invalidating all sessions on password change)
     if (decoded.tokenVersion !== (account.tokenVersion || 0)) {
       await clearRefreshToken(account);
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+        path: "/",
+      });
       return res.status(401).json({ message: "Session invalidated. Please login again.", code: "SESSION_INVALIDATED" });
     }
 
@@ -666,6 +704,12 @@ export const refreshAccessToken = async (req, res) => {
     if (!isValidToken) {
       // Possible token reuse attack - clear all tokens
       await clearRefreshToken(account);
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+        path: "/",
+      });
       return res.status(401).json({ message: "Invalid session. Please login again.", code: "INVALID_SESSION" });
     }
 
@@ -676,9 +720,11 @@ export const refreshAccessToken = async (req, res) => {
     const newRefreshToken = generateRefreshToken(account);
     await persistRefreshToken(account, newRefreshToken);
 
+    // Set new refresh token as HTTP-only cookie
+    res.cookie("refreshToken", newRefreshToken, COOKIE_OPTIONS);
+
     res.json({
       accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
       expiresIn: 15 * 60, // 15 minutes in seconds
       refreshExpiresIn: REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60,
       role: account.role,
@@ -695,7 +741,16 @@ export const refreshAccessToken = async (req, res) => {
  */
 export const logout = async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    // Read refresh token from cookie (primary) or request body (fallback)
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+
+    // Always clear the cookie
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      path: "/",
+    });
 
     if (!refreshToken) {
       // Even without refresh token, return success (idempotent logout)

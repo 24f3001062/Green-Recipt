@@ -7,21 +7,21 @@ const API_TIMEOUT = 30000; // 30 seconds
 const MAX_RETRIES = 2;
 const RETRY_DELAY = 1000; // 1 second
 
-// Token storage keys
+// Token storage keys (refresh token now stored in HTTP-only cookie, not localStorage)
 const TOKEN_KEY = "accessToken";
-const REFRESH_TOKEN_KEY = "refreshToken";
 const TOKEN_EXPIRY_KEY = "tokenExpiry";
 const ROLE_KEY = "role";
 const USER_KEY = "user";
 const IS_PROFILE_COMPLETE_KEY = "isProfileComplete";
 
-// Create axios instance
+// Create axios instance with credentials for HTTP-only cookie support
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:5001/api",
   timeout: API_TIMEOUT,
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true, // Required for HTTP-only cookies
 });
 
 // ==========================================
@@ -52,8 +52,15 @@ const onRefreshFailed = (error) => {
 // Get stored access token
 export const getAccessToken = () => localStorage.getItem(TOKEN_KEY);
 
-// Get stored refresh token
-export const getRefreshToken = () => localStorage.getItem(REFRESH_TOKEN_KEY);
+// Check if user has a session (refresh token is in HTTP-only cookie, so we check for role)
+// The actual refresh token validation happens server-side
+export const hasSession = () => {
+  const role = localStorage.getItem(ROLE_KEY);
+  return !!role;
+};
+
+// Legacy function for backward compatibility
+export const isAuthenticated = () => hasSession();
 
 // Check if access token is expired or about to expire (within 1 minute)
 export const isTokenExpired = () => {
@@ -61,13 +68,6 @@ export const isTokenExpired = () => {
   if (!expiry) return true;
   // Consider expired if within 60 seconds of expiry
   return Date.now() >= parseInt(expiry, 10) - 60000;
-};
-
-// Check if user is authenticated (has valid refresh token)
-export const isAuthenticated = () => {
-  const refreshToken = getRefreshToken();
-  const role = localStorage.getItem(ROLE_KEY);
-  return !!(refreshToken && role);
 };
 
 // Get stored user info
@@ -85,13 +85,11 @@ export const getStoredRole = () => localStorage.getItem(ROLE_KEY);
 
 /**
  * Store session data after login/signup
+ * Note: Refresh token is now stored in HTTP-only cookie by the server
  */
-export const setSession = ({ accessToken, refreshToken, expiresIn, role, user, isProfileComplete }) => {
+export const setSession = ({ accessToken, expiresIn, role, user, isProfileComplete }) => {
   if (accessToken) {
     localStorage.setItem(TOKEN_KEY, accessToken);
-  }
-  if (refreshToken) {
-    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
   }
   if (expiresIn) {
     // Store expiry time as timestamp
@@ -111,13 +109,11 @@ export const setSession = ({ accessToken, refreshToken, expiresIn, role, user, i
 
 /**
  * Update tokens after refresh
+ * Note: Refresh token is managed via HTTP-only cookie by the server
  */
-export const updateTokens = ({ accessToken, refreshToken, expiresIn }) => {
+export const updateTokens = ({ accessToken, expiresIn }) => {
   if (accessToken) {
     localStorage.setItem(TOKEN_KEY, accessToken);
-  }
-  if (refreshToken) {
-    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
   }
   if (expiresIn) {
     const expiryTime = Date.now() + expiresIn * 1000;
@@ -127,37 +123,37 @@ export const updateTokens = ({ accessToken, refreshToken, expiresIn }) => {
 
 /**
  * Clear all session data (logout)
+ * Note: Server clears the HTTP-only refresh token cookie
  */
 export const clearSession = () => {
   localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(TOKEN_EXPIRY_KEY);
   localStorage.removeItem(ROLE_KEY);
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(IS_PROFILE_COMPLETE_KEY);
+  // Also remove legacy refresh token if it exists (migration cleanup)
+  localStorage.removeItem("refreshToken");
 };
 
 /**
- * Refresh the access token using refresh token
+ * Refresh the access token using HTTP-only cookie refresh token
+ * The refresh token is sent automatically via cookies (withCredentials: true)
  */
 export const refreshAccessToken = async () => {
-  const refreshToken = getRefreshToken();
-  
-  if (!refreshToken) {
-    throw new Error("No refresh token available");
-  }
-
   try {
-    // Use a separate axios instance to avoid interceptors
+    // Use a separate axios instance to avoid interceptors, but with credentials
     const response = await axios.post(
       `${import.meta.env.VITE_API_URL || "http://localhost:5001/api"}/auth/refresh`,
-      { refreshToken },
-      { timeout: API_TIMEOUT }
+      {}, // Empty body - refresh token is in HTTP-only cookie
+      { 
+        timeout: API_TIMEOUT,
+        withCredentials: true, // Required for HTTP-only cookies
+      }
     );
 
-    const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
+    const { accessToken, expiresIn } = response.data;
     
-    updateTokens({ accessToken, refreshToken: newRefreshToken, expiresIn });
+    updateTokens({ accessToken, expiresIn });
     
     return accessToken;
   } catch (error) {
@@ -187,13 +183,14 @@ api.interceptors.request.use(
     // Skip token refresh for auth endpoints
     const isAuthEndpoint = config.url?.includes("/auth/refresh") || 
                            config.url?.includes("/auth/login") ||
-                           config.url?.includes("/auth/logout");
+                           config.url?.includes("/auth/logout") ||
+                           config.url?.includes("/auth/signup");
     
     if (!isAuthEndpoint) {
       let token = getAccessToken();
       
-      // Check if token is expired and we have a refresh token
-      if (isTokenExpired() && getRefreshToken()) {
+      // Check if token is expired and we have a session
+      if (isTokenExpired() && hasSession()) {
         // If already refreshing, wait for it
         if (isRefreshing) {
           token = await new Promise((resolve, reject) => {
@@ -240,7 +237,7 @@ api.interceptors.response.use(
     // Handle 401 errors
     if (status === 401) {
       // If token expired, try to refresh
-      if (errorCode === "TOKEN_EXPIRED" && getRefreshToken() && !config.__isRetry) {
+      if ((errorCode === "TOKEN_EXPIRED" || !errorCode) && hasSession() && !config.__isRetry) {
         config.__isRetry = true;
         
         try {
@@ -355,8 +352,8 @@ export const forgotPassword = (payload) => api.post("/auth/forgot-password", pay
 export const resetPassword = (payload) => api.post("/auth/reset-password", payload);
 
 // Session management APIs
-export const refreshToken = (refreshToken) => api.post("/auth/refresh", { refreshToken });
-export const logoutUser = (refreshToken) => api.post("/auth/logout", { refreshToken });
+export const refreshToken = () => api.post("/auth/refresh"); // Refresh token sent via cookie
+export const logoutUser = () => api.post("/auth/logout"); // Server clears the cookie
 export const logoutAllDevices = () => api.post("/auth/logout-all");
 export const validateSession = () => api.get("/auth/session");
 
