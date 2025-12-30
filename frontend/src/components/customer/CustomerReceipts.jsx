@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MOCK_RECEIPTS } from './customerData';
 import ReceiptCard from './ReceiptCard';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -18,6 +19,7 @@ const ReceiptsSkeleton = ({ isDark }) => (
 
 const CustomerReceipts = () => {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   const [receipts, setReceipts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -113,8 +115,8 @@ const CustomerReceipts = () => {
       {/* ========== HEADER ========== */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className={`text-xl md:text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>All Receipts</h1>
-          <p className={`text-xs md:text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{stats.count} receipts • ₹{stats.total.toLocaleString('en-IN')} total</p>
+          <h1 className={`text-xl md:text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('receipts.title')}</h1>
+          <p className={`text-xs md:text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{stats.count} {t('common.receipts')} • ₹{stats.total.toLocaleString('en-IN')} {t('common.total')}</p>
         </div>
         <button 
           onClick={() => setShowFilters(!showFilters)}
@@ -135,7 +137,7 @@ const CustomerReceipts = () => {
           <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} size={18}/>
           <input 
             type="text" 
-            placeholder="Search by merchant name..." 
+            placeholder={t('receipts.searchPlaceholder')} 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={`w-full pl-10 pr-10 py-2.5 md:py-3 border rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all ${isDark ? 'bg-dark-surface border-dark-border text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
@@ -150,9 +152,9 @@ const CustomerReceipts = () => {
         {/* Type Filter Tabs */}
         <div className={`flex gap-1.5 md:gap-2 p-1 md:p-1.5 rounded-lg md:rounded-xl ${isDark ? 'bg-dark-surface' : 'bg-slate-100'}`}>
           {[
-            { id: 'all', label: 'All', icon: Receipt, count: receipts.length },
-            { id: 'qr', label: 'Digital', icon: QrCode, count: receipts.filter(r => r.type === 'qr').length },
-            { id: 'upload', label: 'Uploaded', icon: Upload, count: receipts.filter(r => r.type === 'upload').length },
+            { id: 'all', label: t('common.all'), icon: Receipt, count: receipts.length },
+            { id: 'qr', label: t('receipts.digital'), icon: QrCode, count: receipts.filter(r => r.type === 'qr').length },
+            { id: 'upload', label: t('receipts.uploaded'), icon: Upload, count: receipts.filter(r => r.type === 'upload').length },
           ].map(type => (
             <button 
               key={type.id}
@@ -183,13 +185,13 @@ const CustomerReceipts = () => {
           <div className={`pt-3 border-t space-y-3 animate-fade-in ${isDark ? 'border-dark-border' : 'border-slate-100'}`}>
             {/* Payment Method */}
             <div>
-              <label className={`text-[10px] md:text-xs font-bold uppercase mb-2 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Payment Method</label>
+              <label className={`text-[10px] md:text-xs font-bold uppercase mb-2 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('receipts.paymentMethod')}</label>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { id: 'all', label: 'All', icon: null },
-                  { id: 'upi', label: 'UPI', icon: Smartphone },
-                  { id: 'cash', label: 'Cash', icon: Banknote },
-                  { id: 'card', label: 'Card', icon: CreditCard },
+                  { id: 'all', label: t('common.all'), icon: null },
+                  { id: 'upi', label: t('dashboard.upi'), icon: Smartphone },
+                  { id: 'cash', label: t('dashboard.cash'), icon: Banknote },
+                  { id: 'card', label: t('receipts.card'), icon: CreditCard },
                 ].map(pm => (
                   <button
                     key={pm.id}
@@ -211,11 +213,11 @@ const CustomerReceipts = () => {
 
             {/* Sort By */}
             <div>
-              <label className={`text-[10px] md:text-xs font-bold uppercase mb-2 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Sort By</label>
+              <label className={`text-[10px] md:text-xs font-bold uppercase mb-2 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('receipts.sortBy')}</label>
               <div className="flex gap-2">
                 {[
-                  { id: 'date', label: 'Latest First', icon: Calendar },
-                  { id: 'amount', label: 'Highest Amount', icon: ArrowUpDown },
+                  { id: 'date', label: t('receipts.latestFirst'), icon: Calendar },
+                  { id: 'amount', label: t('receipts.highestAmount'), icon: ArrowUpDown },
                 ].map(sort => (
                   <button
                     key={sort.id}
@@ -241,15 +243,15 @@ const CustomerReceipts = () => {
       {/* ========== QUICK STATS ========== */}
       <div className="grid grid-cols-3 gap-2 md:gap-3">
         <div className={`p-3 md:p-4 rounded-xl border text-center ${isDark ? 'bg-dark-card border-dark-border' : 'bg-white border-slate-100'}`}>
-          <p className={`text-[10px] md:text-xs font-semibold uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Total</p>
+          <p className={`text-[10px] md:text-xs font-semibold uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('common.total')}</p>
           <p className={`text-base md:text-xl font-bold mt-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>₹{stats.total.toLocaleString('en-IN')}</p>
         </div>
         <div className={`p-3 md:p-4 rounded-xl border text-center ${isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
-          <p className={`text-[10px] md:text-xs font-semibold uppercase ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Digital</p>
+          <p className={`text-[10px] md:text-xs font-semibold uppercase ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{t('receipts.digital')}</p>
           <p className={`text-base md:text-xl font-bold mt-1 ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>{stats.digital}</p>
         </div>
         <div className={`p-3 md:p-4 rounded-xl border text-center ${isDark ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-100'}`}>
-          <p className={`text-[10px] md:text-xs font-semibold uppercase ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Uploaded</p>
+          <p className={`text-[10px] md:text-xs font-semibold uppercase ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>{t('receipts.uploaded')}</p>
           <p className={`text-base md:text-xl font-bold mt-1 ${isDark ? 'text-blue-400' : 'text-blue-700'}`}>{stats.uploaded}</p>
         </div>
       </div>
@@ -261,14 +263,14 @@ const CustomerReceipts = () => {
             <div className={`w-16 md:w-20 h-16 md:h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${isDark ? 'bg-dark-card' : 'bg-slate-100'}`}>
               <Inbox size={28} className={`md:w-8 md:h-8 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
             </div>
-            <p className={`font-semibold mb-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>No receipts found</p>
-            <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Try adjusting your filters or search</p>
+            <p className={`font-semibold mb-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{t('receipts.noReceiptsFound')}</p>
+            <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('receipts.adjustFilters')}</p>
             {(search || filter !== 'all' || paymentFilter !== 'all') && (
               <button 
                 onClick={() => { setSearch(''); setFilter('all'); setPaymentFilter('all'); }}
                 className={`mt-4 px-4 py-2 rounded-lg text-sm font-bold transition-colors ${isDark ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
               >
-                Clear all filters
+                {t('receipts.clearFilters')}
               </button>
             )}
           </div>

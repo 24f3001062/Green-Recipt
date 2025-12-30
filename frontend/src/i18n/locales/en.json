@@ -28,7 +28,8 @@
     "currency": "₹",
     "receipts": "receipts",
     "receipt": "receipt",
-    "total": "total"
+    "total": "total",
+    "viewAll": "View All"
   },
   
   "nav": {
@@ -54,7 +55,16 @@
     "thisYear": "This Year",
     "receiptsThisMonth": "{{count}} receipts this month",
     "upi": "UPI",
-    "cash": "Cash"
+    "cash": "Cash",
+    "receipts": "Receipts",
+    "thisMonthLabel": "This month",
+    "avgPerDay": "Avg/Day",
+    "dailyAverage": "Daily average",
+    "lastWeekLabel": "Last Week",
+    "receiptsCount": "{{count}} receipts",
+    "projected": "Projected",
+    "endOfMonth": "End of month",
+    "recentActivity": "Recent Activity"
   },
   
   "receipts": {
@@ -62,14 +72,23 @@
     "subtitle": "{{count}} receipts • {{currency}}{{total}} total",
     "searchPlaceholder": "Search by merchant name...",
     "noReceipts": "No receipts",
+    "noReceiptsYet": "No receipts yet",
+    "noReceiptsFound": "No receipts found",
+    "scanOrUpload": "Scan a QR code or upload to get started",
+    "adjustFilters": "Try adjusting your filters or search",
+    "clearFilters": "Clear all filters",
     "allCaughtUp": "You're all caught up!",
     "digital": "Digital",
     "uploaded": "Uploaded",
     "qr": "QR",
     "upload": "Upload",
+    "sortBy": "Sort By",
     "sortByDate": "Date",
     "sortByAmount": "Amount",
+    "latestFirst": "Latest First",
+    "highestAmount": "Highest Amount",
     "paymentMethod": "Payment Method",
+    "card": "Card",
     "deleteConfirm": "Delete this receipt?",
     "uploadSuccess": "Receipt uploaded successfully!",
     "uploadFailed": "Failed to upload receipt"
@@ -215,8 +234,9 @@
   },
   
   "insights": {
-    "title": "Spending Insights",
-    "subtitle": "Understand your spending patterns",
+    "title": "Insights",
+    "subtitle": "Your spending analytics",
+    "overview": "Overview",
     "totalSpent": "Total Spent",
     "avgTransaction": "Avg Transaction",
     "categories": "Categories",
@@ -225,8 +245,21 @@
     "spendingByCategory": "Spending by Category",
     "monthlyTrend": "Monthly Trend",
     "weeklySpending": "Weekly Spending",
-    "noData": "No data available",
-    "loading": "Loading insights..."
+    "noData": "No spending data yet",
+    "loading": "Loading insights...",
+    "loadError": "Unable to load insights. Please try again.",
+    "vsLastMonth": "vs last month",
+    "dailySpending": "Daily Spending",
+    "last14Days": "Last 14 days",
+    "last6Months": "Last 6 months",
+    "favoriteMerchants": "Favorite Merchants",
+    "spendingBreakdown": "Spending Breakdown",
+    "categoryDetails": "Category Details",
+    "upiPayments": "UPI Payments",
+    "cashPayments": "Cash Payments",
+    "transactions": "transactions",
+    "topPurchases": "Top Purchases",
+    "smartSuggestions": "Smart Suggestions"
   },
   
   "upload": {
@@ -234,13 +267,24 @@
     "dragDrop": "Drag & drop or click to upload",
     "selectFile": "Select File",
     "merchant": "Merchant Name",
-    "merchantPlaceholder": "Unknown Merchant",
+    "merchantPlaceholder": "e.g. Starbucks, Uber",
+    "merchantShop": "Merchant / Shop",
     "amount": "Amount",
     "amountPlaceholder": "0.00",
+    "totalAmount": "Total Amount",
     "date": "Transaction Date",
+    "transactionDate": "Transaction Date",
     "includeInStats": "Include in statistics",
+    "includeInAnalytics": "Include in Analytics",
+    "trackInCharts": "Track in spending charts",
     "uploading": "Uploading...",
     "uploadReceipt": "Upload Receipt",
+    "addReceipt": "Add Receipt",
+    "saveReceipt": "Save Receipt",
+    "scanQr": "Scan QR",
+    "addDigitalReceipt": "Add digital receipt",
+    "upload": "Upload",
+    "photoOrPdf": "Photo or PDF",
     "cancel": "Cancel"
   },
   

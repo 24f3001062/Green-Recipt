@@ -28,7 +28,8 @@
     "currency": "₹",
     "receipts": "रसीदें",
     "receipt": "रसीद",
-    "total": "कुल"
+    "total": "कुल",
+    "viewAll": "सभी देखें"
   },
   
   "nav": {
@@ -54,7 +55,16 @@
     "thisYear": "इस साल",
     "receiptsThisMonth": "इस महीने {{count}} रसीदें",
     "upi": "UPI",
-    "cash": "नकद"
+    "cash": "नकद",
+    "receipts": "रसीदें",
+    "thisMonthLabel": "इस महीने",
+    "avgPerDay": "औसत/दिन",
+    "dailyAverage": "दैनिक औसत",
+    "lastWeekLabel": "पिछला हफ्ता",
+    "receiptsCount": "{{count}} रसीदें",
+    "projected": "अनुमानित",
+    "endOfMonth": "महीने के अंत तक",
+    "recentActivity": "हाल की गतिविधि"
   },
   
   "receipts": {
@@ -62,14 +72,23 @@
     "subtitle": "{{count}} रसीदें • {{currency}}{{total}} कुल",
     "searchPlaceholder": "दुकान के नाम से खोजें...",
     "noReceipts": "कोई रसीद नहीं",
+    "noReceiptsYet": "अभी कोई रसीद नहीं",
+    "noReceiptsFound": "कोई रसीद नहीं मिली",
+    "scanOrUpload": "शुरू करने के लिए QR स्कैन करें या अपलोड करें",
+    "adjustFilters": "अपने फ़िल्टर या खोज को समायोजित करें",
+    "clearFilters": "सभी फ़िल्टर हटाएं",
     "allCaughtUp": "सब अपडेट हो गया!",
     "digital": "डिजिटल",
     "uploaded": "अपलोड की गई",
     "qr": "QR",
     "upload": "अपलोड",
+    "sortBy": "क्रम से",
     "sortByDate": "तारीख",
     "sortByAmount": "राशि",
+    "latestFirst": "नवीनतम पहले",
+    "highestAmount": "सबसे अधिक राशि",
     "paymentMethod": "भुगतान विधि",
+    "card": "कार्ड",
     "deleteConfirm": "यह रसीद हटाएं?",
     "uploadSuccess": "रसीद सफलतापूर्वक अपलोड हुई!",
     "uploadFailed": "रसीद अपलोड करने में विफल"
@@ -215,8 +234,9 @@
   },
   
   "insights": {
-    "title": "खर्च विश्लेषण",
-    "subtitle": "अपने खर्च पैटर्न को समझें",
+    "title": "विश्लेषण",
+    "subtitle": "आपका खर्च एनालिटिक्स",
+    "overview": "ओवरव्यू",
     "totalSpent": "कुल खर्च",
     "avgTransaction": "औसत लेनदेन",
     "categories": "श्रेणियां",
@@ -225,8 +245,21 @@
     "spendingByCategory": "श्रेणी के अनुसार खर्च",
     "monthlyTrend": "मासिक रुझान",
     "weeklySpending": "साप्ताहिक खर्च",
-    "noData": "कोई डेटा उपलब्ध नहीं",
-    "loading": "विश्लेषण लोड हो रहा है..."
+    "noData": "अभी तक कोई खर्च डेटा नहीं",
+    "loading": "विश्लेषण लोड हो रहा है...",
+    "loadError": "विश्लेषण लोड करने में असमर्थ। कृपया पुनः प्रयास करें।",
+    "vsLastMonth": "पिछले महीने की तुलना में",
+    "dailySpending": "दैनिक खर्च",
+    "last14Days": "पिछले 14 दिन",
+    "last6Months": "पिछले 6 महीने",
+    "favoriteMerchants": "पसंदीदा दुकानें",
+    "spendingBreakdown": "खर्च विवरण",
+    "categoryDetails": "श्रेणी विवरण",
+    "upiPayments": "UPI भुगतान",
+    "cashPayments": "नकद भुगतान",
+    "transactions": "लेनदेन",
+    "topPurchases": "शीर्ष खरीदारी",
+    "smartSuggestions": "स्मार्ट सुझाव"
   },
   
   "upload": {
@@ -234,13 +267,24 @@
     "dragDrop": "खींचें और छोड़ें या अपलोड करने के लिए क्लिक करें",
     "selectFile": "फ़ाइल चुनें",
     "merchant": "दुकान का नाम",
-    "merchantPlaceholder": "अज्ञात दुकान",
+    "merchantPlaceholder": "जैसे स्टारबक्स, उबर",
+    "merchantShop": "दुकान / शॉप",
     "amount": "राशि",
     "amountPlaceholder": "0.00",
+    "totalAmount": "कुल राशि",
     "date": "लेनदेन की तारीख",
+    "transactionDate": "लेनदेन की तारीख",
     "includeInStats": "आंकड़ों में शामिल करें",
+    "includeInAnalytics": "एनालिटिक्स में शामिल करें",
+    "trackInCharts": "खर्च चार्ट में ट्रैक करें",
     "uploading": "अपलोड हो रहा है...",
     "uploadReceipt": "रसीद अपलोड करें",
+    "addReceipt": "रसीद जोड़ें",
+    "saveReceipt": "रसीद सहेजें",
+    "scanQr": "QR स्कैन करें",
+    "addDigitalReceipt": "डिजिटल रसीद जोड़ें",
+    "upload": "अपलोड",
+    "photoOrPdf": "फोटो या PDF",
     "cancel": "रद्द करें"
   },
   

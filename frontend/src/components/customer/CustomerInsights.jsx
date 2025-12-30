@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   TrendingUp, TrendingDown, ShoppingBag, Coffee, Target, Wallet, Sparkles, Leaf, 
   AlertTriangle, RefreshCw, CreditCard, Banknote, Smartphone, PieChart, BarChart3,
@@ -189,6 +190,7 @@ const getPaymentIcon = (method) => {
 // ============== MAIN COMPONENT ==============
 const CustomerInsights = () => {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -203,7 +205,7 @@ const CustomerInsights = () => {
       setAnalytics(data);
       setError(null);
     } catch (e) {
-      setError('Unable to load insights. Please try again.');
+      setError(t('insights.loadError'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -306,8 +308,8 @@ const CustomerInsights = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Insights</h2>
-          <p className={`text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Your spending analytics</p>
+          <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('insights.title')}</h2>
+          <p className={`text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('insights.subtitle')}</p>
         </div>
         <button 
           onClick={() => loadAnalytics(true)}
@@ -335,9 +337,9 @@ const CustomerInsights = () => {
       {/* Tab Navigation */}
       <div className={`flex gap-2 p-1 rounded-xl ${isDark ? 'bg-slate-800/50' : 'bg-slate-100'}`}>
         {[
-          { id: 'overview', label: 'Overview', icon: BarChart3 },
-          { id: 'categories', label: 'Categories', icon: PieChart },
-          { id: 'trends', label: 'Trends', icon: Activity },
+          { id: 'overview', label: t('insights.overview'), icon: BarChart3 },
+          { id: 'categories', label: t('insights.categories'), icon: PieChart },
+          { id: 'trends', label: t('insights.trends'), icon: Activity },
         ].map(tab => (
           <button
             key={tab.id}
@@ -369,7 +371,7 @@ const CustomerInsights = () => {
             <div className="relative">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-emerald-100 text-xs font-semibold uppercase tracking-wider">This Month</p>
+                  <p className="text-emerald-100 text-xs font-semibold uppercase tracking-wider">{t('dashboard.thisMonth')}</p>
                   <h3 className="text-4xl font-bold mt-2">₹{(summary?.thisMonth?.total || 0).toLocaleString('en-IN')}</h3>
                   <div className="flex items-center gap-4 mt-3">
                     <div className="flex items-center gap-1">
@@ -379,29 +381,29 @@ const CustomerInsights = () => {
                         <ArrowDownRight size={16} className="text-emerald-200" />
                       )}
                       <span className="text-sm font-medium text-emerald-100">
-                        {Math.abs(summary?.changes?.monthOverMonth || 0)}% vs last month
+                        {Math.abs(summary?.changes?.monthOverMonth || 0)}% {t('insights.vsLastMonth')}
                       </span>
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                    <span className="text-sm font-bold">{summary?.thisMonth?.count || 0} receipts</span>
+                    <span className="text-sm font-bold">{summary?.thisMonth?.count || 0} {t('common.receipts')}</span>
                   </div>
                 </div>
               </div>
               
               <div className="grid grid-cols-3 gap-4 mt-6 pt-4 border-t border-white/20">
                 <div>
-                  <p className="text-emerald-200 text-xs">Avg/Day</p>
+                  <p className="text-emerald-200 text-xs">{t('dashboard.avgPerDay')}</p>
                   <p className="text-lg font-bold">₹{summary?.thisMonth?.avgPerDay || 0}</p>
                 </div>
                 <div>
-                  <p className="text-emerald-200 text-xs">This Week</p>
+                  <p className="text-emerald-200 text-xs">{t('dashboard.thisWeek')}</p>
                   <p className="text-lg font-bold">₹{(summary?.thisWeek?.total || 0).toLocaleString('en-IN')}</p>
                 </div>
                 <div>
-                  <p className="text-emerald-200 text-xs">Projected</p>
+                  <p className="text-emerald-200 text-xs">{t('dashboard.projected')}</p>
                   <p className="text-lg font-bold">₹{(summary?.thisMonth?.projectedTotal || 0).toLocaleString('en-IN')}</p>
                 </div>
               </div>
@@ -412,16 +414,16 @@ const CustomerInsights = () => {
           <div className="grid grid-cols-2 gap-4">
             <StatCard
               icon={Calendar}
-              label="Last Month"
+              label={t('dashboard.lastMonth')}
               value={`₹${(summary?.lastMonth?.total || 0).toLocaleString('en-IN')}`}
-              subValue={`${summary?.lastMonth?.count || 0} receipts`}
+              subValue={`${summary?.lastMonth?.count || 0} ${t('common.receipts')}`}
               color="slate"
             />
             <StatCard
               icon={TrendingUp}
-              label="This Year"
+              label={t('dashboard.thisYear')}
               value={`₹${(summary?.thisYear?.total || 0).toLocaleString('en-IN')}`}
-              subValue={`${summary?.thisYear?.count || 0} receipts`}
+              subValue={`${summary?.thisYear?.count || 0} ${t('common.receipts')}`}
               color="blue"
             />
           </div>
@@ -430,8 +432,8 @@ const CustomerInsights = () => {
           {chartData.length > 0 && (
             <div className={`p-5 rounded-2xl border shadow-sm ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className={`font-bold ${isDark ? 'text-white' : 'text-slate-700'}`}>Daily Spending</h3>
-                <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Last 14 days</span>
+                <h3 className={`font-bold ${isDark ? 'text-white' : 'text-slate-700'}`}>{t('insights.dailySpending')}</h3>
+                <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('insights.last14Days')}</span>
               </div>
               <MiniBarChart data={chartData} height={80} color="emerald" isDark={isDark} />
             </div>
@@ -441,7 +443,7 @@ const CustomerInsights = () => {
           {topMerchants?.length > 0 && (
             <div className={`p-5 rounded-2xl border shadow-sm ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className={`font-bold ${isDark ? 'text-white' : 'text-slate-700'}`}>Favorite Merchants</h3>
+                <h3 className={`font-bold ${isDark ? 'text-white' : 'text-slate-700'}`}>{t('insights.favoriteMerchants')}</h3>
                 <Store size={18} className={isDark ? 'text-slate-500' : 'text-slate-400'} />
               </div>
               <div className="space-y-3">
@@ -475,12 +477,12 @@ const CustomerInsights = () => {
           {/* Donut Chart */}
           {donutSegments.length > 0 && (
             <div className={`p-6 rounded-2xl border shadow-sm ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
-              <h3 className={`font-bold mb-4 ${isDark ? 'text-white' : 'text-slate-700'}`}>Spending Breakdown</h3>
+              <h3 className={`font-bold mb-4 ${isDark ? 'text-white' : 'text-slate-700'}`}>{t('insights.spendingBreakdown')}</h3>
               <div className="flex items-center gap-6">
                 <div className="relative">
                   <DonutChart segments={donutSegments} size={140} strokeWidth={20} />
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>Total</p>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>{t('common.total')}</p>
                     <p className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>₹{(summary?.thisMonth?.total || 0).toLocaleString('en-IN')}</p>
                   </div>
                 </div>
@@ -499,10 +501,10 @@ const CustomerInsights = () => {
 
           {/* Category List */}
           <div className={`p-5 rounded-2xl border shadow-sm ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
-            <h3 className={`font-bold mb-4 ${isDark ? 'text-white' : 'text-slate-700'}`}>Category Details</h3>
+            <h3 className={`font-bold mb-4 ${isDark ? 'text-white' : 'text-slate-700'}`}>{t('insights.categoryDetails')}</h3>
             <div className="space-y-3">
               {(categories || []).length === 0 && (
-                <p className={`text-sm text-center py-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>No spending data yet</p>
+                <p className={`text-sm text-center py-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('insights.noData')}</p>
               )}
               {(categories || []).map((cat, i) => {
                 const config = getCategoryConfig(cat.category);
@@ -539,7 +541,7 @@ const CustomerInsights = () => {
           {/* Payment Methods */}
           {paymentMethods?.length > 0 && (
             <div className={`p-5 rounded-2xl border shadow-sm ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
-              <h3 className={`font-bold mb-4 ${isDark ? 'text-white' : 'text-slate-700'}`}>Payment Methods</h3>
+              <h3 className={`font-bold mb-4 ${isDark ? 'text-white' : 'text-slate-700'}`}>{t('receipts.paymentMethod')}</h3>
               
               {/* Payment Summary Cards - UPI vs Cash */}
               <div className="grid grid-cols-2 gap-4 mb-4">
@@ -549,13 +551,13 @@ const CustomerInsights = () => {
                     <div className="p-2 bg-emerald-500 rounded-lg">
                       <Smartphone size={18} className="text-white" />
                     </div>
-                    <span className={`font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-800'}`}>UPI Payments</span>
+                    <span className={`font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-800'}`}>{t('insights.upiPayments')}</span>
                   </div>
                   <p className={`text-2xl font-bold ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
                     ₹{(paymentMethods.find(pm => pm.method?.toLowerCase() === 'upi')?.total || 0).toLocaleString('en-IN')}
                   </p>
                   <p className={`text-xs mt-1 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                    {paymentMethods.find(pm => pm.method?.toLowerCase() === 'upi')?.count || 0} transactions
+                    {paymentMethods.find(pm => pm.method?.toLowerCase() === 'upi')?.count || 0} {t('insights.transactions')}
                   </p>
                 </div>
                 
@@ -565,13 +567,13 @@ const CustomerInsights = () => {
                     <div className="p-2 bg-amber-500 rounded-lg">
                       <Banknote size={18} className="text-white" />
                     </div>
-                    <span className={`font-bold ${isDark ? 'text-amber-400' : 'text-amber-800'}`}>Cash Payments</span>
+                    <span className={`font-bold ${isDark ? 'text-amber-400' : 'text-amber-800'}`}>{t('insights.cashPayments')}</span>
                   </div>
                   <p className={`text-2xl font-bold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
                     ₹{(paymentMethods.find(pm => pm.method?.toLowerCase() === 'cash')?.total || 0).toLocaleString('en-IN')}
                   </p>
                   <p className={`text-xs mt-1 ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
-                    {paymentMethods.find(pm => pm.method?.toLowerCase() === 'cash')?.count || 0} transactions
+                    {paymentMethods.find(pm => pm.method?.toLowerCase() === 'cash')?.count || 0} {t('insights.transactions')}
                   </p>
                 </div>
               </div>
@@ -588,8 +590,8 @@ const CustomerInsights = () => {
           {monthlyChartData.length > 0 && (
             <div className={`p-5 rounded-2xl border shadow-sm ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className={`font-bold ${isDark ? 'text-white' : 'text-slate-700'}`}>Monthly Trend</h3>
-                <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Last 6 months</span>
+                <h3 className={`font-bold ${isDark ? 'text-white' : 'text-slate-700'}`}>{t('insights.monthlyTrend')}</h3>
+                <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('insights.last6Months')}</span>
               </div>
               <MiniBarChart data={monthlyChartData} height={100} color="blue" isDark={isDark} />
               <div className={`flex justify-between mt-2 text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -604,18 +606,18 @@ const CustomerInsights = () => {
           <div className="grid grid-cols-2 gap-4">
             <StatCard
               icon={Calendar}
-              label="This Week"
+              label={t('dashboard.thisWeek')}
               value={`₹${(summary?.thisWeek?.total || 0).toLocaleString('en-IN')}`}
-              subValue={`${summary?.thisWeek?.count || 0} receipts`}
+              subValue={`${summary?.thisWeek?.count || 0} ${t('common.receipts')}`}
               trend={summary?.changes?.weekOverWeek >= 0 ? 'up' : 'down'}
               trendValue={Math.abs(summary?.changes?.weekOverWeek || 0)}
               color="emerald"
             />
             <StatCard
               icon={Clock}
-              label="Last Week"
+              label={t('dashboard.lastWeekLabel')}
               value={`₹${(summary?.lastWeek?.total || 0).toLocaleString('en-IN')}`}
-              subValue={`${summary?.lastWeek?.count || 0} receipts`}
+              subValue={`${summary?.lastWeek?.count || 0} ${t('common.receipts')}`}
               color="slate"
             />
           </div>
@@ -624,7 +626,7 @@ const CustomerInsights = () => {
           {topItems?.length > 0 && (
             <div className={`p-5 rounded-2xl border shadow-sm ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className={`font-bold ${isDark ? 'text-white' : 'text-slate-700'}`}>Top Purchases</h3>
+                <h3 className={`font-bold ${isDark ? 'text-white' : 'text-slate-700'}`}>{t('insights.topPurchases')}</h3>
                 <Flame size={18} className="text-orange-500" />
               </div>
               <div className="space-y-2">
@@ -649,7 +651,7 @@ const CustomerInsights = () => {
           {/* Recent Activity */}
           {recentActivity?.length > 0 && (
             <div className={`p-5 rounded-2xl border shadow-sm ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
-              <h3 className={`font-bold mb-4 ${isDark ? 'text-white' : 'text-slate-700'}`}>Recent Activity</h3>
+              <h3 className={`font-bold mb-4 ${isDark ? 'text-white' : 'text-slate-700'}`}>{t('dashboard.recentActivity')}</h3>
               <div className="space-y-3">
                 {recentActivity.map((activity, i) => (
                   <div key={i} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
@@ -677,7 +679,7 @@ const CustomerInsights = () => {
         <div className={`p-5 rounded-2xl border ${isDark ? 'bg-gradient-to-br from-slate-800 to-slate-800/50 border-slate-700' : 'bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200'}`}>
           <div className="flex items-center gap-2 mb-4">
             <Sparkles className="text-amber-500" size={20} />
-            <h3 className={`font-bold ${isDark ? 'text-white' : 'text-slate-700'}`}>Smart Suggestions</h3>
+            <h3 className={`font-bold ${isDark ? 'text-white' : 'text-slate-700'}`}>{t('insights.smartSuggestions')}</h3>
           </div>
           <div className="space-y-3">
             {suggestions.map((tip, i) => {

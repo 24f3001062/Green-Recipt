@@ -285,15 +285,15 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
           {/* Period Summary */}
           <div className="grid grid-cols-3 gap-3 md:gap-4 mt-4 md:mt-6 pt-4 md:pt-6 border-t border-white/10">
             <div>
-              <p className="text-slate-400 text-[10px] md:text-xs font-medium">This Week</p>
+              <p className="text-slate-400 text-[10px] md:text-xs font-medium">{t('dashboard.thisWeek')}</p>
               <p className="text-sm md:text-xl font-bold mt-0.5 md:mt-1">₹{(summary?.thisWeek?.total || 0).toLocaleString('en-IN')}</p>
             </div>
             <div>
-              <p className="text-slate-400 text-[10px] md:text-xs font-medium">Last Month</p>
+              <p className="text-slate-400 text-[10px] md:text-xs font-medium">{t('dashboard.lastMonth')}</p>
               <p className="text-sm md:text-xl font-bold mt-0.5 md:mt-1">₹{(summary?.lastMonth?.total || 0).toLocaleString('en-IN')}</p>
             </div>
             <div>
-              <p className="text-slate-400 text-[10px] md:text-xs font-medium">This Year</p>
+              <p className="text-slate-400 text-[10px] md:text-xs font-medium">{t('dashboard.thisYear')}</p>
               <p className="text-sm md:text-xl font-bold mt-0.5 md:mt-1">₹{(summary?.thisYear?.total || 0).toLocaleString('en-IN')}</p>
             </div>
           </div>
@@ -312,8 +312,8 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
             <QrCode size={20} className="md:w-6 md:h-6" />
           </div>
           <div className="text-center">
-            <span className="font-bold text-xs md:text-sm block">Scan QR</span>
-            <span className="text-[10px] md:text-xs text-emerald-100">Add digital receipt</span>
+            <span className="font-bold text-xs md:text-sm block">{t('upload.scanQr')}</span>
+            <span className="text-[10px] md:text-xs text-emerald-100">{t('upload.addDigitalReceipt')}</span>
           </div>
         </button>
         
@@ -325,8 +325,8 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
             <UploadCloud size={20} className="md:w-6 md:h-6" />
           </div>
           <div className="text-center">
-            <span className="font-bold text-xs md:text-sm block">Upload</span>
-            <span className="text-[10px] md:text-xs text-blue-100">Photo or PDF</span>
+            <span className="font-bold text-xs md:text-sm block">{t('upload.upload')}</span>
+            <span className="text-[10px] md:text-xs text-blue-100">{t('upload.photoOrPdf')}</span>
           </div>
         </button>
         <input type="file" ref={fileInputRef} onChange={handleFilePick} className="hidden" accept="image/*,.pdf"/>
@@ -336,33 +336,33 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
         <StatCard 
           icon={Receipt} 
-          label="Receipts" 
+          label={t('dashboard.receipts')} 
           value={summary?.thisMonth?.count || receipts.length}
-          subValue="This month"
+          subValue={t('dashboard.thisMonthLabel')}
           color="emerald" 
           isDark={isDark}
         />
         <StatCard 
           icon={Target} 
-          label="Avg/Day" 
+          label={t('dashboard.avgPerDay')} 
           value={`₹${summary?.thisMonth?.avgPerDay || Math.round(totalSpent / 30)}`}
-          subValue="Daily average"
+          subValue={t('dashboard.dailyAverage')}
           color="blue" 
           isDark={isDark}
         />
         <StatCard 
           icon={Clock} 
-          label="Last Week" 
+          label={t('dashboard.lastWeekLabel')} 
           value={`₹${(summary?.lastWeek?.total || 0).toLocaleString('en-IN')}`}
-          subValue={`${summary?.lastWeek?.count || 0} receipts`}
+          subValue={t('dashboard.receiptsCount', { count: summary?.lastWeek?.count || 0 })}
           color="purple" 
           isDark={isDark}
         />
         <StatCard 
           icon={Zap} 
-          label="Projected" 
+          label={t('dashboard.projected')} 
           value={`₹${(summary?.thisMonth?.projectedTotal || 0).toLocaleString('en-IN')}`}
-          subValue="End of month"
+          subValue={t('dashboard.endOfMonth')}
           color="orange" 
           isDark={isDark}
         />
@@ -371,12 +371,12 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
       {/* ========== RECENT ACTIVITY ========== */}
       <div>
         <div className="flex justify-between items-center mb-3 md:mb-4">
-          <h3 className={`font-bold text-base md:text-lg ${isDark ? 'text-white' : 'text-slate-800'}`}>Recent Activity</h3>
+          <h3 className={`font-bold text-base md:text-lg ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('dashboard.recentActivity')}</h3>
           <button 
             onClick={() => onNavigate('receipts')} 
             className="text-[10px] md:text-xs font-bold text-emerald-500 hover:text-emerald-400 flex items-center gap-0.5 md:gap-1 transition-colors"
           >
-            View All <ChevronRight size={12} className="md:w-[14px] md:h-[14px]" />
+            {t('common.viewAll')} <ChevronRight size={12} className="md:w-[14px] md:h-[14px]" />
           </button>
         </div>
 
@@ -385,8 +385,8 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
             <div className={`w-12 md:w-16 h-12 md:h-16 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4 ${isDark ? 'bg-slate-700' : 'bg-slate-100'}`}>
               <Receipt size={20} className={`${isDark ? 'text-slate-500' : 'text-slate-400'} md:w-6 md:h-6`} />
             </div>
-            <p className={`font-semibold mb-1 text-sm md:text-base ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>No receipts yet</p>
-            <p className={`text-xs md:text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Scan a QR code or upload to get started</p>
+            <p className={`font-semibold mb-1 text-sm md:text-base ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{t('receipts.noReceiptsYet')}</p>
+            <p className={`text-xs md:text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('receipts.scanOrUpload')}</p>
           </div>
         ) : (
           <div className="space-y-2 md:space-y-3">
@@ -412,7 +412,7 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
             <div className={`flex justify-between items-center p-4 md:p-5 border-b shrink-0 ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
               <h3 className={`font-bold text-base md:text-lg flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
                 <ImageIcon size={18} className="text-blue-500 md:w-5 md:h-5"/> 
-                Add Receipt
+                {t('upload.addReceipt')}
               </h3>
               <button 
                 onClick={() => setPendingFile(null)} 
@@ -433,12 +433,12 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
                 
                 {/* Merchant Name */}
                 <div>
-                  <label className={`block text-[10px] md:text-xs font-bold uppercase mb-1.5 md:mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Merchant / Shop</label>
+                  <label className={`block text-[10px] md:text-xs font-bold uppercase mb-1.5 md:mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('upload.merchantShop')}</label>
                   <div className="relative">
                     <Store className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} size={16} />
                     <input 
                       type="text" 
-                      placeholder="e.g. Starbucks, Uber" 
+                      placeholder={t('upload.merchantPlaceholder')} 
                       value={manualMerchant}
                       onChange={(e) => setManualMerchant(e.target.value)}
                       className={`w-full pl-9 md:pl-10 pr-4 py-2.5 md:py-3 border rounded-xl text-sm font-medium outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
@@ -449,7 +449,7 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
 
                 {/* Amount */}
                 <div>
-                  <label className={`block text-[10px] md:text-xs font-bold uppercase mb-1.5 md:mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Total Amount</label>
+                  <label className={`block text-[10px] md:text-xs font-bold uppercase mb-1.5 md:mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('upload.totalAmount')}</label>
                   <div className="relative">
                     <span className={`absolute left-3 top-1/2 -translate-y-1/2 font-bold text-base md:text-lg ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>₹</span>
                     <input 
@@ -466,7 +466,7 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
 
                 {/* Date */}
                 <div>
-                  <label className={`block text-[10px] md:text-xs font-bold uppercase mb-1.5 md:mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Transaction Date</label>
+                  <label className={`block text-[10px] md:text-xs font-bold uppercase mb-1.5 md:mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('upload.transactionDate')}</label>
                   <div className="relative">
                     <Calendar className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${isDark ? 'text-slate-500' : 'text-slate-400'}`} size={16} />
                     <input 
@@ -501,9 +501,9 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
                         ? isDark ? 'text-emerald-400' : 'text-emerald-800'
                         : isDark ? 'text-slate-300' : 'text-slate-600'
                     }`}>
-                      Include in Analytics
+                      {t('upload.includeInAnalytics')}
                     </p>
-                    <p className={`text-[10px] md:text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Track in spending charts</p>
+                    <p className={`text-[10px] md:text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('upload.trackInCharts')}</p>
                   </div>
                 </div>
 
@@ -513,9 +513,9 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
                   className="w-full py-3 md:py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-bold hover:from-blue-700 hover:to-blue-800 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 mt-4 md:mt-6 disabled:opacity-70 disabled:cursor-not-allowed transition-all text-sm md:text-base"
                 >
                   {isUploading ? (
-                    <><Loader2 size={16} className="animate-spin md:w-[18px] md:h-[18px]" /> Uploading...</>
+                    <><Loader2 size={16} className="animate-spin md:w-[18px] md:h-[18px]" /> {t('upload.uploading')}</>
                   ) : (
-                    <><Save size={16} className="md:w-[18px] md:h-[18px]" /> Save Receipt</>
+                    <><Save size={16} className="md:w-[18px] md:h-[18px]" /> {t('upload.saveReceipt')}</>
                   )}
                 </button>
               </form>

@@ -1134,10 +1134,11 @@
 //   User, Store, MapPin, Phone, Mail, LogOut, Edit2, Save, X, Receipt,
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   User, Store, MapPin, Phone, Mail, LogOut, Edit2, Save, X, Receipt,
   ShieldCheck, Leaf, Trophy, RefreshCw, Loader2, CheckCircle, AlertTriangle,
-  ImageIcon, Upload, Camera, Palette 
+  ImageIcon, Upload, Camera, Palette, Globe 
 } from 'lucide-react';
 import { fetchProfile, updateProfile, fetchMerchantAnalytics, clearSession } from '../../services/api';
 import { formatISTDisplay } from '../../utils/timezone';
@@ -1184,6 +1185,7 @@ const ProfileSkeleton = () => {
 
 const MerchantProfile = () => {
   const { isDark } = useTheme();
+  const { t, i18n } = useTranslation();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1195,6 +1197,12 @@ const MerchantProfile = () => {
 
   const [stats, setStats] = useState({ totalReceipts: 0, paperSaved: 0 });
   const logoInputRef = useRef(null);
+
+  // Language switch handler
+  const handleLanguageChange = (lang) => {
+    i18n.changeLanguage(lang);
+    localStorage.setItem('greenreceipt-lang', lang);
+  };
 
   const loadProfile = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
@@ -1516,14 +1524,49 @@ const MerchantProfile = () => {
             {/* 5️⃣ APPEARANCE SETTINGS */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-6 mb-6 shadow-sm">
                 <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                    <Palette size={18} className="text-purple-500" /> Appearance
+                    <Palette size={18} className="text-purple-500" /> {t('profile.appearance.title') || 'Appearance'}
                 </h3>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-4">
                     <div>
-                        <p className="font-medium text-slate-700 dark:text-slate-200">Dark Mode</p>
-                        <p className="text-xs text-slate-400">Switch between light and dark themes</p>
+                        <p className="font-medium text-slate-700 dark:text-slate-200">{t('profile.appearance.darkMode')}</p>
+                        <p className="text-xs text-slate-400">{t('profile.appearance.switchTheme')}</p>
                     </div>
                     <ThemeToggle />
+                </div>
+                
+                {/* Language Settings */}
+                <div className={`pt-4 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+                    <div className="flex items-center gap-2 mb-3">
+                        <Globe size={18} className="text-blue-500" />
+                        <span className={`font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{t('profile.language.title')}</span>
+                    </div>
+                    <p className={`text-xs mb-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('profile.language.selectLanguage')}</p>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => handleLanguageChange('en')}
+                            className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                                i18n.language === 'en' 
+                                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' 
+                                    : isDark 
+                                        ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' 
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                        >
+                            {t('profile.language.english')}
+                        </button>
+                        <button
+                            onClick={() => handleLanguageChange('hi')}
+                            className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                                i18n.language === 'hi' 
+                                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' 
+                                    : isDark 
+                                        ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' 
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                        >
+                            {t('profile.language.hindi')}
+                        </button>
+                    </div>
                 </div>
             </div>
 
