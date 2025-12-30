@@ -43,15 +43,43 @@ export default {
         secondary: '#0F172A',    // Slate-900 (Navy)
         lightbg: '#F8FAFC',      // Slate-50
         neutral: '#475569',      // Slate-600
-        // Dark mode specific colors
+        // Premium Dark Mode Color System (Linear/Vercel/GitHub Dark inspired)
         dark: {
-          bg: '#0f0f12',           // Deep dark background
-          card: '#18181b',         // Card background
-          surface: '#1f1f24',      // Elevated surface
-          border: '#2a2a30',       // Border color
-          hover: '#27272a',        // Hover state
-          muted: '#71717a',        // Muted text
-          accent: '#10b981',       // Accent (emerald)
+          // Background layers (darkest to lightest)
+          bg: '#09090b',              // Primary background (near-black with blue tint)
+          'bg-elevated': '#0c0c0e',   // Slightly elevated
+          card: '#141416',            // Card/panel background
+          surface: '#1a1a1e',         // Interactive surface
+          'surface-hover': '#222226', // Surface hover state
+          
+          // Borders & Dividers
+          border: '#27272a',          // Primary border
+          'border-subtle': '#1f1f23', // Subtle dividers
+          'border-hover': '#3f3f46',  // Border on hover
+          
+          // Text colors (high contrast for readability)
+          text: {
+            primary: '#fafafa',       // Primary text (near-white)
+            secondary: '#a1a1aa',     // Secondary text
+            muted: '#71717a',         // Muted/disabled text
+            placeholder: '#52525b',   // Placeholder text
+          },
+          
+          // Interactive states
+          hover: '#27272a',           // General hover
+          active: '#2d2d32',          // Active/pressed state
+          focus: '#10b981',           // Focus ring color
+          
+          // Accent colors
+          accent: '#10b981',          // Primary accent (emerald)
+          'accent-hover': '#0d9668',  // Accent hover
+          'accent-muted': '#10b98120',// Accent with opacity
+          
+          // Semantic colors for dark mode
+          success: '#22c55e',
+          warning: '#eab308',
+          error: '#ef4444',
+          info: '#3b82f6',
         }
       },
       // 3. New Animations (For Infinite Scroll & Blobs & Theme)

@@ -1769,9 +1769,11 @@ import { ShoppingBag, QrCode, X, Plus, Minus, Trash2, Search, Zap, CheckCircle, 
 import toast from 'react-hot-toast';
 import { createReceipt, markReceiptPaid } from '../../services/api';
 import { getTodayIST, formatISTDisplay, getNowIST } from '../../utils/timezone';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const MerchantBilling = ({ inventory }) => {
   const navigate = useNavigate();
+  const { isDark } = useTheme();
 
   // 🛒 Cart & UI State
   const [cart, setCart] = useState([]);
@@ -1947,70 +1949,64 @@ const MerchantBilling = ({ inventory }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 animate-fade-in relative">
+    <div className={`flex flex-col h-full ${isDark ? 'bg-dark-bg' : 'bg-slate-50'} animate-fade-in relative`}>
       
       {/* 🔹 STICKY TOP BAR (Mobile Only) */}
-      {/* Added md:hidden to hide this on desktop */}
-      <div className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 h-14 flex items-center justify-between shrink-0 shadow-sm md:hidden">
+      <div className={`sticky top-0 z-30 ${isDark ? 'bg-dark-card border-dark-border' : 'bg-white border-slate-200'} border-b px-4 h-14 flex items-center justify-between shrink-0 shadow-sm md:hidden`}>
         <button 
           onClick={handleBack}
-          className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors active:scale-95"
+          className={`p-2 -ml-2 ${isDark ? 'text-slate-400 hover:bg-dark-surface' : 'text-slate-600 hover:bg-slate-100'} rounded-full transition-colors active:scale-95`}
         >
           <ArrowLeft size={22} />
         </button>
-        <h1 className="font-bold text-base text-slate-800 tracking-tight">New Bill</h1>
+        <h1 className={`font-bold text-base ${isDark ? 'text-white' : 'text-slate-800'} tracking-tight`}>New Bill</h1>
         <div className="w-10"></div> 
       </div>
 
       <div className="flex-1 flex flex-col md:flex-row md:gap-6 overflow-hidden p-0 md:p-4">
         
         {/* 🔹 LEFT: ITEMS GRID */}
-        <div className="flex-1 bg-white md:rounded-2xl md:border md:border-slate-100 flex flex-col overflow-hidden md:shadow-sm">
+        <div className={`flex-1 ${isDark ? 'bg-dark-card md:border-dark-border' : 'bg-white md:border-slate-100'} md:rounded-2xl md:border flex flex-col overflow-hidden md:shadow-sm`}>
           {/* Header Section */}
-          <div className="p-3 md:p-4 border-b border-slate-100 bg-white z-10 space-y-3 shadow-sm md:shadow-none">
+          <div className={`p-3 md:p-4 border-b ${isDark ? 'border-dark-border bg-dark-card' : 'border-slate-100 bg-white'} z-10 space-y-3 shadow-sm md:shadow-none`}>
               <div className="relative">
-                  <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-                  <input type="text" placeholder="Search..." className="w-full bg-slate-100 border-none rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-medium" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                  <Search className={`absolute left-3 top-2.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} size={18} />
+                  <input type="text" placeholder="Search..." className={`w-full ${isDark ? 'bg-dark-surface border-dark-border text-white placeholder-slate-500' : 'bg-slate-100 border-none'} rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-medium`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                   {categories.map(cat => (
-                      <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-3 py-1 rounded-full text-[10px] md:text-xs font-bold whitespace-nowrap transition-all border ${selectedCategory === cat ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>{cat}</button>
+                      <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-3 py-1 rounded-full text-[10px] md:text-xs font-bold whitespace-nowrap transition-all border ${selectedCategory === cat 
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' 
+                        : isDark 
+                          ? 'bg-dark-surface text-slate-400 border-dark-border hover:bg-dark-hover' 
+                          : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>{cat}</button>
                   ))}
               </div>
           </div>
           
-          <div className="flex-1 overflow-y-auto p-3 md:p-4 pb-32 md:pb-4 bg-slate-50 md:bg-white">
-              {filteredItems.length === 0 ? <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-60"><Search size={32} className="mb-2"/><p>No items found.</p></div> : 
-                  
-                  /* 👇 RESPONSIVE GRID & CARDS:
-                     - Mobile: h-20, p-2, gap-2, text-xs (Small)
-                     - Desktop (md): h-28, p-3, gap-3, text-sm (Original Size)
-                  */
+          <div className={`flex-1 overflow-y-auto p-3 md:p-4 pb-32 md:pb-4 ${isDark ? 'bg-dark-bg md:bg-dark-card' : 'bg-slate-50 md:bg-white'}`}>
+              {filteredItems.length === 0 ? <div className={`h-full flex flex-col items-center justify-center ${isDark ? 'text-slate-500' : 'text-slate-400'} opacity-60`}><Search size={32} className="mb-2"/><p>No items found.</p></div> : 
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
                       {filteredItems.map(item => (
                           <button 
                             key={item.id} 
                             onClick={() => addToCart(item)} 
-                            className="
-                               bg-white border border-slate-200 shadow-sm active:scale-95 transition-transform text-left flex flex-col justify-between relative overflow-hidden group
+                            className={`
+                               ${isDark ? 'bg-dark-surface border-dark-border hover:border-emerald-500/50' : 'bg-white border-slate-200'} border shadow-sm active:scale-95 transition-all text-left flex flex-col justify-between relative overflow-hidden group
                                rounded-xl
                                h-20 md:h-28       
                                p-2 md:p-3
-                            "
+                            `}
                           >
-                              {/* Overlay Icon */}
                               <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-emerald-500 text-white rounded-full p-0.5 md:p-1">
                                 <Plus size={12} className="md:w-4 md:h-4" />
                               </div>
                               
                               <div>
-                                {/* Name Font Size */}
-                                <div className="font-bold text-slate-700 text-xs md:text-sm leading-tight line-clamp-2">{item.name}</div>
-                                {/* Category Font Size */}
-                                <div className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-wide">{item.category}</div>
+                                <div className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'} text-xs md:text-sm leading-tight line-clamp-2`}>{item.name}</div>
+                                <div className={`text-[9px] md:text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'} font-bold uppercase mt-0.5 tracking-wide`}>{item.category}</div>
                               </div>
-                              {/* Price Font Size */}
-                              <div className="text-xs md:text-base font-black text-emerald-600">₹{item.price}</div>
+                              <div className="text-xs md:text-base font-black text-emerald-500">₹{item.price}</div>
                           </button>
                       ))}
                   </div>
@@ -2020,10 +2016,10 @@ const MerchantBilling = ({ inventory }) => {
 
         {/* 🔹 MOBILE FLOATING BAR */}
         {!isMobileCartOpen && (
-          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-40 flex items-center justify-between" onClick={() => setIsMobileCartOpen(true)}>
+          <div className={`md:hidden fixed bottom-0 left-0 right-0 ${isDark ? 'bg-dark-card border-dark-border' : 'bg-white border-slate-200'} border-t px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-40 flex items-center justify-between`} onClick={() => setIsMobileCartOpen(true)}>
             <div>
-              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Total ({totalItems} items)</p>
-              <p className="text-xl font-black text-slate-800">₹{cartTotal}</p>
+              <p className={`text-[9px] ${isDark ? 'text-slate-500' : 'text-slate-400'} font-bold uppercase tracking-wider`}>Total ({totalItems} items)</p>
+              <p className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>₹{cartTotal}</p>
             </div>
             <button className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-transform">
               View Bill
@@ -2032,56 +2028,55 @@ const MerchantBilling = ({ inventory }) => {
         )}
 
         {/* 🔹 RIGHT: CART PANEL */}
-        <div className={`fixed inset-0 z-50 bg-white flex flex-col transition-transform duration-300 ease-out md:static md:w-96 md:bg-white md:rounded-2xl md:border md:border-slate-200 md:shadow-xl md:translate-y-0 ${isMobileCartOpen ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}`}>
-          <div className="md:hidden p-3 border-b border-slate-100 flex items-center justify-between bg-white shadow-sm z-10">
-            <h2 className="font-bold text-base text-slate-800">Current Bill</h2>
-            <button onClick={() => setIsMobileCartOpen(false)} className="p-1.5 bg-slate-100 rounded-full text-slate-500"><X size={18} /></button>
+        <div className={`fixed inset-0 z-50 ${isDark ? 'bg-dark-card' : 'bg-white'} flex flex-col transition-transform duration-300 ease-out md:static md:w-96 md:rounded-2xl md:border ${isDark ? 'md:border-dark-border' : 'md:border-slate-200'} md:shadow-xl md:translate-y-0 ${isMobileCartOpen ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}`}>
+          <div className={`md:hidden p-3 border-b ${isDark ? 'border-dark-border bg-dark-card' : 'border-slate-100 bg-white'} flex items-center justify-between shadow-sm z-10`}>
+            <h2 className={`font-bold text-base ${isDark ? 'text-white' : 'text-slate-800'}`}>Current Bill</h2>
+            <button onClick={() => setIsMobileCartOpen(false)} className={`p-1.5 ${isDark ? 'bg-dark-surface text-slate-400' : 'bg-slate-100 text-slate-500'} rounded-full`}><X size={18} /></button>
           </div>
           
-          <div className="p-3 bg-slate-50 border-b border-slate-100 shrink-0">
-              <h3 className="text-[10px] font-bold text-slate-400 uppercase mb-2 flex items-center gap-1"><Zap size={10} className="text-amber-500"/> Quick Add (Manual)</h3>
+          <div className={`p-3 ${isDark ? 'bg-dark-surface border-dark-border' : 'bg-slate-50 border-slate-100'} border-b shrink-0`}>
+              <h3 className={`text-[10px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'} uppercase mb-2 flex items-center gap-1`}><Zap size={10} className="text-amber-500"/> Quick Add (Manual)</h3>
               <form onSubmit={addManualItem} className="flex gap-2">
-                <input className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-xs outline-none focus:border-emerald-500 w-full" placeholder="Item Name" value={manualName} onChange={(e) => setManualName(e.target.value)} />
-                <input className="w-16 px-2 py-2 rounded-lg border border-slate-200 text-xs outline-none focus:border-emerald-500" type="number" placeholder="₹" value={manualPrice} onChange={(e) => setManualPrice(e.target.value)} />
+                <input className={`flex-1 px-3 py-2 rounded-lg border ${isDark ? 'bg-dark-card border-dark-border text-white placeholder-slate-500' : 'border-slate-200'} text-xs outline-none focus:border-emerald-500 w-full`} placeholder="Item Name" value={manualName} onChange={(e) => setManualName(e.target.value)} />
+                <input className={`w-16 px-2 py-2 rounded-lg border ${isDark ? 'bg-dark-card border-dark-border text-white placeholder-slate-500' : 'border-slate-200'} text-xs outline-none focus:border-emerald-500`} type="number" placeholder="₹" value={manualPrice} onChange={(e) => setManualPrice(e.target.value)} />
                 <button type="submit" className="bg-slate-800 text-white p-2 rounded-lg hover:bg-slate-900 transition-colors"><Plus size={14} /></button>
               </form>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-white">
-            {cart.length === 0 ? <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-60"><ShoppingBag size={28} className="mb-2" /><p className="text-xs">Cart is empty.</p></div> : 
+          <div className={`flex-1 overflow-y-auto p-3 space-y-2 ${isDark ? 'bg-dark-card' : 'bg-white'}`}>
+            {cart.length === 0 ? <div className={`h-full flex flex-col items-center justify-center ${isDark ? 'text-slate-500' : 'text-slate-400'} opacity-60`}><ShoppingBag size={28} className="mb-2" /><p className="text-xs">Cart is empty.</p></div> : 
               cart.map(item => (
-                <div key={item.id} className={`p-2.5 rounded-xl border flex flex-col gap-1.5 ${item.isManual ? 'bg-amber-50/50 border-amber-100' : 'bg-white border-slate-100 shadow-sm'}`}>
-                  {/* Top Row: Name & Price */}
+                <div key={item.id} className={`p-2.5 rounded-xl border flex flex-col gap-1.5 ${item.isManual 
+                  ? isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50/50 border-amber-100' 
+                  : isDark ? 'bg-dark-surface border-dark-border' : 'bg-white border-slate-100 shadow-sm'}`}>
                   <div className="flex justify-between items-start">
                       <div>
-                          <div className="font-bold text-slate-700 text-xs">{item.name}</div>
-                          {item.isManual && <span className="text-[8px] font-bold text-amber-600 uppercase bg-amber-100 px-1 rounded ml-1">Manual</span>}
+                          <div className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'} text-xs`}>{item.name}</div>
+                          {item.isManual && <span className={`text-[8px] font-bold uppercase px-1 rounded ml-1 ${isDark ? 'text-amber-400 bg-amber-500/20' : 'text-amber-600 bg-amber-100'}`}>Manual</span>}
                       </div>
-                      <div className="font-bold text-slate-900 text-sm">₹{item.price * item.quantity}</div>
+                      <div className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'} text-sm`}>₹{item.price * item.quantity}</div>
                   </div>
 
-                  {/* Bottom Row: Controls */}
                   <div className="flex justify-between items-center">
-                      <div className="text-[10px] text-slate-400 font-medium">₹{item.price}/unit</div>
+                      <div className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'} font-medium`}>₹{item.price}/unit</div>
                       
-                      {/* Controls */}
-                      <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg h-7">
+                      <div className={`flex items-center ${isDark ? 'bg-dark-card border-dark-border' : 'bg-slate-50 border-slate-200'} border rounded-lg h-7`}>
                           <button 
                               onClick={() => item.quantity === 1 ? removeFromCart(item.id) : updateQuantity(item.id, -1)} 
                               className={`w-7 h-full flex items-center justify-center rounded-l-lg transition-colors ${
                                   item.quantity === 1 
-                                      ? 'text-red-500 hover:bg-red-50' 
-                                      : 'text-slate-500 hover:bg-slate-200' 
+                                      ? 'text-red-500 hover:bg-red-500/10' 
+                                      : isDark ? 'text-slate-400 hover:bg-dark-surface' : 'text-slate-500 hover:bg-slate-200' 
                               }`}
                           >
                               {item.quantity === 1 ? <Trash2 size={12} /> : <Minus size={12} />}
                           </button>
                           
-                          <span className="w-6 text-center text-xs font-bold text-slate-800">{item.quantity}</span>
+                          <span className={`w-6 text-center text-xs font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.quantity}</span>
                           
                           <button 
                               onClick={() => updateQuantity(item.id, 1)} 
-                              className="w-7 h-full flex items-center justify-center hover:bg-emerald-100 text-emerald-600 rounded-r-lg transition-colors"
+                              className={`w-7 h-full flex items-center justify-center ${isDark ? 'hover:bg-emerald-500/20' : 'hover:bg-emerald-100'} text-emerald-500 rounded-r-lg transition-colors`}
                           >
                               <Plus size={12} />
                           </button>
@@ -2092,8 +2087,8 @@ const MerchantBilling = ({ inventory }) => {
             }
           </div>
 
-          <div className="border-t border-slate-100 p-3 bg-slate-50 shrink-0">
-            <div className="flex justify-between items-end mb-3"><span className="text-slate-500 font-bold text-xs">Total Amount</span><span className="text-2xl font-black text-slate-900">₹{cartTotal}</span></div>
+          <div className={`border-t ${isDark ? 'border-dark-border bg-dark-surface' : 'border-slate-100 bg-slate-50'} p-3 shrink-0`}>
+            <div className="flex justify-between items-end mb-3"><span className={`${isDark ? 'text-slate-400' : 'text-slate-500'} font-bold text-xs`}>Total Amount</span><span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>₹{cartTotal}</span></div>
             <button onClick={handleGenerateQR} disabled={cart.length === 0} className="w-full py-3.5 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 disabled:opacity-50 shadow-lg shadow-emerald-500/20 flex justify-center items-center gap-2 text-sm"><QrCode size={16} /> Generate QR</button>
           </div>
         </div>
@@ -2103,18 +2098,18 @@ const MerchantBilling = ({ inventory }) => {
       {/* 📸 QR MODAL */}
       {showQr && (
         <div className="fixed inset-0 bg-black/90 md:bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center animate-[popIn_0.2s_ease-out]">
-            <div className="flex justify-end"><button onClick={handleCloseQr} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200"><X size={18} /></button></div>
+          <div className={`${isDark ? 'bg-dark-card' : 'bg-white'} rounded-3xl p-6 max-w-sm w-full text-center animate-[popIn_0.2s_ease-out]`}>
+            <div className="flex justify-end"><button onClick={handleCloseQr} className={`p-2 ${isDark ? 'bg-dark-surface hover:bg-dark-hover' : 'bg-slate-100 hover:bg-slate-200'} rounded-full`}><X size={18} className={isDark ? 'text-slate-400' : ''} /></button></div>
             
-            <h2 className="text-xl font-bold text-slate-800 mb-1">Scan to Save Bill</h2>
-            <p className="text-[10px] text-slate-500 mb-4">Customer can scan this to get the receipt instantly.</p>
+            <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-800'} mb-1`}>Scan to Save Bill</h2>
+            <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-500'} mb-4`}>Customer can scan this to get the receipt instantly.</p>
             
-            <div className="bg-white p-2 rounded-xl inline-block mb-4 border border-slate-200 shadow-xl">
-                 {qrDataUrl ? <img src={qrDataUrl} alt="Receipt QR" className="w-48 h-48 rounded-lg" /> : <div className="w-48 h-48 bg-slate-100 flex items-center justify-center text-slate-400">Loading...</div>}
+            <div className={`bg-white p-2 rounded-xl inline-block mb-4 border ${isDark ? 'border-dark-border' : 'border-slate-200'} shadow-xl`}>
+                 {qrDataUrl ? <img src={qrDataUrl} alt="Receipt QR" className="w-48 h-48 rounded-lg" /> : <div className={`w-48 h-48 ${isDark ? 'bg-dark-surface' : 'bg-slate-100'} flex items-center justify-center text-slate-400`}>Loading...</div>}
             </div>
 
-            <div className="text-3xl font-black text-emerald-600 mb-2">₹{cartTotal}</div>
-            <div className="text-[10px] text-slate-400 font-mono mb-6 bg-slate-50 p-2 rounded truncate max-w-[200px] mx-auto">ID: {generatedBill?.id}</div>
+            <div className="text-3xl font-black text-emerald-500 mb-2">₹{cartTotal}</div>
+            <div className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'} font-mono mb-6 ${isDark ? 'bg-dark-surface' : 'bg-slate-50'} p-2 rounded truncate max-w-[200px] mx-auto`}>ID: {generatedBill?.id}</div>
 
             <div className="grid grid-cols-2 gap-3 mt-2">
                 <button 

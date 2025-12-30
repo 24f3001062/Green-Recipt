@@ -1137,7 +1137,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { 
   User, Store, MapPin, Phone, Mail, LogOut, Edit2, Save, X, Receipt,
   ShieldCheck, Leaf, Trophy, RefreshCw, Loader2, CheckCircle, AlertTriangle,
-  ImageIcon, Upload, Camera 
+  ImageIcon, Upload, Camera, Palette 
 } from 'lucide-react';
 import { fetchProfile, updateProfile, fetchMerchantAnalytics, clearSession } from '../../services/api';
 import { formatISTDisplay } from '../../utils/timezone';
