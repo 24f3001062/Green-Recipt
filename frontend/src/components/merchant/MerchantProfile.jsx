@@ -1142,6 +1142,7 @@ import {
 import { fetchProfile, updateProfile, fetchMerchantAnalytics, clearSession } from '../../services/api';
 import { formatISTDisplay } from '../../utils/timezone';
 import { useTheme } from '../../contexts/ThemeContext';
+import ThemeToggle from '../common/ThemeToggle';
 
 // ============== TOAST NOTIFICATION ==============
 const Toast = ({ message, type = 'success', onClose }) => {
@@ -1509,6 +1510,20 @@ const MerchantProfile = () => {
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* 5️⃣ APPEARANCE SETTINGS */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-6 mb-6 shadow-sm">
+                <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <Palette size={18} className="text-purple-500" /> Appearance
+                </h3>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="font-medium text-slate-700 dark:text-slate-200">Dark Mode</p>
+                        <p className="text-xs text-slate-400">Switch between light and dark themes</p>
+                    </div>
+                    <ThemeToggle />
                 </div>
             </div>
 

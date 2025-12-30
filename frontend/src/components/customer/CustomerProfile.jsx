@@ -2,11 +2,12 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { 
   User, Mail, Phone, MapPin, Shield, LogOut, ChevronRight, AlertTriangle, 
   Save, CheckCircle, Lock, Eye, EyeOff, X, Loader2, Receipt, Calendar,
-  TrendingUp, RefreshCw, Trash2, Camera, Edit3
+  TrendingUp, RefreshCw, Trash2, Camera, Edit3, Palette
 } from 'lucide-react';
 import { fetchProfile, updateProfile, clearSession, changePassword, deleteAccount, fetchCustomerAnalytics } from '../../services/api';
 import { formatISTDisplay } from '../../utils/timezone';
 import { useTheme } from '../../contexts/ThemeContext';
+import ThemeToggle from '../common/ThemeToggle';
 
 // ============== TOAST NOTIFICATION COMPONENT ==============
 const Toast = ({ message, type = 'success', onClose }) => {
@@ -639,6 +640,20 @@ const CustomerProfile = () => {
           )}
         </button>
       )}
+
+      {/* Appearance Settings */}
+      <div className={`w-full mb-4 p-4 rounded-2xl border flex items-center justify-between ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-lg ${isDark ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-50 text-purple-600'}`}>
+            <Palette size={18} />
+          </div>
+          <div className="text-left">
+            <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>Dark Mode</p>
+            <p className="text-xs text-slate-400">Switch theme</p>
+          </div>
+        </div>
+        <ThemeToggle />
+      </div>
 
       {/* Logout Button */}
       <button 
