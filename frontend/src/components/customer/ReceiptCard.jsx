@@ -352,6 +352,7 @@ import React, { useState } from 'react';
 import { QrCode, Image, X, Calendar, Trash2, CreditCard, Smartphone, EyeOff, CheckCircle, Check, Banknote, Loader2, ChevronRight, Clock, ShoppingBag, MapPin, Phone } from 'lucide-react';
 import { deleteReceipt as deleteReceiptApi } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
+import { createPortal } from 'react-dom';
 
 const ReceiptCard = ({ data, onDelete, isDark: propIsDark }) => {
   const { isDark: themeIsDark } = useTheme();
@@ -467,186 +468,241 @@ const ReceiptCard = ({ data, onDelete, isDark: propIsDark }) => {
         </div>
       </div>
 
-      {/* ========== DETAIL MODAL ========== */}
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsOpen(false)}>
+      {/* ========== PROFESSIONAL RECEIPT MODAL ========== */}
+      {isOpen && createPortal(
+        <div 
+            className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" 
+            onClick={() => setIsOpen(false)}
+        >
           <div 
-            className={`w-full md:w-[420px] md:max-w-[90vw] rounded-t-3xl md:rounded-3xl shadow-2xl animate-slide-up md:animate-pop-in flex flex-col max-h-[85vh] ${isDark ? 'bg-dark-card' : 'bg-white'}`}
+            className={`w-full md:w-[420px] md:max-w-[90vw] rounded-t-3xl md:rounded-3xl shadow-2xl animate-slide-up md:animate-scale-up flex flex-col max-h-[90vh] mb-0 md:mb-0 overflow-hidden ${isDark ? 'bg-dark-card ring-1 ring-white/10' : 'bg-white'}`}
             onClick={(e) => e.stopPropagation()}
           >
             
-            {/* 🟢 HEADER: Added Trash Icon Here */}
+            {/* 1. BRANDED HEADER */}
             <div 
-              className="p-4 md:p-5 flex justify-between items-center shrink-0 rounded-t-3xl text-white relative overflow-hidden"
+              className="p-5 flex justify-between items-center shrink-0 relative overflow-hidden"
               style={{ background: `linear-gradient(135deg, ${brandColor} 0%, ${brandColor}dd 100%)` }}
             >
-              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, white 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+              {/* Background Pattern */}
+              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, white 1px, transparent 1px)', backgroundSize: '16px 16px' }}></div>
               
-              <div className="flex items-center gap-3 relative z-10 overflow-hidden">
+              <div className="flex items-center gap-3 relative z-10">
                 {merchantLogoUrl && !isMerchantLogoBroken ? (
-                  <div className="w-10 h-10 bg-white rounded-xl p-1 shadow-lg shrink-0 overflow-hidden">
-                    <img
-                      src={merchantLogoUrl}
-                      alt="Logo"
-                      className="w-full h-full object-contain"
-                      onError={() => setIsMerchantLogoBroken(true)}
-                    />
+                  <div className="w-11 h-11 bg-white rounded-xl p-1 shadow-md shrink-0 overflow-hidden">
+                    <img src={merchantLogoUrl} alt="Logo" className="w-full h-full object-contain" onError={() => setIsMerchantLogoBroken(true)} />
                   </div>
                 ) : (
-                  <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm shrink-0 flex items-center justify-center">
-                    <span className="text-sm font-black leading-none select-none">{merchantInitials}</span>
+                  <div className="w-11 h-11 bg-white/20 rounded-xl backdrop-blur-md flex items-center justify-center shrink-0">
+                    <span className="text-white font-black text-lg">{merchantInitials}</span>
                   </div>
                 )}
-                <div className="min-w-0">
+                <div className="text-white min-w-0">
                   <h3 className="font-bold text-lg leading-tight truncate">{data.merchant}</h3>
-                  <span className="text-xs font-medium opacity-80">{isQR ? 'Digital Receipt' : 'Uploaded Receipt'}</span>
+                  <div className="flex items-center gap-2 opacity-90 text-xs font-medium">
+                    <span>{isQR ? 'Digital Receipt' : 'Uploaded Receipt'}</span>
+                    <span>•</span>
+                    <span>{data.date}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* ACTION BUTTONS: Delete & Close */}
+              {/* Action Buttons */}
               <div className="flex items-center gap-2 relative z-10">
                 <button 
                     onClick={handleDelete} 
                     disabled={isProcessing}
-                    className="p-2 bg-white/20 rounded-full hover:bg-red-500/80 transition-colors text-white"
+                    className="w-9 h-9 flex items-center justify-center bg-white/20 rounded-full hover:bg-red-500 text-white transition-colors"
                     title="Delete Receipt"
                 >
-                    {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                    {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                 </button>
                 <button 
                     onClick={() => setIsOpen(false)} 
-                    className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
+                    className="w-9 h-9 flex items-center justify-center bg-white/20 rounded-full hover:bg-white/30 text-white transition-colors"
                 >
                     <X size={18}/>
                 </button>
               </div>
             </div>
 
-            {/* Merchant Info Bar */}
-            {(branding.address || branding.phone) && (
-              <div className={`px-4 py-2.5 border-b flex flex-wrap gap-x-4 gap-y-1 text-xs ${isDark ? 'bg-dark-surface border-dark-border text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
-                {branding.address && <span className="flex items-center gap-1"><MapPin size={12} style={{ color: brandColor }} /> {branding.address}</span>}
-                {branding.phone && <span className="flex items-center gap-1"><Phone size={12} style={{ color: brandColor }} /> {branding.phone}</span>}
-              </div>
-            )}
-
-            {/* 🟢 SCROLLABLE CONTENT: Added padding-bottom to prevent overlap */}
-            <div className="p-4 md:p-6 overflow-y-auto flex-1 pb-24 md:pb-6">
+            {/* 2. SCROLLABLE RECEIPT CONTENT */}
+            <div className="flex-1 overflow-y-auto p-5 pb-8">
               
-              {/* Date & Verified Badge */}
-              <div className={`flex items-center justify-between mb-4 pb-4 border-b border-dashed ${isDark ? 'border-dark-border' : 'border-slate-200'}`}>
-                <div className={`flex items-center gap-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  <Calendar size={16} />
-                  <span className="text-sm font-medium">{data.date} at {data.time}</span>
-                </div>
-                {isQR && <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full flex items-center gap-1 ${isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}><CheckCircle size={10} /> Verified</span>}
-              </div>
-
-              {/* 🟢 PAYMENT STATUS: Moved here so it's always visible */}
-              <div 
-                className="rounded-xl p-4 mb-4 relative overflow-hidden"
-                style={{ background: isDark ? `linear-gradient(135deg, ${brandColor}20 0%, ${brandColor}10 100%)` : `linear-gradient(135deg, ${brandColor}10 0%, ${brandColor}05 100%)` }}
-              >
-                <div className="absolute top-0 left-0 w-1 h-full rounded-l-xl" style={{ backgroundColor: brandColor }} />
+              {/* SECTION A: RECEIPT ITEMS (The Bill) */}
+              <div className={`rounded-2xl border mb-5 overflow-hidden ${isDark ? 'bg-dark-surface border-dark-border' : 'bg-slate-50 border-slate-200'}`}>
                 
-                {/* Show subtotal and discount if available */}
-                {data.discount > 0 && (
-                  <div className="space-y-1 mb-3">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Subtotal</span>
-                      <span className={`font-bold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>₹{data.subtotal || data.amount + data.discount}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Discount</span>
-                      <span className="font-bold text-red-500">- ₹{data.discount}</span>
-                    </div>
-                    <div className={`border-t pt-1 ${isDark ? 'border-slate-600' : 'border-slate-300'}`}></div>
-                  </div>
-                )}
-                
-                <div className="flex justify-between items-center mb-2">
-                  <span className={`text-sm font-bold uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Total Amount</span>
-                  <span className="text-3xl font-bold" style={{ color: brandColor }}>₹{data.amount}</span>
+                {/* Header Row */}
+                <div className={`px-4 py-3 border-b flex justify-between items-center text-xs font-bold uppercase tracking-wider ${isDark ? 'border-dark-border text-slate-500' : 'border-slate-200 text-slate-400'}`}>
+                    <span>Item Details</span>
+                    <span>Amount</span>
                 </div>
-                {isPaid ? (
-                   <div className={`flex items-center gap-2 text-sm font-bold ${paymentInfo.color}`}>
-                      <Check size={16} /> Paid via {paymentInfo.label}
-                   </div>
-                ) : (
-                   <div className="flex items-center gap-2 text-sm font-bold text-amber-500">
-                      <Clock size={16} /> Payment Pending
-                   </div>
-                )}
-              </div>
 
-              {/* Items List */}
-              {isQR && data.items?.length > 0 && (
-                <div className="mb-4">
-                  <h4 className={`text-xs font-bold uppercase mb-3 flex items-center gap-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}><ShoppingBag size={14} /> Items</h4>
-                  <div className={`rounded-xl p-3 space-y-2 ${isDark ? 'bg-dark-surface' : 'bg-slate-50'}`}>
-                    {data.items.map((item, i) => (
-                        <div key={i} className="flex justify-between items-center text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shadow-sm ${isDark ? 'bg-dark-card text-slate-400' : 'bg-white text-slate-500'}`}>{item.qty || item.quantity || 1}x</span>
-                            <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>{item.name}</span>
-                          </div>
-                          <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>₹{(item.price || item.unitPrice || 0) * (item.qty || item.quantity || 1)}</span>
-                        </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* Receipt Image */}
-              {!isQR && data.image && (
-                 <div className="mb-4">
-                  <h4 className={`text-xs font-bold uppercase mb-3 flex items-center gap-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}><Image size={14} /> Receipt Image</h4>
-                  <button
-                    type="button"
-                    onClick={() => setIsImageOpen(true)}
-                    className={`block w-full aspect-[4/3] rounded-xl overflow-hidden border ${isDark ? 'bg-dark-surface border-dark-border' : 'bg-slate-100 border-slate-200'}`}
-                    title="View full image"
-                  >
-                    <img
-                      src={data.image}
-                      alt="Receipt"
-                      className="w-full h-full object-contain cursor-zoom-in"
-                      loading="lazy"
-                    />
-                  </button>
-                </div>
-              )}
-
-              {/* Footer Message */}
-              {(branding.receiptFooter || data.footer) && (
-                <div className="text-center py-3 px-4 rounded-xl border border-dashed mb-4" style={{ borderColor: `${brandColor}40`, backgroundColor: isDark ? `${brandColor}15` : `${brandColor}05` }}>
-                  <p className={`text-sm italic ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>"{branding.receiptFooter || data.footer}"</p>
-                </div>
-              )}
-
-              {/* 🟢 ACTION REQUIRED: Payment Selector (Only if not paid) */}
-              {!isPaid && (
-                  <div className={`mt-6 p-4 rounded-xl border border-amber-200 bg-amber-50 ${isDark ? 'bg-amber-900/10 border-amber-500/30' : ''}`}>
-                    <p className={`text-xs font-bold text-center mb-3 ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
-                        {customerIntent ? "Waiting for merchant confirmation..." : "How did you pay?"}
-                    </p>
-                    
-                    {customerIntent ? (
-                         <div className="flex justify-center">
-                            <button onClick={() => setCustomerIntent(null)} className="text-xs underline text-slate-500">Change Selection</button>
-                         </div>
+                {/* Items List */}
+                <div className="p-4 space-y-3">
+                    {isQR && data.items?.length > 0 ? (
+                        data.items.map((item, i) => (
+                            <div key={i} className="flex justify-between items-start text-sm group">
+                                <div className="flex gap-3">
+                                    <div className={`w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold mt-0.5 ${isDark ? 'bg-dark-card text-slate-400' : 'bg-white text-slate-500 border border-slate-100'}`}>
+                                        {item.qty || item.quantity || 1}
+                                    </div>
+                                    <span className={`font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                                        {item.name}
+                                    </span>
+                                </div>
+                                <span className={`font-bold tabular-nums ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                                    ₹{(item.price || item.unitPrice || 0) * (item.qty || item.quantity || 1)}
+                                </span>
+                            </div>
+                        ))
+                    ) : !isQR && data.image ? (
+                        <button 
+                            onClick={() => setIsImageOpen(true)}
+                            className="w-full aspect-video rounded-lg overflow-hidden relative group"
+                        >
+                            <img src={data.image} alt="Receipt" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <span className="text-white text-xs font-bold flex items-center gap-1"><Image size={12}/> View Image</span>
+                            </div>
+                        </button>
                     ) : (
-                        <div className="flex gap-2 justify-center">
-                            <button onClick={() => handlePaymentIntent('UPI')} className="flex-1 py-2 bg-white border border-amber-200 rounded-lg text-sm font-bold text-amber-700 shadow-sm hover:bg-amber-50">UPI</button>
-                            <button onClick={() => handlePaymentIntent('Cash')} className="flex-1 py-2 bg-white border border-amber-200 rounded-lg text-sm font-bold text-amber-700 shadow-sm hover:bg-amber-50">Cash</button>
+                        <p className="text-center text-xs opacity-50 italic">No item details available</p>
+                    )}
+                </div>
+
+                {/* Divider */}
+                <div className={`border-t border-dashed ${isDark ? 'border-slate-700' : 'border-slate-300'}`}></div>
+
+                {/* Totals Section */}
+                <div className={`p-4 ${isDark ? 'bg-black/10' : 'bg-slate-100/50'}`}>
+                    {/* Subtotal & Discount (Only if applicable) */}
+                    {(data.discount > 0 || data.subtotal) && (
+                        <div className="space-y-1 mb-3 text-xs">
+                            <div className="flex justify-between items-center">
+                                <span className={isDark ? 'text-slate-500' : 'text-slate-500'}>Subtotal</span>
+                                <span className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                                    ₹{data.subtotal || (data.amount + data.discount)}
+                                </span>
+                            </div>
+                            {data.discount > 0 && (
+                                <div className="flex justify-between items-center">
+                                    <span className={isDark ? 'text-slate-500' : 'text-slate-500'}>Discount</span>
+                                    <span className="font-bold text-red-500">- ₹{data.discount}</span>
+                                </div>
+                            )}
                         </div>
                     )}
-                  </div>
-              )}
 
+                    {/* Final Total */}
+                    <div className="flex justify-between items-end">
+                        <span className={`text-sm font-bold uppercase ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Total Payable</span>
+                        <span className="text-2xl font-black tabular-nums leading-none" style={{ color: brandColor }}>
+                            ₹{data.amount}
+                        </span>
+                    </div>
+                </div>
+              </div>
+
+              {/* SECTION B: STATUS & FOOTER */}
+              <div className="space-y-4">
+                  
+                  {/* Payment Status Badge */}
+                  <div className={`flex items-center justify-between p-3 rounded-xl border ${
+                    isPaid 
+                        ? isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-200'
+                        : isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-200'
+                  }`}>
+                      <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                              isPaid 
+                                ? isDark ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-600'
+                                : isDark ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-600'
+                          }`}>
+                              {isPaid ? <Check size={16} strokeWidth={3} /> : <Clock size={16} strokeWidth={3} />}
+                          </div>
+                          <div>
+                              <p className={`text-xs font-bold uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                                  {isPaid ? 'Payment Successful' : 'Payment Pending'}
+                              </p>
+                              {isPaid && (
+                                <p className={`text-[10px] ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                                    Paid via {paymentInfo.label}
+                                </p>
+                              )}
+                          </div>
+                      </div>
+                      
+                      {/* Only show 'Verify' check if QR */}
+                      {isQR && (
+                        <div className={`px-2 py-1 rounded-md text-[10px] font-bold border flex items-center gap-1 ${
+                            isDark ? 'border-slate-700 text-slate-400' : 'bg-white border-slate-200 text-slate-500'
+                        }`}>
+                            <CheckCircle size={10} /> Verified
+                        </div>
+                      )}
+                  </div>
+
+                  {/* Merchant Footer Msg */}
+                  {(branding.receiptFooter || data.footer) && (
+                    <div className="text-center px-4">
+                      <p className={`text-xs italic ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                        "{branding.receiptFooter || data.footer}"
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Merchant Contact Info (Bottom) */}
+                  {(branding.address || branding.phone) && (
+                    <div className={`flex justify-center gap-3 text-[10px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
+                        {branding.phone && <span className="flex items-center gap-1"><Phone size={10} /> {branding.phone}</span>}
+                        {branding.address && <span>•</span>}
+                        {branding.address && <span className="flex items-center gap-1 truncate max-w-[150px]"><MapPin size={10} /> {branding.address}</span>}
+                    </div>
+                  )}
+
+                  {/* ACTION REQUIRED: Payment Selector (If Pending) */}
+                  {!isPaid && (
+                      <div className="pt-2">
+                        <p className={`text-xs font-bold text-center mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {customerIntent ? "Confirming with merchant..." : "Mark payment method:"}
+                        </p>
+                        
+                        {customerIntent ? (
+                             <button onClick={() => setCustomerIntent(null)} className="block mx-auto text-xs font-medium text-blue-500 hover:underline">
+                                Change Selection
+                             </button>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-3">
+                                <button onClick={() => handlePaymentIntent('UPI')} className={`py-2.5 rounded-xl text-sm font-bold border transition-all active:scale-95 ${
+                                    isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-white' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700 shadow-sm'
+                                }`}>
+                                    UPI
+                                </button>
+                                <button onClick={() => handlePaymentIntent('Cash')} className={`py-2.5 rounded-xl text-sm font-bold border transition-all active:scale-95 ${
+                                    isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-white' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700 shadow-sm'
+                                }`}>
+                                    Cash
+                                </button>
+                            </div>
+                        )}
+                      </div>
+                  )}
+              </div>
             </div>
+            
+            {/* 3. Animation Styles */}
+            <style>{`
+                @keyframes scale-up {
+                    0% { opacity: 0; transform: scale(0.95); }
+                    100% { opacity: 1; transform: scale(1); }
+                }
+                .animate-scale-up { animation: scale-up 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+            `}</style>
+
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Fullscreen image viewer (in-app) */}

@@ -2848,13 +2848,6 @@ const MerchantBilling = ({ inventory, profile }) => {
             </div>
 
             <div className="flex flex-col items-center mb-2">
-              {/* If there is a discount, show the original price crossed out */}
-              {discount > 0 && (
-                <span className={`text-sm font-bold line-through ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  ₹{cartTotal}
-                </span>
-              )}
-              
               {/* Final Amount */}
               <div className="text-3xl font-black text-emerald-500">
                 ₹{Math.max(0, cartTotal - discount)}

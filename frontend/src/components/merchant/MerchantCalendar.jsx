@@ -1646,7 +1646,7 @@
 // export default MerchantCalendar;
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Calendar as CalendarIcon, X, Filter, ChevronDown, Check, Receipt, User, ShoppingBag, Wallet, ChevronLeft, ChevronRight } from 'lucide-react'; 
+import { Calendar as CalendarIcon, X, Filter, ChevronDown, Check, Receipt, User, ShoppingBag, Wallet, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react'; 
 import { fetchMerchantReceipts } from '../../services/api';
 import { MONTH_NAMES } from '../../utils/mockData';
 import { getISTYear, getISTMonth } from '../../utils/timezone';
@@ -1972,69 +1972,107 @@ const MerchantCalendar = () => {
 
       {/* 🧾 RECEIPT MODAL */}
       {viewingReceipt && (
-        <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className={`w-full md:max-w-md rounded-t-[2rem] md:rounded-[2rem] overflow-hidden shadow-2xl relative animate-[slideUp_0.3s_ease-out] md:animate-[popIn_0.2s_ease-out] max-h-[90vh] flex flex-col ${
+        <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          
+          {/* Backdrop Click to Close */}
+          <div className="absolute inset-0" onClick={() => setViewingReceipt(null)}></div>
+
+          <div className={`w-full md:max-w-md rounded-t-[2rem] md:rounded-[2rem] overflow-hidden shadow-2xl relative animate-[slideUp_0.3s_ease-out] md:animate-[popIn_0.2s_ease-out] max-h-[90vh] flex flex-col z-10 ${
             isDark ? 'bg-dark-card' : 'bg-slate-50'
           }`}>
+             
+             {/* HEADER */}
              <div className="text-white p-5 flex justify-between items-center shrink-0" style={{ background: `linear-gradient(135deg, ${viewingReceipt.merchantSnapshot?.brandColor || '#10b981'} 0%, ${viewingReceipt.merchantSnapshot?.brandColor || '#10b981'}dd 100%)` }}>
               <div className="flex items-center gap-3 relative z-10">
-                <div className="p-2 bg-white/20 rounded-xl"><Receipt size={18}/></div>
-                <span className="text-base font-bold">Receipt Detail</span>
+                <div className="p-2 bg-white/20 rounded-xl shadow-sm"><Receipt size={18}/></div>
+                <div>
+                    <h3 className="text-base font-bold leading-none">Receipt Detail</h3>
+                    <p className="text-[10px] font-medium opacity-80 mt-1">#{viewingReceipt.id?.slice(-6).toUpperCase() || 'ID'}</p>
+                </div>
               </div>
-              <button onClick={() => setViewingReceipt(null)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 relative z-10"><X size={18}/></button>
+              <button onClick={() => setViewingReceipt(null)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 relative z-10 active:scale-90 transition-transform"><X size={18}/></button>
             </div>
-            <div className={`p-6 overflow-y-auto m-2 rounded-[1.5rem] shadow-sm border relative mb-safe ${
+
+            {/* SCROLLABLE BODY 
+                🔴 FIX: Added 'pb-24' to create space at the bottom for scrolling past nav bar 
+            */}
+            <div className={`flex-1 overflow-y-auto p-6 pb-24 md:pb-6 m-3 rounded-[1.5rem] shadow-sm border relative flex flex-col ${
               isDark ? 'bg-dark-surface border-dark-border' : 'bg-white border-slate-100'
             }`}>
+               
+               {/* Customer/Date Header */}
                <div className={`text-center border-b border-dashed pb-5 mb-5 ${isDark ? 'border-dark-border' : 'border-slate-200'}`}>
-                  <h2 className={`text-2xl font-black mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>{viewingReceipt.customerName || "Walk-in Customer"}</h2>
-                  <div className={`flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
-                     <span>{viewingReceipt.date}</span><span>•</span><span>{viewingReceipt.time}</span>
+                  <h2 className={`text-2xl font-black mb-1 leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    {viewingReceipt.customerName || "Walk-in Customer"}
+                  </h2>
+                  <div className={`flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                     <span>{viewingReceipt.date}</span>
+                     <span>•</span>
+                     <span>{viewingReceipt.time}</span>
                   </div>
                </div>
-               <div className="space-y-3 mb-6">
-                 {/* 👇 FIX APPLIED HERE: Added support for 'qty' key */}
+
+               {/* Items List */}
+               <div className="space-y-4 mb-6 min-h-[50px]">
                  {viewingReceipt.items && viewingReceipt.items.map((item, i) => {
                    const qty = item.qty || item.quantity || item.q || 1;
                    const price = item.price || item.unitPrice || item.p || 0;
                    return (
-                     <div key={i} className="flex justify-between text-sm items-center">
-                       <div className="flex items-center gap-2">
-                          <span className={`w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold ${
-                            isDark ? 'bg-dark-card text-slate-400' : 'bg-slate-100 text-slate-600'
+                     <div key={i} className="flex justify-between text-sm items-start">
+                       <div className="flex items-start gap-3">
+                          <span className={`w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold mt-0.5 ${
+                            isDark ? 'bg-dark-card text-slate-400' : 'bg-slate-100 text-slate-500 border border-slate-200'
                           }`}>
                              {qty}
                           </span>
-                          <span className={`font-bold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{item.n || item.name}</span>
+                          <span className={`font-medium leading-tight max-w-[180px] ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                            {item.n || item.name}
+                          </span>
                        </div>
-                       <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>₹{price * qty}</span>
+                       <span className={`font-bold tabular-nums text-right ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                         ₹{price * qty}
+                       </span>
                      </div>
                    );
                  })}
                </div>
                
-               {/* Show discount details if available */}
+               {/* Calculation Section (Subtotal & Discount) */}
                {viewingReceipt.discount > 0 && (
                  <div className={`space-y-2 mb-4 pb-4 border-b border-dashed ${isDark ? 'border-dark-border' : 'border-slate-200'}`}>
-                   <div className="flex justify-between text-sm items-center">
-                     <span className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Subtotal</span>
-                     <span className={`font-bold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>₹{viewingReceipt.subtotal || (viewingReceipt.total ?? viewingReceipt.amount) + viewingReceipt.discount}</span>
+                   <div className="flex justify-between text-xs font-medium">
+                     <span className={isDark ? 'text-slate-500' : 'text-slate-500'}>Subtotal</span>
+                     <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>
+                        ₹{viewingReceipt.subtotal || (viewingReceipt.total ?? viewingReceipt.amount) + viewingReceipt.discount}
+                     </span>
                    </div>
-                   <div className="flex justify-between text-sm items-center">
-                     <span className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Discount</span>
-                     <span className="font-bold text-red-500">- ₹{viewingReceipt.discount}</span>
+                   <div className="flex justify-between text-xs font-medium">
+                     <span className={isDark ? 'text-slate-500' : 'text-slate-500'}>Discount</span>
+                     <span className="font-bold text-red-500">
+                        - ₹{viewingReceipt.discount}
+                     </span>
                    </div>
                  </div>
                )}
                
-               <div className={`border-t-2 border-dashed pt-4 flex justify-between items-center mb-6 ${isDark ? 'border-dark-border' : 'border-slate-100'}`}>
-                 <span className={`font-black text-xs uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Total Received</span>
-                 <span className={`text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>₹{viewingReceipt.total ?? viewingReceipt.amount}</span>
-               </div>
-               <div className="text-center">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-[10px] font-black uppercase tracking-wide">
-                    <Check size={12} strokeWidth={4} /> Paid via {viewingReceipt.paymentMethod || 'Cash'}
-                  </span>
+               {/* Grand Total */}
+               <div className="mt-auto">
+                   <div className={`border-t-2 border-dashed pt-4 flex justify-between items-center mb-6 ${isDark ? 'border-dark-border' : 'border-slate-100'}`}>
+                     <span className={`font-black text-xs uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Total Received</span>
+                     <span className={`text-3xl font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        ₹{viewingReceipt.total ?? viewingReceipt.amount}
+                     </span>
+                   </div>
+
+                   {/* Payment Badge */}
+                   <div className={`text-center p-3 rounded-xl border ${
+                       isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'
+                   }`}>
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wide ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                        <CheckCircle size={14} strokeWidth={2.5} /> 
+                        Paid via {viewingReceipt.paymentMethod || 'Cash'}
+                      </span>
+                   </div>
                </div>
             </div>
           </div>

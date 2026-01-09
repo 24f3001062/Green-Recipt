@@ -765,7 +765,7 @@
 
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Calendar as CalendarIcon, X, ChevronDown, Check, Receipt, Store, Wallet, ChevronLeft, ChevronRight } from 'lucide-react'; 
+import { Calendar as CalendarIcon, X, ChevronDown, Check, Receipt, Store, Wallet, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react'; 
 import { fetchCustomerReceipts } from '../../services/api'; // Ensure path is correct
 import { MONTH_NAMES } from '../../utils/mockData'; // Ensure path is correct
 import { getISTYear, getISTMonth } from '../../utils/timezone'; // Ensure path is correct
@@ -1110,53 +1110,105 @@ const CustomerCalendar = () => {
 
       {/* 🧾 RECEIPT MODAL - (Exact match to MerchantCalendar) */}
       {viewingReceipt && (
-        <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className={`w-full md:max-w-md rounded-t-[2rem] md:rounded-[2rem] overflow-hidden shadow-2xl relative animate-[slideUp_0.3s_ease-out] md:animate-[popIn_0.2s_ease-out] max-h-[90vh] flex flex-col ${
+        <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          
+          {/* BACKDROP CLICK CLOSE */}
+          <div className="absolute inset-0" onClick={() => setViewingReceipt(null)}></div>
+
+          {/* MODAL CARD */}
+          <div className={`w-full md:max-w-md rounded-t-[2rem] md:rounded-[2rem] overflow-hidden shadow-2xl relative animate-[slideUp_0.3s_ease-out] md:animate-[popIn_0.2s_ease-out] max-h-[90vh] flex flex-col z-10 ${
             isDark ? 'bg-dark-card' : 'bg-slate-50'
           }`}>
+             
+             {/* HEADER */}
              <div className="text-white p-5 flex justify-between items-center shrink-0" style={{ background: `linear-gradient(135deg, ${viewingReceipt.merchantSnapshot?.brandColor || '#10b981'} 0%, ${viewingReceipt.merchantSnapshot?.brandColor || '#10b981'}dd 100%)` }}>
               <div className="flex items-center gap-3 relative z-10">
                 <div className="p-2 bg-white/20 rounded-xl"><Receipt size={18}/></div>
-                <span className="text-base font-bold">Receipt Detail</span>
+                <div className="flex flex-col">
+                    <span className="text-base font-bold leading-none">Receipt Detail</span>
+                    <span className="text-[10px] opacity-80 font-medium mt-1">#{viewingReceipt.id?.slice(-6).toUpperCase() || 'ID'}</span>
+                </div>
               </div>
               <button onClick={() => setViewingReceipt(null)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 relative z-10"><X size={18}/></button>
             </div>
-            <div className={`p-6 overflow-y-auto m-2 rounded-[1.5rem] shadow-sm border relative mb-safe ${
+
+            {/* BILL BODY 
+                🔴 FIX: Added 'pb-24' to ensure content clears mobile nav bar 
+            */}
+            <div className={`flex-1 overflow-y-auto p-5 pb-24 md:pb-5 m-3 rounded-[1.5rem] shadow-sm border relative flex flex-col ${
               isDark ? 'bg-dark-surface border-dark-border' : 'bg-white border-slate-100'
             }`}>
-               <div className={`text-center border-b border-dashed pb-5 mb-5 ${isDark ? 'border-dark-border' : 'border-slate-200'}`}>
-                  <h2 className={`text-2xl font-black mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>{viewingReceipt.merchant || "Unknown Store"}</h2>
-                  <div className={`flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
+               
+               {/* Merchant Header */}
+               <div className={`text-center border-b border-dashed pb-4 mb-4 ${isDark ? 'border-dark-border' : 'border-slate-200'}`}>
+                  <h2 className={`text-xl font-black mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>{viewingReceipt.merchant || "Unknown Store"}</h2>
+                  <div className={`flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
                      <span>{viewingReceipt.date}</span><span>•</span><span>{viewingReceipt.time}</span>
                   </div>
                </div>
-               <div className="space-y-3 mb-6">
+
+               {/* Items List */}
+               <div className="space-y-3 mb-4 min-h-[100px]">
                  {viewingReceipt.items && viewingReceipt.items.map((item, i) => {
                    const qty = item.qty || item.quantity || item.q || 1;
                    const price = item.price || item.unitPrice || item.p || 0;
                    return (
-                     <div key={i} className="flex justify-between text-sm items-center">
-                       <div className="flex items-center gap-2">
-                          <span className={`w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold ${
+                     <div key={i} className="flex justify-between text-sm items-start">
+                       <div className="flex items-start gap-3">
+                          <span className={`w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold mt-0.5 ${
                             isDark ? 'bg-dark-card text-slate-400' : 'bg-slate-100 text-slate-600'
                           }`}>
                              {qty}
                           </span>
-                          <span className={`font-bold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{item.n || item.name}</span>
+                          <span className={`font-medium leading-tight ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{item.n || item.name}</span>
                        </div>
-                       <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>₹{price * qty}</span>
+                       <span className={`font-bold tabular-nums ${isDark ? 'text-white' : 'text-slate-900'}`}>₹{price * qty}</span>
                      </div>
                    );
                  })}
                </div>
-               <div className={`border-t-2 border-dashed pt-4 flex justify-between items-center mb-6 ${isDark ? 'border-dark-border' : 'border-slate-100'}`}>
-                 <span className={`font-black text-xs uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Total Paid</span>
-                 <span className={`text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>₹{viewingReceipt.total ?? viewingReceipt.amount}</span>
-               </div>
-               <div className="text-center">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-[10px] font-black uppercase tracking-wide">
-                    <Check size={12} strokeWidth={4} /> Paid via {viewingReceipt.paymentMethod || 'Cash'}
-                  </span>
+
+               {/* Calculation Section */}
+               <div className="mt-auto">
+                   <div className={`border-t border-dashed pt-4 space-y-2 ${isDark ? 'border-dark-border' : 'border-slate-200'}`}>
+                     
+                     {/* Show Subtotal/Discount ONLY if discount exists */}
+                     {(Number(viewingReceipt.discount || 0) > 0) && (
+                        <>
+                            <div className="flex justify-between text-xs">
+                                <span className={isDark ? 'text-slate-500' : 'text-slate-500'}>Subtotal</span>
+                                <span className={`font-bold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                                    ₹{viewingReceipt.subtotal || ((viewingReceipt.total ?? viewingReceipt.amount ?? 0) + Number(viewingReceipt.discount))}
+                                </span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                                <span className={isDark ? 'text-slate-500' : 'text-slate-500'}>Discount</span>
+                                <span className="font-bold text-red-500">
+                                    - ₹{viewingReceipt.discount}
+                                </span>
+                            </div>
+                            <div className={`border-t my-2 opacity-50 ${isDark ? 'border-slate-700' : 'border-slate-100'}`}></div>
+                        </>
+                     )}
+
+                     {/* Grand Total */}
+                     <div className="flex justify-between items-end">
+                       <span className={`font-black text-xs uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Total Paid</span>
+                       <span className={`text-3xl font-black ${isDark ? 'text-emerald-400' : 'text-slate-900'}`}>
+                          ₹{viewingReceipt.total ?? viewingReceipt.amount}
+                       </span>
+                     </div>
+                   </div>
+
+                   {/* Footer Status Badge */}
+                   <div className={`mt-5 text-center p-3 rounded-xl border ${
+                       isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'
+                   }`}>
+                      <div className={`flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wide ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                        <CheckCircle size={14} strokeWidth={2.5} /> 
+                        Payment Successful via {viewingReceipt.paymentMethod || 'Cash'}
+                      </div>
+                   </div>
                </div>
             </div>
           </div>

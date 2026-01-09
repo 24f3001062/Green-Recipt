@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 import { getTodayIST, formatISTDateDisplay } from '../../utils/timezone';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useTranslation } from 'react-i18next';
+import { createPortal } from 'react-dom';
 
 // ============== SKELETON LOADER ==============
 const HomeSkeleton = ({ isDark }) => (
@@ -550,85 +551,130 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
         )}
       </div>
 
-      {/* ========== UPLOAD DETAILS MODAL ========== */}
-      {pendingFile && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
-          <div className={`rounded-2xl md:rounded-3xl w-full max-w-sm shadow-2xl animate-[popIn_0.2s_ease-out] flex flex-col max-h-[90vh] ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+      {/* ========== PROFESSIONAL UPLOAD MODAL ========== */}
+      {pendingFile && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-fade-in">
+          
+          {/* MODAL CARD 
+              - mb-24: Crucial for Mobile to clear Bottom Nav
+              - max-h-[85vh]: Prevents it from being too tall
+          */}
+          <div className={`w-full max-w-sm md:max-w-md rounded-3xl shadow-2xl flex flex-col max-h-[85vh] mb-24 md:mb-0 overflow-hidden animate-scale-up transition-all ${isDark ? 'bg-slate-900 ring-1 ring-white/10' : 'bg-white'}`}>
             
-            {/* Modal Header */}
-            <div className={`flex justify-between items-center p-4 md:p-5 border-b shrink-0 ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
-              <h3 className={`font-bold text-base md:text-lg flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                <ImageIcon size={18} className="text-blue-500 md:w-5 md:h-5"/> 
-                {t('upload.addReceipt')}
-              </h3>
+            {/* HEADER - Sticky & Glassy */}
+            <div className={`px-5 py-4 border-b flex items-center justify-between shrink-0 z-10 ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-white'}`}>
+              <div>
+                <h3 className={`font-bold text-lg flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                  {t('upload.addReceipt')}
+                </h3>
+                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Verify details before saving
+                </p>
+              </div>
               <button 
                 onClick={() => setPendingFile(null)} 
-                className={`p-1.5 md:p-2 rounded-full transition-colors ${isDark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'}`}
+                className={`p-2 rounded-full transition-colors ${isDark ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
               >
-                <X size={16} className={`md:w-[18px] md:h-[18px] ${isDark ? 'text-slate-300' : ''}`}/>
+                <X size={20} />
               </button>
             </div>
 
-            {/* Content */}
-            <div className="overflow-y-auto flex-1 p-4 md:p-5">
-              {/* Image Preview */}
-              <div className={`aspect-[4/3] rounded-xl mb-4 md:mb-5 overflow-hidden border ${isDark ? 'bg-slate-700 border-slate-600' : 'bg-slate-100 border-slate-200'}`}>
-                <img src={pendingFile.url} alt="Preview" className="w-full h-full object-cover" />
+            {/* SCROLLABLE CONTENT */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              
+              {/* Image Preview - Card Style */}
+              <div className="flex justify-center">
+                <div className={`relative group w-full aspect-[16/9] rounded-2xl overflow-hidden border shadow-sm ${isDark ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-slate-50'}`}>
+                    <img 
+                        src={pendingFile.url} 
+                        alt="Preview" 
+                        className="w-full h-full object-cover" 
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-60" />
+                    <div className="absolute bottom-3 left-3 flex items-center gap-2 text-white/90">
+                        <ImageIcon size={14} />
+                        <span className="text-xs font-medium">Receipt Preview</span>
+                    </div>
+                </div>
               </div>
 
-              <form onSubmit={saveUploadedReceipt} className="space-y-3 md:space-y-4">
+              <form id="uploadForm" onSubmit={saveUploadedReceipt} className="space-y-4">
                 
                 {/* Merchant Name */}
-                <div>
-                  <label className={`block text-[10px] md:text-xs font-bold uppercase mb-1.5 md:mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('upload.merchantShop')}</label>
+                <div className="space-y-1.5">
+                  <label className={`text-xs font-bold uppercase tracking-wider ml-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {t('upload.merchantShop')}
+                  </label>
                   <div className="relative">
-                    <Store className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} size={16} />
+                    <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                        <Store size={18} />
+                    </div>
                     <input 
                       type="text" 
-                      placeholder={t('upload.merchantPlaceholder')} 
+                      placeholder="e.g. Starbucks, Local Market" 
                       value={manualMerchant}
                       onChange={(e) => setManualMerchant(e.target.value)}
-                      className={`w-full pl-9 md:pl-10 pr-4 py-2.5 md:py-3 border rounded-xl text-sm font-medium outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                      className={`w-full pl-11 pr-4 py-3.5 rounded-xl text-sm font-semibold outline-none transition-all ${
+                        isDark 
+                          ? 'bg-slate-800/50 border border-slate-700 text-white focus:border-blue-500 focus:bg-slate-800' 
+                          : 'bg-slate-50 border border-slate-200 text-slate-800 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'
+                      }`}
                       required
                     />
                   </div>
                 </div>
 
-                {/* Amount */}
-                <div>
-                  <label className={`block text-[10px] md:text-xs font-bold uppercase mb-1.5 md:mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('upload.totalAmount')}</label>
-                  <div className="relative">
-                    <span className={`absolute left-3 top-1/2 -translate-y-1/2 font-bold text-base md:text-lg ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>₹</span>
-                    <input 
-                      type="number" 
-                      inputMode="decimal"
-                      placeholder="0.00" 
-                      value={manualAmount}
-                      onChange={(e) => setManualAmount(e.target.value)}
-                      className={`w-full pl-8 md:pl-9 pr-4 py-2.5 md:py-3 border rounded-xl text-base md:text-lg font-bold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
-                      required
-                    />
-                  </div>
+                {/* Amount & Date Row */}
+                <div className="grid grid-cols-2 gap-4">
+                    {/* Amount */}
+                    <div className="space-y-1.5">
+                        <label className={`text-xs font-bold uppercase tracking-wider ml-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {t('upload.totalAmount')}
+                        </label>
+                        <div className="relative">
+                            <span className={`absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-lg ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>₹</span>
+                            <input 
+                            type="number" 
+                            inputMode="decimal"
+                            placeholder="0" 
+                            value={manualAmount}
+                            onChange={(e) => setManualAmount(e.target.value)}
+                            className={`w-full pl-9 pr-3 py-3.5 rounded-xl text-lg font-bold outline-none transition-all ${
+                                isDark 
+                                ? 'bg-slate-800/50 border border-slate-700 text-white focus:border-blue-500 focus:bg-slate-800' 
+                                : 'bg-slate-50 border border-slate-200 text-slate-800 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'
+                            }`}
+                            required
+                            />
+                        </div>
+                    </div>
+
+                    {/* Date */}
+                    <div className="space-y-1.5">
+                        <label className={`text-xs font-bold uppercase tracking-wider ml-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {t('upload.transactionDate')}
+                        </label>
+                        <div className="relative">
+                            <input 
+                            type="date" 
+                            value={manualDate}
+                            onChange={(e) => setManualDate(e.target.value)}
+                            className={`w-full px-4 py-3.5 rounded-xl text-sm font-semibold outline-none transition-all ${
+                                isDark 
+                                ? 'bg-slate-800/50 border border-slate-700 text-white focus:border-blue-500 focus:bg-slate-800' 
+                                : 'bg-slate-50 border border-slate-200 text-slate-800 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'
+                            }`}
+                            required
+                            />
+                        </div>
+                    </div>
                 </div>
 
-                {/* Date */}
-                <div>
-                  <label className={`block text-[10px] md:text-xs font-bold uppercase mb-1.5 md:mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('upload.transactionDate')}</label>
-                  <div className="relative">
-                    <Calendar className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${isDark ? 'text-slate-500' : 'text-slate-400'}`} size={16} />
-                    <input 
-                      type="date" 
-                      value={manualDate}
-                      onChange={(e) => setManualDate(e.target.value)}
-                      className={`w-full pl-9 md:pl-10 pr-4 py-2.5 md:py-3 border rounded-xl text-sm font-medium outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:left-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-700'}`}
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Payment Method */}
-                <div>
-                  <label className={`block text-[10px] md:text-xs font-bold uppercase mb-1.5 md:mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('receipts.paymentMethod')}</label>
+                {/* Payment Method - Pills */}
+                <div className="space-y-1.5">
+                  <label className={`text-xs font-bold uppercase tracking-wider ml-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {t('receipts.paymentMethod')}
+                  </label>
                   <div className="grid grid-cols-2 gap-2">
                     {[
                       { id: 'upi', label: t('dashboard.upi'), icon: Smartphone },
@@ -640,15 +686,15 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
                         key={pm.id}
                         type="button"
                         onClick={() => setManualPaymentMethod(pm.id)}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
+                        className={`px-3 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all active:scale-95 ${
                           manualPaymentMethod === pm.id
-                            ? 'bg-blue-600 border-blue-600 text-white'
+                            ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/25'
                             : isDark
-                              ? 'bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600'
-                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                              ? 'bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white'
+                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                         }`}
                       >
-                        <pm.icon size={14} />
+                        <pm.icon size={16} />
                         <span>{pm.label}</span>
                       </button>
                     ))}
@@ -658,46 +704,63 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
                 {/* Include in Stats Toggle */}
                 <div 
                   onClick={() => setIncludeInStats(!includeInStats)}
-                  className={`p-3 md:p-4 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${
+                  className={`p-4 rounded-xl border flex items-center gap-3 cursor-pointer transition-all active:scale-[0.98] ${
                     includeInStats 
-                      ? isDark ? 'bg-emerald-900/30 border-emerald-800 shadow-sm' : 'bg-emerald-50 border-emerald-200 shadow-sm'
-                      : isDark ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-200'
+                      ? isDark ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200'
+                      : isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200'
                   }`}
                 >
-                  <div className={`w-5 md:w-6 h-5 md:h-6 rounded-lg flex items-center justify-center border-2 transition-all ${
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                     includeInStats 
-                      ? 'bg-emerald-500 border-emerald-500' 
-                      : isDark ? 'bg-slate-600 border-slate-500' : 'bg-white border-slate-300'
+                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' 
+                      : isDark ? 'bg-slate-700 text-slate-400' : 'bg-white border text-slate-300'
                   }`}>
-                    {includeInStats && <CheckCircle size={12} className="text-white md:w-[14px] md:h-[14px]" />}
+                    <CheckCircle size={20} />
                   </div>
-                  <div className="flex-1">
-                    <p className={`text-xs md:text-sm font-bold ${
+                  <div>
+                    <p className={`text-sm font-bold ${
                       includeInStats 
-                        ? isDark ? 'text-emerald-400' : 'text-emerald-800'
-                        : isDark ? 'text-slate-300' : 'text-slate-600'
+                        ? isDark ? 'text-emerald-400' : 'text-emerald-700'
+                        : isDark ? 'text-slate-300' : 'text-slate-700'
                     }`}>
                       {t('upload.includeInAnalytics')}
                     </p>
-                    <p className={`text-[10px] md:text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('upload.trackInCharts')}</p>
+                    <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
+                      {t('upload.trackInCharts')}
+                    </p>
                   </div>
                 </div>
 
-                <button 
-                  type="submit" 
-                  disabled={isUploading}
-                  className="w-full py-3 md:py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-bold hover:from-blue-700 hover:to-blue-800 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 mt-4 md:mt-6 disabled:opacity-70 disabled:cursor-not-allowed transition-all text-sm md:text-base"
-                >
-                  {isUploading ? (
-                    <><Loader2 size={16} className="animate-spin md:w-[18px] md:h-[18px]" /> {t('upload.uploading')}</>
-                  ) : (
-                    <><Save size={16} className="md:w-[18px] md:h-[18px]" /> {t('upload.saveReceipt')}</>
-                  )}
-                </button>
               </form>
             </div>
+
+            {/* FOOTER - Sticky Bottom */}
+            <div className={`p-4 border-t flex shrink-0 ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-white'}`}>
+              <button 
+                onClick={saveUploadedReceipt} // Manually triggering because button is outside form
+                disabled={isUploading || !manualAmount || !manualMerchant}
+                className="w-full py-3.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2 shadow-xl shadow-blue-500/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              >
+                {isUploading ? (
+                  <><Loader2 size={18} className="animate-spin" /> {t('upload.uploading')}</>
+                ) : (
+                  <><Save size={18} /> {t('upload.saveReceipt')}</>
+                )}
+              </button>
+            </div>
+
           </div>
-        </div>
+
+          {/* Animation Styles */}
+          <style>{`
+            @keyframes scale-up {
+              0% { opacity: 0; transform: scale(0.95) translateY(10px); }
+              100% { opacity: 1; transform: scale(1) translateY(0); }
+            }
+            .animate-scale-up { animation: scale-up 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+          `}</style>
+        </div>,
+        document.body
       )}
 
       {/* Animations */}

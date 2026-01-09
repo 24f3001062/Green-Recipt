@@ -361,10 +361,12 @@ import {
   Banknote,
   Wallet,
   Trash2,
+  CheckCircle,
 } from "lucide-react";
 import { fetchMerchantReceipts, deleteReceipt as deleteReceiptApi } from "../../services/api";
 import { getNowIST, formatISTDate, formatISTDateDisplay } from "../../utils/timezone";
 import { useTheme } from "../../contexts/ThemeContext";
+import { createPortal } from 'react-dom';
 
 const MerchantOverview = () => {
   // 👈 Removed unused 'onNavigate' prop
@@ -770,11 +772,11 @@ const MerchantOverview = () => {
                     <p className={`text-[10px] capitalize ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                       {bill.paymentMethod || "cash"}
                     </p>
-                    {Number(bill.discount || 0) > 0 && (
+                    {/* {Number(bill.discount || 0) > 0 && (
                       <p className={`text-[10px] font-bold ${isDark ? 'text-red-400' : 'text-red-500'}`}>
                         Saved ₹{bill.discount}
                       </p>
-                    )}
+                    )} */}
                   </div>
                 </div>
               ))
@@ -823,20 +825,21 @@ const MerchantOverview = () => {
         </div>
       </div>
 
-      {/* RECEIPT MODAL (Keeping existing code) */}
-      {viewingReceipt && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          {/* ... Modal content remains the same ... */}
-          {/* Close button inside modal logic needs to be: setViewingReceipt(null) */}
-          <div
-            className="absolute inset-0 z-0"
-            onClick={() => setViewingReceipt(null)}
-          ></div>
-          {/* Actual Card */}
-          <div className={`w-full max-w-md rounded-3xl overflow-hidden shadow-2xl relative z-10 animate-[popIn_0.2s_ease-out] ${isDark ? 'bg-dark-card' : 'bg-slate-50'}`}>
-            {/* Header */}
-            <div
-              className="text-white p-4 flex justify-between items-center relative overflow-hidden"
+      {/* ========== MERCHANT RECEIPT DETAIL MODAL ========== */}
+      {viewingReceipt && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-fade-in">
+          
+          {/* BACKDROP CLICK TO CLOSE */}
+          <div className="absolute inset-0" onClick={() => setViewingReceipt(null)}></div>
+
+          {/* MODAL CARD */}
+          <div 
+            className={`w-full max-w-sm md:max-w-md rounded-3xl shadow-2xl relative z-10 flex flex-col max-h-[85vh] mb-20 md:mb-0 overflow-hidden animate-scale-up transition-all ${isDark ? 'bg-dark-card ring-1 ring-white/10' : 'bg-white'}`}
+          >
+            
+            {/* 1. BRANDED HEADER */}
+            <div 
+              className="p-5 flex justify-between items-center shrink-0 relative overflow-hidden text-white"
               style={{
                 background: `linear-gradient(135deg, ${
                   viewingReceipt.merchantSnapshot?.brandColor || "#10b981"
@@ -845,66 +848,156 @@ const MerchantOverview = () => {
                 }dd 100%)`,
               }}
             >
-              <div className="flex items-center gap-3 relative z-10">
-                <span className="text-sm font-bold">Receipt Detail</span>
+              {/* Decorative Pattern */}
+              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, white 1px, transparent 1px)', backgroundSize: '16px 16px' }}></div>
+
+              <div className="relative z-10">
+                <h3 className="font-bold text-lg leading-tight">Receipt Details</h3>
+                <p className="text-xs opacity-90 font-medium mt-0.5">
+                  #{viewingReceipt.id?.slice(-6).toUpperCase() || 'UNKNOWN'} • {new Date(viewingReceipt.date || Date.now()).toLocaleDateString()}
+                </p>
               </div>
+
               <button
                 onClick={() => setViewingReceipt(null)}
-                className="p-1.5 bg-white/10 rounded-full hover:bg-white/20 relative z-10"
+                className="relative z-10 w-8 h-8 flex items-center justify-center bg-white/20 rounded-full hover:bg-white/30 transition-colors"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
-            {/* Body */}
-            <div className={`p-6 max-h-[70vh] overflow-y-auto m-4 rounded-xl shadow-sm border ${isDark ? 'bg-dark-surface border-dark-border' : 'bg-white border-slate-200'}`}>
-              <h2 className={`text-xl font-bold text-center mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                {viewingReceipt.merchant}
-              </h2>
-              <div className="space-y-3 mb-4">
-                {viewingReceipt.items &&
-                  viewingReceipt.items.map((item, i) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span className={isDark ? 'text-slate-300' : 'text-slate-600'}>
-                        {item.qty || item.quantity || item.q || 1} x {item.n || item.name}
-                      </span>
-                      <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                        ₹{(item.price || item.unitPrice || item.p || 0) * (item.qty || item.quantity || item.q || 1)}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-              {Number(viewingReceipt.discount || 0) > 0 && (
-                <div className={`border-t pt-4 mt-4 space-y-2 ${isDark ? 'border-dark-border' : 'border-slate-200'}`}>
-                  <div className="flex justify-between text-sm">
-                    <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Subtotal</span>
-                    <span className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                      ₹{viewingReceipt.subtotal || (viewingReceipt.total ?? viewingReceipt.amount ?? 0) + (viewingReceipt.discount || 0)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Discount</span>
-                    <span className={`font-bold ${isDark ? 'text-red-400' : 'text-red-500'}`}>
-                      - ₹{viewingReceipt.discount}
-                    </span>
-                  </div>
+
+            {/* 2. SCROLLABLE BILL CONTENT */}
+            <div className="flex-1 overflow-y-auto p-5 bg-gray-50/50 dark:bg-black/20">
+              
+              {/* THE "PAPER" RECEIPT */}
+              <div className={`rounded-2xl border overflow-hidden shadow-sm ${isDark ? 'bg-dark-surface border-dark-border' : 'bg-white border-slate-200'}`}>
+                
+                {/* Merchant Name */}
+                <div className="p-4 border-b border-dashed border-gray-200 dark:border-gray-700 text-center">
+                    <h2 className={`font-bold text-lg ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                        {viewingReceipt.merchant}
+                    </h2>
+                    <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Official Receipt
+                    </p>
                 </div>
-              )}
-              <div className={`border-t pt-4 flex justify-between font-bold ${isDark ? 'border-dark-border text-white' : 'text-slate-800'}`}>
-                <span>Total Payable</span>
-                <span>₹{viewingReceipt.total ?? viewingReceipt.amount}</span>
+
+                {/* Items Header */}
+                <div className={`px-4 py-2 border-b flex justify-between text-[10px] font-bold uppercase tracking-wider ${isDark ? 'bg-white/5 border-dark-border text-slate-500' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                    <span>Item</span>
+                    <span>Total</span>
+                </div>
+
+                {/* Items List */}
+                <div className="p-4 space-y-3">
+                    {viewingReceipt.items && viewingReceipt.items.map((item, i) => {
+                        // Normalize Data Keys (handle qty/q/quantity and price/p/unitPrice)
+                        const qty = item.qty || item.quantity || item.q || 1;
+                        const price = item.price || item.unitPrice || item.p || 0;
+                        const name = item.name || item.n || "Item";
+                        
+                        return (
+                            <div key={i} className="flex justify-between items-start text-sm group">
+                                <div className="flex gap-3">
+                                    <div className={`w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold mt-0.5 ${isDark ? 'bg-dark-card text-slate-400' : 'bg-slate-100 text-slate-600'}`}>
+                                        {qty}
+                                    </div>
+                                    <span className={`font-medium leading-snug ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                                        {name}
+                                    </span>
+                                </div>
+                                <span className={`font-bold tabular-nums ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                                    ₹{price * qty}
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Totals Section (Dashed Separator) */}
+                <div className={`border-t border-dashed ${isDark ? 'border-slate-700' : 'border-slate-300'}`}></div>
+
+                <div className={`p-4 ${isDark ? 'bg-black/10' : 'bg-slate-50/50'}`}>
+                    {/* Subtotal & Discount Logic */}
+                    {(Number(viewingReceipt.discount || 0) > 0 || viewingReceipt.subtotal) && (
+                        <div className="space-y-2 mb-3 text-xs">
+                            <div className="flex justify-between">
+                                <span className={isDark ? 'text-slate-500' : 'text-slate-500'}>Subtotal</span>
+                                <span className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                                    ₹{viewingReceipt.subtotal || ((viewingReceipt.total ?? viewingReceipt.amount ?? 0) + (Number(viewingReceipt.discount) || 0))}
+                                </span>
+                            </div>
+                            {Number(viewingReceipt.discount) > 0 && (
+                                <div className="flex justify-between">
+                                    <span className={isDark ? 'text-slate-500' : 'text-slate-500'}>Discount</span>
+                                    <span className="font-bold text-red-500">- ₹{viewingReceipt.discount}</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Grand Total */}
+                    <div className="flex justify-between items-end pt-2 border-t border-gray-200 dark:border-gray-700">
+                        <span className={`text-sm font-bold uppercase ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Total Paid</span>
+                        <span className={`text-2xl font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                            ₹{viewingReceipt.total ?? viewingReceipt.amount}
+                        </span>
+                    </div>
+                </div>
+
               </div>
-              <div className="flex justify-end mt-4">
-                <button
+
+              {/* Status Badge */}
+              <div className={`mt-4 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold uppercase tracking-wide border ${
+                 viewingReceipt.status === 'paid' || viewingReceipt.paymentMethod 
+                 ? isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-600'
+                 : isDark ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-amber-50 border-amber-100 text-amber-600'
+              }`}>
+                 {viewingReceipt.status === 'paid' || viewingReceipt.paymentMethod 
+                    ? <><CheckCircle size={14}/> Payment Received ({viewingReceipt.paymentMethod || 'Confirmed'})</>
+                    : <><Clock size={14}/> Payment Pending</>
+                 }
+              </div>
+
+            </div>
+
+            {/* 3. FOOTER ACTIONS */}
+            <div className={`p-4 border-t flex gap-3 shrink-0 ${isDark ? 'border-slate-800 bg-dark-card' : 'border-slate-100 bg-white'}`}>
+               <button
                   onClick={handleDeleteReceipt}
                   disabled={isDeleting}
-                  className="flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className={`flex-1 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border transition-all active:scale-[0.98] ${
+                    isDark 
+                    ? 'border-red-500/30 text-red-400 hover:bg-red-500/10' 
+                    : 'border-red-100 text-red-600 hover:bg-red-50'
+                  } disabled:opacity-50`}
                 >
-                  <Trash2 size={14} /> {isDeleting ? "Deleting..." : "Delete Bill"}
+                  {isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                  {isDeleting ? "Deleting..." : "Delete Record"}
                 </button>
-              </div>
+                
+                <button
+                  onClick={() => setViewingReceipt(null)} // Or add a Print/Share function here
+                  className={`flex-1 py-3.5 rounded-xl font-bold text-sm text-center transition-all ${
+                    isDark ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Close
+                </button>
             </div>
+
           </div>
-        </div>
+
+          {/* Animation Styles */}
+          <style>{`
+            @keyframes scale-up {
+              0% { opacity: 0; transform: scale(0.95) translateY(10px); }
+              100% { opacity: 1; transform: scale(1) translateY(0); }
+            }
+            .animate-scale-up { animation: scale-up 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+          `}</style>
+        </div>,
+        document.body
       )}
     </div>
   );
