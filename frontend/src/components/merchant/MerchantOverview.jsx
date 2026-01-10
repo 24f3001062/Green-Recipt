@@ -951,12 +951,18 @@ const MerchantOverview = () => {
                 {t('merchant.noSalesYet')}
               </p>
             ) : (
-              todaysBills.slice(0, 5).map((bill, index) => (
-                <div
-                  key={index}
-                  onClick={() => setViewingReceipt(bill)}
-                  className={`flex items-center justify-between p-3 rounded-xl transition-colors border-b last:border-0 cursor-pointer active:scale-95 group ${isDark ? 'hover:bg-dark-surface border-dark-border' : 'hover:bg-slate-50 border-slate-50'}`}
-                >
+              todaysBills.slice(0, 5).map((bill, index) => {
+                const method = (bill.paymentMethod || '').toLowerCase();
+                const pendingAmount = Number(bill.pendingAmount ?? 0);
+                const isPendingBill = bill.status === 'pending' || method === 'pending' || pendingAmount > 0;
+                const methodLabel = isPendingBill ? 'pending' : (bill.paymentMethod || 'cash');
+
+                return (
+                  <div
+                    key={index}
+                    onClick={() => setViewingReceipt(bill)}
+                    className={`flex items-center justify-between p-3 rounded-xl transition-colors border-b last:border-0 cursor-pointer active:scale-95 group ${isDark ? 'hover:bg-dark-surface border-dark-border' : 'hover:bg-slate-50 border-slate-50'}`}
+                  >
                   <div className="flex items-center gap-4">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isDark ? 'bg-dark-surface text-slate-400 group-hover:bg-emerald-500/20 group-hover:text-emerald-400' : 'bg-slate-100 text-slate-400 group-hover:bg-emerald-100 group-hover:text-emerald-600'}`}>
                       {bill.customerName ? (
@@ -984,7 +990,7 @@ const MerchantOverview = () => {
                       ₹{bill.total ?? bill.amount}
                     </span>
                     <p className={`text-[10px] capitalize ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                      {bill.paymentMethod || "cash"}
+                      {methodLabel}
                     </p>
                     {/* {Number(bill.discount || 0) > 0 && (
                       <p className={`text-[10px] font-bold ${isDark ? 'text-red-400' : 'text-red-500'}`}>
@@ -992,8 +998,9 @@ const MerchantOverview = () => {
                       </p>
                     )} */}
                   </div>
-                </div>
-              ))
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
@@ -1152,9 +1159,25 @@ const MerchantOverview = () => {
 
                     {/* Grand Total */}
                     <div className="flex justify-between items-end pt-2 border-t border-gray-200 dark:border-gray-700">
-                        <span className={`text-sm font-bold uppercase ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Total Paid</span>
+                        {(() => {
+                          const method = (viewingReceipt.paymentMethod || '').toLowerCase();
+                          const pendingAmount = Number(viewingReceipt.pendingAmount ?? 0);
+                          const isPendingReceipt = viewingReceipt.status === 'pending' || method === 'pending' || pendingAmount > 0;
+                          return (
+                            <span className={`text-sm font-bold uppercase ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                              {isPendingReceipt ? 'Total Due' : 'Total Paid'}
+                            </span>
+                          );
+                        })()}
                         <span className={`text-2xl font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                            ₹{viewingReceipt.total ?? viewingReceipt.amount}
+                                {(() => {
+                                  const method = (viewingReceipt.paymentMethod || '').toLowerCase();
+                                  const pendingAmount = Number(viewingReceipt.pendingAmount ?? 0);
+                                  const isPendingReceipt = viewingReceipt.status === 'pending' || method === 'pending' || pendingAmount > 0;
+                                  return isPendingReceipt
+                                    ? (viewingReceipt.pendingAmount ?? viewingReceipt.total ?? viewingReceipt.amount)
+                                    : (viewingReceipt.total ?? viewingReceipt.amount);
+                                })()}
                         </span>
                     </div>
                 </div>
@@ -1162,16 +1185,30 @@ const MerchantOverview = () => {
               </div>
 
               {/* Status Badge */}
-              <div className={`mt-4 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold uppercase tracking-wide border ${
-                 viewingReceipt.status === 'paid' || viewingReceipt.paymentMethod 
-                 ? isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-600'
-                 : isDark ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-amber-50 border-amber-100 text-amber-600'
-              }`}>
-                 {viewingReceipt.status === 'paid' || viewingReceipt.paymentMethod 
-                    ? <><CheckCircle size={14}/> Payment Received ({viewingReceipt.paymentMethod || 'Confirmed'})</>
-                    : <><Clock size={14}/> Payment Pending</>
-                 }
-              </div>
+              {(() => {
+                const method = (viewingReceipt.paymentMethod || '').toLowerCase();
+                const pendingAmount = Number(viewingReceipt.pendingAmount ?? 0);
+                const isPendingReceipt = viewingReceipt.status === 'pending' || method === 'pending' || pendingAmount > 0;
+                const isCompletedReceipt = viewingReceipt.status === 'completed';
+
+                const badgeClass = isPendingReceipt
+                  ? (isDark ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-amber-50 border-amber-100 text-amber-600')
+                  : (isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-600');
+
+                const methodLabel = method || 'confirmed';
+
+                return (
+                  <div className={`mt-4 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold uppercase tracking-wide border ${badgeClass}`}>
+                    {isPendingReceipt ? (
+                      <><Clock size={14}/> Payment Pending</>
+                    ) : isCompletedReceipt ? (
+                      <><CheckCircle size={14}/> Payment Received ({methodLabel})</>
+                    ) : (
+                      <><CheckCircle size={14}/> Payment Received ({methodLabel})</>
+                    )}
+                  </div>
+                );
+              })()}
 
             </div>
 

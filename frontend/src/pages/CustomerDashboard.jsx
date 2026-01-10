@@ -6,7 +6,7 @@ import CustomerReceipts from '../components/customer/CustomerReceipts';
 import CustomerCalendar from '../components/customer/CustomerCalendar';
 import CustomerInsights from '../components/customer/CustomerInsights';
 import CustomerProfile from '../components/customer/CustomerProfile';
-import CustomerNotifications from '../components/customer/CustomerNotifications';
+import CustomerNotifications from '../components/customer/CustomerNotificationsNew';
 import CustomerRecurringBills from '../components/customer/CustomerRecurringBills';
 import { useTheme } from '../contexts/ThemeContext';
 import { ScanLine, Bell, X, CheckCircle, AlertCircle, ShoppingBag, Smartphone, Banknote, Wallet, Clock } from 'lucide-react';

@@ -2057,22 +2057,52 @@ const MerchantCalendar = () => {
                
                {/* Grand Total */}
                <div className="mt-auto">
-                   <div className={`border-t-2 border-dashed pt-4 flex justify-between items-center mb-6 ${isDark ? 'border-dark-border' : 'border-slate-100'}`}>
-                     <span className={`font-black text-xs uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Total Received</span>
-                     <span className={`text-3xl font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                        ₹{viewingReceipt.total ?? viewingReceipt.amount}
-                     </span>
-                   </div>
+                   {(() => {
+                     const method = (viewingReceipt.paymentMethod || '').toLowerCase();
+                     const pendingAmount = Number(viewingReceipt.pendingAmount ?? 0);
+                     const isPendingReceipt = viewingReceipt.status === 'pending' || method === 'pending' || pendingAmount > 0;
+                     const amount = isPendingReceipt
+                       ? (viewingReceipt.pendingAmount ?? viewingReceipt.total ?? viewingReceipt.amount)
+                       : (viewingReceipt.total ?? viewingReceipt.amount);
+
+                     return (
+                       <div className={`border-t-2 border-dashed pt-4 flex justify-between items-center mb-6 ${isDark ? 'border-dark-border' : 'border-slate-100'}`}>
+                         <span className={`font-black text-xs uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                           {isPendingReceipt ? 'Total Due' : 'Total Received'}
+                         </span>
+                         <span className={`text-3xl font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                           ₹{amount}
+                         </span>
+                       </div>
+                     );
+                   })()}
 
                    {/* Payment Badge */}
-                   <div className={`text-center p-3 rounded-xl border ${
-                       isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'
-                   }`}>
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wide ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
-                        <CheckCircle size={14} strokeWidth={2.5} /> 
-                        Paid via {viewingReceipt.paymentMethod || 'Cash'}
-                      </span>
-                   </div>
+                   {(() => {
+                     const method = (viewingReceipt.paymentMethod || '').toLowerCase();
+                     const pendingAmount = Number(viewingReceipt.pendingAmount ?? 0);
+                     const isPendingReceipt = viewingReceipt.status === 'pending' || method === 'pending' || pendingAmount > 0;
+
+                     const badgeClass = isPendingReceipt
+                       ? (isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-100')
+                       : (isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100');
+
+                     const textClass = isPendingReceipt
+                       ? (isDark ? 'text-amber-400' : 'text-amber-700')
+                       : (isDark ? 'text-emerald-400' : 'text-emerald-700');
+
+                     return (
+                       <div className={`text-center p-3 rounded-xl border ${badgeClass}`}>
+                         <span className={`inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wide ${textClass}`}>
+                           {isPendingReceipt ? (
+                             <><Clock size={14} strokeWidth={2.5} /> Pending</>
+                           ) : (
+                             <><CheckCircle size={14} strokeWidth={2.5} /> Paid via {viewingReceipt.paymentMethod || 'Cash'}</>
+                           )}
+                         </span>
+                       </div>
+                     );
+                   })()}
                </div>
             </div>
           </div>

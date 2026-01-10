@@ -426,8 +426,9 @@ export const markReceiptPaid = async (req, res) => {
       // Mark as pending (khata) - keep status as "pending", store customer info
       const updateData = {
         status: "pending",
-        paymentMethod: "other", // Payment method not yet decided
+        paymentMethod: "pending", // Explicitly mark as khata/pending
         pendingAmount: receiptCheck.total,
+        paidAt: null,
       };
 
       // Add customer info if provided

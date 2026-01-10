@@ -1192,23 +1192,53 @@ const CustomerCalendar = () => {
                      )}
 
                      {/* Grand Total */}
-                     <div className="flex justify-between items-end">
-                       <span className={`font-black text-xs uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Total Paid</span>
-                       <span className={`text-3xl font-black ${isDark ? 'text-emerald-400' : 'text-slate-900'}`}>
-                          ₹{viewingReceipt.total ?? viewingReceipt.amount}
-                       </span>
-                     </div>
+                     {(() => {
+                       const method = (viewingReceipt.paymentMethod || '').toLowerCase();
+                       const pendingAmount = Number(viewingReceipt.pendingAmount ?? 0);
+                       const isPendingReceipt = viewingReceipt.status === 'pending' || method === 'pending' || pendingAmount > 0;
+                       const amount = isPendingReceipt
+                         ? (viewingReceipt.pendingAmount ?? viewingReceipt.total ?? viewingReceipt.amount)
+                         : (viewingReceipt.total ?? viewingReceipt.amount);
+
+                       return (
+                         <div className="flex justify-between items-end">
+                           <span className={`font-black text-xs uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                             {isPendingReceipt ? 'Total Due' : 'Total Paid'}
+                           </span>
+                           <span className={`text-3xl font-black ${isDark ? 'text-emerald-400' : 'text-slate-900'}`}>
+                             ₹{amount}
+                           </span>
+                         </div>
+                       );
+                     })()}
                    </div>
 
                    {/* Footer Status Badge */}
-                   <div className={`mt-5 text-center p-3 rounded-xl border ${
-                       isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'
-                   }`}>
-                      <div className={`flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wide ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
-                        <CheckCircle size={14} strokeWidth={2.5} /> 
-                        Payment Successful via {viewingReceipt.paymentMethod || 'Cash'}
-                      </div>
-                   </div>
+                   {(() => {
+                     const method = (viewingReceipt.paymentMethod || '').toLowerCase();
+                     const pendingAmount = Number(viewingReceipt.pendingAmount ?? 0);
+                     const isPendingReceipt = viewingReceipt.status === 'pending' || method === 'pending' || pendingAmount > 0;
+
+                     const badgeClass = isPendingReceipt
+                       ? (isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-100')
+                       : (isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100');
+
+                     const textClass = isPendingReceipt
+                       ? (isDark ? 'text-amber-400' : 'text-amber-700')
+                       : (isDark ? 'text-emerald-400' : 'text-emerald-700');
+
+                     return (
+                       <div className={`mt-5 text-center p-3 rounded-xl border ${badgeClass}`}>
+                         <div className={`flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wide ${textClass}`}>
+                           {isPendingReceipt ? (
+                             <><Clock size={14} strokeWidth={2.5} /> Payment Pending</>
+                           ) : (
+                             <><CheckCircle size={14} strokeWidth={2.5} /> Payment Successful via {viewingReceipt.paymentMethod || 'Cash'}</>
+                           )}
+                         </div>
+                       </div>
+                     );
+                   })()}
                </div>
             </div>
           </div>
