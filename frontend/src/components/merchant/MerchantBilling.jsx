@@ -1763,7 +1763,7 @@
 
 // export default MerchantBilling;
 
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ShoppingBag,
@@ -1782,13 +1782,38 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { createReceipt, markReceiptPaid } from "../../services/api";
+import { createReceipt, deleteReceipt, markReceiptPaid } from "../../services/api";
 import { getTodayIST, formatISTDisplay, getNowIST } from "../../utils/timezone";
 import { useTheme } from "../../contexts/ThemeContext";
 
 const MerchantBilling = ({ inventory, profile }) => {
   const navigate = useNavigate();
   const { isDark } = useTheme();
+
+  const pendingReceiptIdRef = useRef(null);
+  const paymentFinalizedRef = useRef(false);
+  const paymentInProgressRef = useRef(false);
+
+  const isObjectId = (id) => /^[a-f\d]{24}$/i.test(String(id || ""));
+
+  const voidPendingReceipt = async () => {
+    const pendingId = pendingReceiptIdRef.current;
+    if (!pendingId || !isObjectId(pendingId)) return;
+    if (paymentFinalizedRef.current) return;
+    if (paymentInProgressRef.current) return;
+
+    try {
+      await deleteReceipt(pendingId);
+    } catch (err) {
+      // Best-effort cleanup; ignore failures (network/offline, already deleted, etc.)
+      console.warn(
+        "Failed to void pending receipt",
+        err?.response?.data || err?.message || err
+      );
+    } finally {
+      pendingReceiptIdRef.current = null;
+    }
+  };
 
   // 🛒 Cart & UI State
   const [cart, setCart] = useState([]);
@@ -1848,6 +1873,13 @@ const MerchantBilling = ({ inventory, profile }) => {
   // ——— ACTIONS ———
 
   const handleBack = () => {
+    // If merchant leaves while QR is open, don't keep a pending receipt in DB
+    if (showQr) {
+      voidPendingReceipt();
+      setShowQr(false);
+      setGeneratedBill(null);
+      setQrDataUrl("");
+    }
     if (cart.length > 0) {
       if (window.confirm("Discard current bill? All items will be lost.")) {
         navigate(-1);
@@ -1856,6 +1888,14 @@ const MerchantBilling = ({ inventory, profile }) => {
       navigate(-1);
     }
   };
+
+  // If the user uses browser back / route change, ensure we don't leave orphan pending receipts.
+  useEffect(() => {
+    return () => {
+      voidPendingReceipt();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addToCart = (item) => {
     setCart((prev) => {
@@ -2006,6 +2046,10 @@ const MerchantBilling = ({ inventory, profile }) => {
       const { data: created } = await createReceipt(payload);
       const persistedId = created.id || created._id;
 
+      // Track for cleanup if merchant backs out before confirming payment
+      pendingReceiptIdRef.current = persistedId;
+      paymentFinalizedRef.current = false;
+
       // Add the real DB ID to the QR data so we can look it up later
       const billData = { ...baseBill, id: persistedId, rid: persistedId };
       setGeneratedBill(billData);
@@ -2023,6 +2067,8 @@ const MerchantBilling = ({ inventory, profile }) => {
   };
 
   const handleCloseQr = () => {
+    // Merchant closed QR without payment -> delete pending receipt
+    voidPendingReceipt();
     setShowQr(false);
     setGeneratedBill(null);
     setQrDataUrl("");
@@ -2032,12 +2078,20 @@ const MerchantBilling = ({ inventory, profile }) => {
   const handlePaymentReceived = async (method) => {
     if (!generatedBill) return;
 
+    const persistedId = generatedBill.rid || generatedBill.id;
+    if (!persistedId) {
+      toast.error("Missing bill id. Please generate again.");
+      return;
+    }
+
     try {
-      const persistedId = generatedBill.rid || generatedBill.id;
-      if (!persistedId) throw new Error("Missing receipt id");
+      paymentInProgressRef.current = true;
 
       // Mark as paid to capture paidAt timestamp and final status
       const { data: updated } = await markReceiptPaid(persistedId, method);
+
+      paymentFinalizedRef.current = true;
+      pendingReceiptIdRef.current = null;
 
       const currentSales =
         JSON.parse(localStorage.getItem("merchantSales")) || [];
@@ -2052,19 +2106,21 @@ const MerchantBilling = ({ inventory, profile }) => {
       window.dispatchEvent(new Event("customer-receipts-updated"));
       window.dispatchEvent(new Event("merchantStorage"));
       window.dispatchEvent(new Event("merchant-receipts-updated"));
+
+      setShowQr(false);
+      setGeneratedBill(null);
+      setQrDataUrl("");
+      setCart([]);
+      setIsMobileCartOpen(false);
+
+      const methodText = method === "upi" ? "UPI" : "Cash";
+      toast.success(`Payment Received via ${methodText}!`);
     } catch (err) {
       console.error(err);
       toast.error("Could not mark paid. Please try again.");
+    } finally {
+      paymentInProgressRef.current = false;
     }
-
-    setShowQr(false);
-    setGeneratedBill(null);
-    setQrDataUrl("");
-    setCart([]);
-    setIsMobileCartOpen(false);
-
-    const methodText = method === "upi" ? "UPI" : "Cash";
-    toast.success(`Payment Received via ${methodText}!`);
   };
 
   return (
