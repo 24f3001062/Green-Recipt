@@ -8,10 +8,9 @@ import CustomerInsights from '../components/customer/CustomerInsights';
 import CustomerProfile from '../components/customer/CustomerProfile';
 import CustomerNotifications from '../components/customer/CustomerNotifications';
 import CustomerRecurringBills from '../components/customer/CustomerRecurringBills';
-import CustomerPending from '../components/customer/CustomerPending';
 import { useTheme } from '../contexts/ThemeContext';
-import { ScanLine, Bell, X, CheckCircle, AlertCircle, Smartphone, Banknote, Clock, ShoppingBag } from 'lucide-react';
-import { createReceipt, claimReceipt, fetchCustomerReceipts } from '../services/api';
+import { ScanLine, Bell, X, CheckCircle, AlertCircle, ShoppingBag, Smartphone, Banknote, Wallet, Clock } from 'lucide-react';
+import { claimReceipt, fetchCustomerReceipts } from '../services/api';
 import toast from 'react-hot-toast';
 
 const CustomerDashboard = () => {
@@ -20,11 +19,10 @@ const CustomerDashboard = () => {
 
   // 📸 SCANNER STATE
   const [isScanning, setIsScanning] = useState(false);
-  const [scanResult, setScanResult] = useState(null); // null | 'success' | 'error' | 'payment-choice'
+  const [scanResult, setScanResult] = useState(null); // null | 'payment-choice' | 'processing' | 'success' | 'error'
 
-  // 💳 SCANNED BILL DATA (for immediate payment choice screen)
+  // 💳 SCANNED BILL DATA (for immediate payment intent screen)
   const [scannedBillData, setScannedBillData] = useState(null);
-  const [customerPaymentIntent, setCustomerPaymentIntent] = useState(null); // 'upi' | 'cash' | null
 
   // Load receipts for eco impact calculation
   useEffect(() => {
@@ -65,11 +63,11 @@ const CustomerDashboard = () => {
   const handleGlobalScan = () => {
     setScanResult(null);
     setScannedBillData(null);
-    setCustomerPaymentIntent(null);
     setIsScanning(true);
   };
 
-  // 🧠 HANDLE REAL SCAN RESULT - NOW SHOWS IMMEDIATE PAYMENT CHOICE
+  // 🧠 HANDLE REAL SCAN RESULT
+  // Customer chooses an INTENT (upi/cash/khata). Merchant still finalizes status.
   const handleScan = async (rawText) => {
     if (rawText && !scanResult) {
       try {
@@ -93,7 +91,7 @@ const CustomerDashboard = () => {
           };
         });
 
-        // 3. Create Receipt Object with Fixed Items
+        // 3. Create Receipt Object with Fixed Items (for UI only)
         const newReceipt = {
           ...receiptData,
           merchant: receiptData.merchant || receiptData.m || "Unknown Merchant",
@@ -103,86 +101,54 @@ const CustomerDashboard = () => {
           excludeFromStats: false,
         };
 
-        // 4. Store scanned bill data and show IMMEDIATE PAYMENT CHOICE SCREEN
+        // 4. Show payment intent choice (must be a real backend receipt id)
+        const isObjectId = (id) => /^[a-f\d]{24}$/i.test(id);
+        const rid = newReceipt.rid || newReceipt.id;
+        if (!rid || !isObjectId(rid)) {
+          throw new Error("Invalid GreenReceipt QR - missing receipt id");
+        }
+
         setScannedBillData(newReceipt);
-        setScanResult("payment-choice"); // Show payment options immediately!
+        setScanResult("payment-choice");
       } catch (err) {
         console.error("QR Parse Error:", err);
-        toast.error("Invalid QR code format");
+        toast.error(err?.message || "Invalid QR code format");
+        setScanResult(null);
       }
     }
   };
 
-  // 💳 HANDLE CUSTOMER PAYMENT INTENT SELECTION
-  // NOTE: This is INFORMATIONAL ONLY - does NOT update database!
-  // Only the merchant can finalize payment status
-  const handlePaymentIntentSelection = async (method) => {
+  const handlePaymentIntentSelection = async (intent) => {
     if (!scannedBillData) return;
 
-    setCustomerPaymentIntent(method);
-
-    // Save receipt to customer's journal (status remains 'pending' until merchant confirms)
     try {
-      // Helper to check for Mongo ID
       const isObjectId = (id) => /^[a-f\d]{24}$/i.test(id);
+      const rid = scannedBillData.rid || scannedBillData.id;
+      if (!rid || !isObjectId(rid)) {
+        toast.error("Invalid receipt id");
+        return;
+      }
 
-      const payload = {
-        // Validation: Only send merchantId if it's a valid ObjectId, otherwise backend might fail lookup
-        merchantId: (scannedBillData.merchantId && isObjectId(scannedBillData.merchantId)) ? scannedBillData.merchantId : null,
-        merchantCode: scannedBillData.mid || scannedBillData.merchantCode || null,
-        // Pass merchant name so backend can create snapshot even without registered merchant
-        merchantName: scannedBillData.merchant || scannedBillData.merchantName || "Unknown Merchant",
-        items: scannedBillData.items,
-        source: "qr",
-        // This is the customer's selected payment method - will be preserved
-        paymentMethod: method,
-        transactionDate: scannedBillData.date || new Date().toISOString(),
-        total: scannedBillData.total,
-        note: scannedBillData.note || "",
-        footer: scannedBillData.footer || "",
-        category: scannedBillData.category || "general",
-        // Customer's transaction is saved immediately as completed
-        status: "completed",
-      };
+      setScanResult("processing");
+      const { data } = await claimReceipt({ receiptId: rid, paymentIntent: intent });
 
-      // Only use claimReceipt if rid is a valid MongoDB ObjectId
-      // Dynamic QRs use "GR-..." IDs which should be created as new receipts
-      
-      const apiCall = (scannedBillData.rid && isObjectId(scannedBillData.rid))
-        ? claimReceipt({ receiptId: scannedBillData.rid })
-        : createReceipt(payload);
-
-      const { data } = await apiCall;
-      
-      // Update local storage with the real data from server
       const existing = JSON.parse(localStorage.getItem("customerReceipts")) || [];
-      // Remove any temp/duplicate if exists
       const filtered = existing.filter((r) => r.id !== data.id && r._id !== data.id);
       const merged = [data, ...filtered];
-      
       localStorage.setItem("customerReceipts", JSON.stringify(merged));
       window.dispatchEvent(new Event("customer-receipts-updated"));
-      
-      // Show success briefly then close
+
       setScanResult("success");
-      toast.success("Receipt saved successfully!");
+      toast.success("Receipt saved! Waiting for merchant confirmation");
       setTimeout(() => {
         setIsScanning(false);
         setActiveTab("receipts");
         window.dispatchEvent(new Event("storage"));
-      }, 1500);
-
+      }, 1400);
     } catch (apiError) {
-      console.error("Failed to save receipt:", apiError);
-      // Extract detailed error message
-      const errorMessage = apiError.response?.data?.message 
-        || apiError.response?.data?.issues?.[0]?.message
-        || apiError.message 
-        || "Failed to save receipt. Please try again.";
+      const errorMessage = apiError.response?.data?.message || apiError.message || "Failed to save receipt";
       toast.error(errorMessage);
-      setScanResult(null); // Reset so user can try again
-      setScannedBillData(null);
-      setCustomerPaymentIntent(null);
+      setScanResult("payment-choice");
     }
   };
 
@@ -209,13 +175,13 @@ const CustomerDashboard = () => {
         }`}>
           <button
             onClick={handleGlobalScan}
-            className={`p-2 rounded-full active:scale-95 transition-all ${
+            className={`p-3 rounded-full active:scale-95 transition-all ${
               isDark 
                 ? 'bg-slate-800 text-emerald-400 hover:bg-slate-700' 
                 : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <ScanLine size={22} />
+            <ScanLine size={24} />
           </button>
           <h1 className="text-xl font-extrabold tracking-tight">
             <span className="text-emerald-500">Green</span>
@@ -224,20 +190,20 @@ const CustomerDashboard = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setActiveTab("notifications")}
-              className={`p-2 rounded-full active:scale-95 transition-all relative ${
+              className={`p-3 rounded-full active:scale-95 transition-all relative ${
                 isDark 
                   ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
                   : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
               }`}
             >
-              <Bell size={22} />
-              <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-slate-800"></span>
+              <Bell size={24} />
+              <span className="absolute top-2.5 right-3 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-slate-800"></span>
             </button>
           </div>
         </div>
 
         {/* MAIN CONTENT */}
-        <main className={`flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8 ${
+        <main className={`flex-1 overflow-y-auto p-4 md:p-8 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8 ${
           isDark ? 'dark-ambient' : ''
         }`}>
           <div className="max-w-4xl mx-auto animate-fade-in relative z-10">
@@ -249,7 +215,6 @@ const CustomerDashboard = () => {
             )}
             {activeTab === "receipts" && <CustomerReceipts />}
             {activeTab === "bills" && <CustomerRecurringBills />}
-            {activeTab === "pending" && <CustomerPending />}
             {activeTab === "calendar" && <CustomerCalendar />}
             {activeTab === "insights" && <CustomerInsights />}
             {activeTab === "profile" && <CustomerProfile />}
@@ -269,41 +234,25 @@ const CustomerDashboard = () => {
           </button>
 
           <div className="w-full max-w-sm px-6 text-center relative">
-            {/* 💳 IMMEDIATE PAYMENT CHOICE SCREEN - Shows right after QR scan! */}
             {scanResult === "payment-choice" && scannedBillData ? (
               <div className="animate-[popIn_0.3s_ease-out] bg-white rounded-3xl p-6 shadow-2xl">
-                {/* Header */}
                 <div className="mb-4">
                   <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
                     <ShoppingBag className="text-emerald-600" size={28} />
                   </div>
-                  <h3 className="text-slate-800 text-xl font-bold">
-                    {scannedBillData.merchant}
-                  </h3>
-                  <p className="text-slate-500 text-sm">
-                    {scannedBillData.date} • {scannedBillData.time}
-                  </p>
+                  <h3 className="text-slate-800 text-xl font-bold">{scannedBillData.merchant}</h3>
+                  <p className="text-slate-500 text-sm">{scannedBillData.date} • {scannedBillData.time}</p>
                 </div>
 
-                {/* Bill Amount */}
                 <div className="bg-slate-50 rounded-2xl p-4 mb-5">
-                  <p className="text-slate-500 text-xs font-bold uppercase mb-1">
-                    Total Amount
-                  </p>
-                  <p className="text-3xl font-black text-slate-800">
-                    ₹{scannedBillData.total}
-                  </p>
-                  <p className="text-slate-400 text-xs mt-1">
-                    {scannedBillData.items?.length || 0} items
-                  </p>
+                  <p className="text-slate-500 text-xs font-bold uppercase mb-1">Total Amount</p>
+                  <p className="text-3xl font-black text-slate-800">₹{scannedBillData.total}</p>
+                  <p className="text-slate-400 text-xs mt-1">{scannedBillData.items?.length || 0} items</p>
                 </div>
 
-                {/* Payment Choice Buttons - IMMEDIATE! */}
-                <p className="text-slate-600 text-sm font-bold mb-3">
-                  How would you like to pay?
-                </p>
+                <p className="text-slate-600 text-sm font-bold mb-3">How would you like to pay?</p>
 
-                <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="grid grid-cols-2 gap-3 mb-3">
                   <button
                     onClick={() => handlePaymentIntentSelection("upi")}
                     className="flex flex-col items-center gap-2 p-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/30 active:scale-95"
@@ -321,11 +270,27 @@ const CustomerDashboard = () => {
                   </button>
                 </div>
 
-                {/* Info Note */}
-                <div className="flex items-center gap-2 text-slate-400 text-xs bg-slate-50 rounded-xl p-3">
+                <button
+                  onClick={() => handlePaymentIntentSelection("khata")}
+                  className="w-full flex items-center justify-center gap-2 p-4 bg-slate-800 text-white rounded-2xl font-bold hover:bg-slate-900 transition-all shadow-lg shadow-black/30 active:scale-95"
+                >
+                  <Wallet size={22} />
+                  <span className="text-sm">Pay via Khata (Pending)</span>
+                </button>
+
+                <div className="flex items-center gap-2 text-slate-400 text-xs bg-slate-50 rounded-xl p-3 mt-4">
                   <Clock size={14} className="shrink-0" />
                   <span>Merchant will confirm your payment</span>
                 </div>
+              </div>
+            ) : scanResult === "processing" ? (
+              <div className="animate-[popIn_0.3s_ease-out]">
+                <div className="w-24 h-24 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_40px_rgba(16,185,129,0.4)]">
+                  <ShoppingBag className="text-white" size={44} />
+                </div>
+                <h3 className="text-white text-2xl font-bold mb-2">Linking receipt…</h3>
+                <p className="text-emerald-400">Please wait</p>
+                <p className="text-slate-400 text-sm mt-2">Merchant will choose Paid / Khata</p>
               </div>
             ) : scanResult === "success" ? (
               <div className="animate-[popIn_0.3s_ease-out]">
@@ -333,18 +298,10 @@ const CustomerDashboard = () => {
                   <CheckCircle className="text-white" size={48} />
                 </div>
                 <h3 className="text-white text-2xl font-bold mb-2">
-                  {customerPaymentIntent
-                    ? `${
-                        customerPaymentIntent === "upi" ? "UPI" : "Cash"
-                      } Selected!`
-                    : "Receipt Scanned!"}
+                  Receipt Linked!
                 </h3>
-                <p className="text-emerald-400">Saving to your journal...</p>
-                {customerPaymentIntent && (
-                  <p className="text-slate-400 text-sm mt-2">
-                    Waiting for merchant confirmation
-                  </p>
-                )}
+                <p className="text-emerald-400">Added to your receipts</p>
+                <p className="text-slate-400 text-sm mt-2">Merchant will confirm Paid / Khata</p>
               </div>
             ) : scanResult === "error" ? (
               <div className="animate-[popIn_0.3s_ease-out]">

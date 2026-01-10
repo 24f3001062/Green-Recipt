@@ -362,8 +362,14 @@ import {
   Wallet,
   Trash2,
   CheckCircle,
+  Bell,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Phone,
 } from "lucide-react";
-import { fetchMerchantReceipts, deleteReceipt as deleteReceiptApi, fetchMerchantPendingSummary } from "../../services/api";
+import toast from "react-hot-toast";
+import { fetchMerchantReceipts, deleteReceipt as deleteReceiptApi, fetchMerchantPendingSummary, fetchMerchantPendingReceipts, sendPaymentReminder, markPendingAsPaid } from "../../services/api";
 import { getNowIST, formatISTDate, formatISTDateDisplay } from "../../utils/timezone";
 import { useTheme } from "../../contexts/ThemeContext";
 import { createPortal } from 'react-dom';
@@ -381,13 +387,33 @@ const MerchantOverview = () => {
   const [viewingReceipt, setViewingReceipt] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [pendingSummary, setPendingSummary] = useState({ totalPendingAmount: 0, pendingCount: 0 });
+  const [pendingReceipts, setPendingReceipts] = useState([]);
+  const [pendingActionLoading, setPendingActionLoading] = useState({});
+  const [showPendingSection, setShowPendingSection] = useState(false);
+
+  const hasPendingDues = (pendingSummary?.pendingCount ?? 0) > 0 || pendingReceipts.length > 0 || (Number(pendingSummary?.totalPendingAmount ?? 0) > 0);
+
+  const pendingCountDisplay = useMemo(() => {
+    const summaryCount = Number(pendingSummary?.pendingCount ?? 0);
+    return summaryCount > 0 ? summaryCount : pendingReceipts.length;
+  }, [pendingSummary?.pendingCount, pendingReceipts.length]);
+
+  const pendingTotalDisplay = useMemo(() => {
+    const summaryTotal = Number(pendingSummary?.totalPendingAmount ?? 0);
+    if (summaryTotal > 0) return summaryTotal;
+    return pendingReceipts.reduce(
+      (sum, r) => sum + Number(r.pendingAmount ?? r.amount ?? 0),
+      0
+    );
+  }, [pendingSummary?.totalPendingAmount, pendingReceipts]);
 
   // Centralized loader with retry + fallback
   const loadReceipts = useCallback(async () => {
     try {
-      const [receiptsRes, pendingRes] = await Promise.allSettled([
+      const [receiptsRes, pendingRes, pendingListRes] = await Promise.allSettled([
         fetchMerchantReceipts(),
-        fetchMerchantPendingSummary()
+        fetchMerchantPendingSummary(),
+        fetchMerchantPendingReceipts()
       ]);
       
       if (receiptsRes.status === 'fulfilled') {
@@ -408,6 +434,10 @@ const MerchantOverview = () => {
       if (pendingRes.status === 'fulfilled') {
         setPendingSummary(pendingRes.value.data || { totalPendingAmount: 0, pendingCount: 0 });
       }
+      
+      if (pendingListRes.status === 'fulfilled') {
+        setPendingReceipts(pendingListRes.value.data.receipts || []);
+      }
     } catch (error) {
       const saved = localStorage.getItem("merchantSales");
       if (saved) {
@@ -419,6 +449,43 @@ const MerchantOverview = () => {
       }
     }
   }, []);
+
+  // Handle send reminder
+  const handleSendReminder = async (receiptId) => {
+    try {
+      setPendingActionLoading(prev => ({ ...prev, [receiptId]: "reminder" }));
+      await sendPaymentReminder(receiptId);
+      toast.success("Reminder sent!");
+      loadReceipts();
+    } catch (error) {
+      const message = error.response?.data?.message || "Failed to send reminder";
+      toast.error(message);
+    } finally {
+      setPendingActionLoading(prev => ({ ...prev, [receiptId]: null }));
+    }
+  };
+
+  // Handle mark as paid
+  const handleMarkPendingPaid = async (receiptId, method = "cash") => {
+    try {
+      setPendingActionLoading(prev => ({ ...prev, [receiptId]: "paid" }));
+      await markPendingAsPaid(receiptId, method);
+      toast.success("Marked as paid!");
+      loadReceipts();
+    } catch (error) {
+      const message = error.response?.data?.message || "Failed to mark as paid";
+      toast.error(message);
+    } finally {
+      setPendingActionLoading(prev => ({ ...prev, [receiptId]: null }));
+    }
+  };
+
+  // Check reminder cooldown
+  const canSendReminder = (lastReminderSentAt) => {
+    if (!lastReminderSentAt) return true;
+    const hoursSinceLastReminder = (Date.now() - new Date(lastReminderSentAt).getTime()) / (1000 * 60 * 60);
+    return hoursSinceLastReminder >= 24;
+  };
 
   // Initial load + live refresh (visibility + custom events + interval)
   useEffect(() => {
@@ -744,37 +811,130 @@ const MerchantOverview = () => {
         />
       </div>
 
-      {/* Pending Dues (Khata) Alert */}
-      {pendingSummary.totalPendingAmount > 0 && (
-        <div 
-          onClick={() => navigate('/merchant/khata')}
-          className={`rounded-2xl border p-4 md:p-5 cursor-pointer transition-all hover:shadow-md ${
-            isDark ? 'bg-red-500/10 border-red-500/20 hover:border-red-500/40' : 'bg-red-50 border-red-100 hover:border-red-200'
-          }`}
-        >
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl ${isDark ? 'bg-red-500/20' : 'bg-red-100'}`}>
-                <Wallet size={20} className="text-red-500" />
+      {/* Pending Dues (Khata) Section */}
+      {hasPendingDues && (
+        <div className={`rounded-2xl border overflow-hidden ${
+          isDark ? 'bg-dark-card border-dark-border' : 'bg-white border-slate-100'
+        }`}>
+          {/* Header - Clickable to expand */}
+          <div 
+            onClick={() => setShowPendingSection(!showPendingSection)}
+            className={`p-4 cursor-pointer transition-all ${
+              isDark ? 'hover:bg-dark-surface' : 'hover:bg-slate-50'
+            }`}
+          >
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 md:p-2.5 rounded-xl ${isDark ? 'bg-amber-500/20' : 'bg-amber-100'}`}>
+                  <Wallet size={18} className="text-amber-500" />
+                </div>
+                <div>
+                  <h3 className={`font-bold text-sm md:text-base ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                    📒 Pending Dues (Khata)
+                  </h3>
+                  <p className={`text-[10px] md:text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {pendingCountDisplay} bill{pendingCountDisplay !== 1 ? 's' : ''} to collect
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className={`font-bold text-sm md:text-base ${isDark ? 'text-red-400' : 'text-red-700'}`}>
-                  📒 Khata (Pending Dues)
-                </h3>
-                <p className={`text-xs ${isDark ? 'text-red-400/70' : 'text-red-600'}`}>
-                  {pendingSummary.pendingCount} pending bill{pendingSummary.pendingCount !== 1 ? 's' : ''} to collect
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className={`text-lg md:text-xl font-black ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
+                    ₹{pendingTotalDisplay?.toLocaleString('en-IN')}
+                  </p>
+                </div>
+                {showPendingSection ? (
+                  <ChevronUp size={20} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+                ) : (
+                  <ChevronDown size={20} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+                )}
               </div>
-            </div>
-            <div className="text-right">
-              <p className={`text-xl md:text-2xl font-black ${isDark ? 'text-red-400' : 'text-red-600'}`}>
-                ₹{pendingSummary.totalPendingAmount?.toLocaleString('en-IN')}
-              </p>
-              <p className={`text-[10px] font-medium ${isDark ? 'text-red-400/70' : 'text-red-500'}`}>
-                Tap to manage →
-              </p>
             </div>
           </div>
+
+          {/* Expandable Pending List */}
+          {showPendingSection && (
+            <div className={`border-t ${isDark ? 'border-dark-border' : 'border-slate-100'}`}>
+              {pendingReceipts.length === 0 ? (
+                <p className={`text-center py-6 text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                  No pending dues
+                </p>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-dark-border max-h-[300px] overflow-y-auto">
+                  {pendingReceipts.map((receipt) => (
+                    <div key={receipt.id} className={`p-3 md:p-4 ${isDark ? 'hover:bg-dark-surface' : 'hover:bg-slate-50'}`}>
+                      {/* Customer Info & Amount */}
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                            <User size={14} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+                          </div>
+                          <div>
+                            <p className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                              {receipt.customerName || "Customer"}
+                            </p>
+                            {receipt.customerPhone && (
+                              <p className={`text-[10px] flex items-center gap-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                <Phone size={10} /> {receipt.customerPhone}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <p className={`font-bold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
+                          ₹{receipt.pendingAmount?.toLocaleString() || receipt.amount?.toLocaleString()}
+                        </p>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={() => handleSendReminder(receipt.id)}
+                          disabled={!canSendReminder(receipt.lastReminderSentAt) || pendingActionLoading[receipt.id]}
+                          className={`flex-1 py-2 px-2 rounded-lg text-[10px] md:text-xs font-semibold flex items-center justify-center gap-1 transition-all ${
+                            canSendReminder(receipt.lastReminderSentAt)
+                              ? isDark 
+                                ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30' 
+                                : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                              : isDark
+                                ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                          }`}
+                        >
+                          {pendingActionLoading[receipt.id] === "reminder" ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <>
+                              <Bell size={12} />
+                              {canSendReminder(receipt.lastReminderSentAt) ? "Remind" : "24h"}
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => handleMarkPendingPaid(receipt.id, "cash")}
+                          disabled={pendingActionLoading[receipt.id]}
+                          className={`flex-1 py-2 px-2 rounded-lg text-[10px] md:text-xs font-semibold flex items-center justify-center gap-1 transition-all ${
+                            isDark 
+                              ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' 
+                              : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                          }`}
+                        >
+                          {pendingActionLoading[receipt.id] === "paid" ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <>
+                              <CheckCircle size={12} />
+                              Paid
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

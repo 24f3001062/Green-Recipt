@@ -5,9 +5,9 @@ import {
   TrendingUp, TrendingDown, Wallet, QrCode, UploadCloud, X, Save,
   Image as ImageIcon, Calendar, PieChart, Store, CheckCircle, Loader2,
   Receipt, Sparkles, ArrowUpRight, ArrowDownRight, Smartphone, Banknote,
-  ChevronRight, Clock, Zap, Target, CreditCard, AlertCircle
+  ChevronRight, Clock, Zap, Target, CreditCard, AlertCircle, ChevronDown, ChevronUp, IndianRupee
 } from 'lucide-react';
-import { fetchCustomerReceipts, createReceipt, fetchCustomerAnalytics, fetchUpcomingBills, fetchCustomerPendingSummary } from '../../services/api';
+import { fetchCustomerReceipts, createReceipt, fetchCustomerAnalytics, fetchUpcomingBills, fetchCustomerPendingSummary, fetchCustomerPendingReceipts, payPendingBill } from '../../services/api';
 import toast from 'react-hot-toast';
 import { getTodayIST, formatISTDateDisplay } from '../../utils/timezone';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -77,17 +77,22 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
   const [analytics, setAnalytics] = useState(null);
   const [upcomingBills, setUpcomingBills] = useState([]);
   const [pendingSummary, setPendingSummary] = useState({ totalPendingAmount: 0, pendingCount: 0 });
+  const [pendingReceipts, setPendingReceipts] = useState([]);
+  const [showPendingSection, setShowPendingSection] = useState(false);
+  const [pendingActionLoading, setPendingActionLoading] = useState({});
+  const [selectedPendingReceipt, setSelectedPendingReceipt] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       try {
-        const [receiptsRes, analyticsRes, billsRes, pendingRes] = await Promise.allSettled([
+        const [receiptsRes, analyticsRes, billsRes, pendingRes, pendingListRes] = await Promise.allSettled([
           fetchCustomerReceipts(),
           fetchCustomerAnalytics(),
           fetchUpcomingBills(7), // Next 7 days
-          fetchCustomerPendingSummary()
+          fetchCustomerPendingSummary(),
+          fetchCustomerPendingReceipts()
         ]);
         
         if (receiptsRes.status === 'fulfilled') {
@@ -112,6 +117,10 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
         
         if (pendingRes.status === 'fulfilled' && mounted) {
           setPendingSummary(pendingRes.value.data || { totalPendingAmount: 0, pendingCount: 0 });
+        }
+        
+        if (pendingListRes.status === 'fulfilled' && mounted) {
+          setPendingReceipts(pendingListRes.value.data.receipts || []);
         }
       } catch (error) {
         const cached = localStorage.getItem('customerReceipts');
@@ -317,36 +326,36 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
             
             {/* Quick Stats - UPI & Cash */}
             <div className="flex flex-row md:flex-col gap-2 md:gap-3">
-              <div className="flex-1 md:flex-none bg-white/10 backdrop-blur-sm px-3 md:px-4 py-2 md:py-3 rounded-xl">
+              <div className="flex-1 md:flex-none bg-white/10 backdrop-blur-sm px-3 md:px-4 py-2 md:py-3 rounded-xl min-w-0">
                 <div className="flex items-center gap-1.5 md:gap-2 text-emerald-400 mb-0.5 md:mb-1">
-                  <Smartphone size={12} className="md:w-[14px] md:h-[14px]" />
-                  <span className="text-[10px] md:text-xs font-medium">{t('dashboard.upi')}</span>
+                  <Smartphone size={12} className="md:w-[14px] md:h-[14px] shrink-0" />
+                  <span className="text-[10px] md:text-xs font-medium truncate">{t('dashboard.upi')}</span>
                 </div>
-                <p className="text-base md:text-xl font-bold">₹{upiTotal.toLocaleString('en-IN')}</p>
+                <p className="text-base md:text-xl font-bold truncate">₹{upiTotal.toLocaleString('en-IN')}</p>
               </div>
-              <div className="flex-1 md:flex-none bg-white/10 backdrop-blur-sm px-3 md:px-4 py-2 md:py-3 rounded-xl">
+              <div className="flex-1 md:flex-none bg-white/10 backdrop-blur-sm px-3 md:px-4 py-2 md:py-3 rounded-xl min-w-0">
                 <div className="flex items-center gap-1.5 md:gap-2 text-amber-400 mb-0.5 md:mb-1">
-                  <Banknote size={12} className="md:w-[14px] md:h-[14px]" />
-                  <span className="text-[10px] md:text-xs font-medium">{t('dashboard.cash')}</span>
+                  <Banknote size={12} className="md:w-[14px] md:h-[14px] shrink-0" />
+                  <span className="text-[10px] md:text-xs font-medium truncate">{t('dashboard.cash')}</span>
                 </div>
-                <p className="text-base md:text-xl font-bold">₹{cashTotal.toLocaleString('en-IN')}</p>
+                <p className="text-base md:text-xl font-bold truncate">₹{cashTotal.toLocaleString('en-IN')}</p>
               </div>
             </div>
           </div>
 
           {/* Period Summary */}
-          <div className="grid grid-cols-3 gap-3 md:gap-4 mt-4 md:mt-6 pt-4 md:pt-6 border-t border-white/10">
-            <div>
-              <p className="text-slate-400 text-[10px] md:text-xs font-medium">{t('dashboard.thisWeek')}</p>
-              <p className="text-sm md:text-xl font-bold mt-0.5 md:mt-1">₹{(summary?.thisWeek?.total || 0).toLocaleString('en-IN')}</p>
+          <div className="grid grid-cols-3 gap-1 md:gap-4 mt-4 md:mt-6 pt-4 md:pt-6 border-t border-white/10">
+            <div className="px-1 overflow-hidden">
+              <p className="text-slate-400 text-[10px] md:text-xs font-medium truncate">{t('dashboard.thisWeek')}</p>
+              <p className="text-sm md:text-xl font-bold mt-0.5 md:mt-1 truncate" title={`₹${(summary?.thisWeek?.total || 0).toLocaleString('en-IN')}`}>₹{(summary?.thisWeek?.total || 0).toLocaleString('en-IN')}</p>
             </div>
-            <div>
-              <p className="text-slate-400 text-[10px] md:text-xs font-medium">{t('dashboard.lastMonth')}</p>
-              <p className="text-sm md:text-xl font-bold mt-0.5 md:mt-1">₹{(summary?.lastMonth?.total || 0).toLocaleString('en-IN')}</p>
+            <div className="px-1 overflow-hidden border-l border-white/5 md:border-none pl-2 md:pl-0">
+              <p className="text-slate-400 text-[10px] md:text-xs font-medium truncate">{t('dashboard.lastMonth')}</p>
+              <p className="text-sm md:text-xl font-bold mt-0.5 md:mt-1 truncate" title={`₹${(summary?.lastMonth?.total || 0).toLocaleString('en-IN')}`}>₹{(summary?.lastMonth?.total || 0).toLocaleString('en-IN')}</p>
             </div>
-            <div>
-              <p className="text-slate-400 text-[10px] md:text-xs font-medium">{t('dashboard.thisYear')}</p>
-              <p className="text-sm md:text-xl font-bold mt-0.5 md:mt-1">₹{(summary?.thisYear?.total || 0).toLocaleString('en-IN')}</p>
+            <div className="px-1 overflow-hidden border-l border-white/5 md:border-none pl-2 md:pl-0">
+              <p className="text-slate-400 text-[10px] md:text-xs font-medium truncate">{t('dashboard.thisYear')}</p>
+              <p className="text-sm md:text-xl font-bold mt-0.5 md:mt-1 truncate" title={`₹${(summary?.thisYear?.total || 0).toLocaleString('en-IN')}`}>₹{(summary?.thisYear?.total || 0).toLocaleString('en-IN')}</p>
             </div>
           </div>
         </div>
@@ -466,8 +475,8 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
                         : 'bg-slate-50'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm ${
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 ${
                       isDark ? 'bg-slate-600' : 'bg-white border border-slate-200'
                     }`}>
                       {bill.category === 'utilities' ? '💡' : 
@@ -479,8 +488,8 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
                        bill.category === 'loan' ? '🏦' :
                        bill.category === 'credit_card' ? '💳' : '📄'}
                     </div>
-                    <div>
-                      <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                    <div className="min-w-0">
+                      <p className={`font-medium text-sm truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>
                         {bill.name}
                       </p>
                       <p className={`text-[10px] ${
@@ -522,35 +531,170 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
         </div>
       )}
 
-      {/* ========== PENDING DUES WIDGET ========== */}
+      {/* ========== PENDING DUES SECTION ========== */}
       {pendingSummary.totalPendingAmount > 0 && (
-        <div 
-          onClick={() => onNavigate('pending')}
-          className={`p-4 md:p-5 rounded-xl md:rounded-2xl border cursor-pointer transition-all hover:shadow-md ${
-            isDark ? 'bg-red-500/10 border-red-500/20 hover:border-red-500/40' : 'bg-red-50 border-red-100 hover:border-red-200'
-          }`}
-        >
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl ${isDark ? 'bg-red-500/20' : 'bg-red-100'}`}>
-                <AlertCircle size={20} className="text-red-500" />
+        <div className={`rounded-xl md:rounded-2xl border overflow-hidden ${
+          isDark ? 'bg-dark-card border-dark-border' : 'bg-white border-slate-100'
+        }`}>
+          {/* Header - Clickable to expand */}
+          <div 
+            onClick={() => setShowPendingSection(!showPendingSection)}
+            className={`p-3 md:p-4 cursor-pointer transition-all ${
+              isDark ? 'hover:bg-dark-surface' : 'hover:bg-slate-50'
+            }`}
+          >
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className={`p-2 rounded-lg md:rounded-xl ${isDark ? 'bg-red-500/20' : 'bg-red-100'}`}>
+                  <AlertCircle size={16} className="text-red-500 md:w-[18px] md:h-[18px]" />
+                </div>
+                <div>
+                  <h3 className={`font-bold text-sm ${isDark ? 'text-red-400' : 'text-red-700'}`}>
+                    Pending Payments
+                  </h3>
+                  <p className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {pendingSummary.pendingCount} bill{pendingSummary.pendingCount !== 1 ? 's' : ''} to clear
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className={`font-bold text-sm md:text-base ${isDark ? 'text-red-400' : 'text-red-700'}`}>
-                  Pending Payments
-                </h3>
-                <p className={`text-xs ${isDark ? 'text-red-400/70' : 'text-red-600'}`}>
-                  {pendingSummary.pendingCount} bill{pendingSummary.pendingCount !== 1 ? 's' : ''} to clear
+              <div className="flex items-center gap-2">
+                <p className={`text-base md:text-xl font-black ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                  ₹{pendingSummary.totalPendingAmount?.toLocaleString('en-IN')}
                 </p>
+                {showPendingSection ? (
+                  <ChevronUp size={18} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+                ) : (
+                  <ChevronDown size={18} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+                )}
               </div>
             </div>
-            <div className="text-right">
-              <p className={`text-xl md:text-2xl font-black ${isDark ? 'text-red-400' : 'text-red-600'}`}>
-                ₹{pendingSummary.totalPendingAmount?.toLocaleString('en-IN')}
+          </div>
+
+          {/* Expandable Pending List */}
+          {showPendingSection && (
+            <div className={`border-t ${isDark ? 'border-dark-border' : 'border-slate-100'}`}>
+              {pendingReceipts.length === 0 ? (
+                <p className={`text-center py-6 text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                  No pending payments
+                </p>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-dark-border max-h-[250px] overflow-y-auto">
+                  {pendingReceipts.map((receipt) => (
+                    <div key={receipt.id} className={`p-3 ${isDark ? 'hover:bg-dark-surface' : 'hover:bg-slate-50'}`}>
+                      {/* Merchant & Amount */}
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                            <Store size={14} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+                          </div>
+                          <div>
+                            <p className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                              {receipt.merchantName || "Merchant"}
+                            </p>
+                            <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                              {new Date(receipt.transactionDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                            </p>
+                          </div>
+                        </div>
+                        <p className={`font-bold ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                          ₹{receipt.pendingAmount?.toLocaleString() || receipt.amount?.toLocaleString()}
+                        </p>
+                      </div>
+
+                      {/* Pay Button */}
+                      <button
+                        onClick={() => setSelectedPendingReceipt(receipt)}
+                        disabled={pendingActionLoading[receipt.id]}
+                        className={`w-full py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-all ${
+                          isDark 
+                            ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' 
+                            : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                        }`}
+                      >
+                        {pendingActionLoading[receipt.id] ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <>
+                            <IndianRupee size={14} />
+                            Pay Now
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Pay Modal */}
+      {selectedPendingReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className={`w-full max-w-xs rounded-2xl p-5 ${isDark ? 'bg-dark-card' : 'bg-white'}`}>
+            <div className="text-center mb-4">
+              <div className={`w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-100'}`}>
+                <IndianRupee className="text-emerald-500" size={24} />
+              </div>
+              <h3 className={`text-base font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                Pay ₹{selectedPendingReceipt.pendingAmount || selectedPendingReceipt.amount}
+              </h3>
+              <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                to {selectedPendingReceipt.merchantName || "Merchant"}
               </p>
-              <p className={`text-[10px] font-medium flex items-center justify-end gap-1 ${isDark ? 'text-red-400/70' : 'text-red-500'}`}>
-                View all <ChevronRight size={12} />
-              </p>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                onClick={async () => {
+                  setPendingActionLoading(prev => ({ ...prev, [selectedPendingReceipt.id]: true }));
+                  try {
+                    await payPendingBill(selectedPendingReceipt.id, "upi");
+                    toast.success("Payment recorded!");
+                    setSelectedPendingReceipt(null);
+                    // Trigger refresh
+                    window.dispatchEvent(new Event("customer-receipts-updated"));
+                  } catch (err) {
+                    toast.error(err.response?.data?.message || "Failed");
+                  } finally {
+                    setPendingActionLoading(prev => ({ ...prev, [selectedPendingReceipt.id]: false }));
+                  }
+                }}
+                disabled={pendingActionLoading[selectedPendingReceipt.id]}
+                className={`w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 ${
+                  isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-600'
+                }`}
+              >
+                📱 UPI / Online
+              </button>
+              <button
+                onClick={async () => {
+                  setPendingActionLoading(prev => ({ ...prev, [selectedPendingReceipt.id]: true }));
+                  try {
+                    await payPendingBill(selectedPendingReceipt.id, "cash");
+                    toast.success("Payment recorded!");
+                    setSelectedPendingReceipt(null);
+                    window.dispatchEvent(new Event("customer-receipts-updated"));
+                  } catch (err) {
+                    toast.error(err.response?.data?.message || "Failed");
+                  } finally {
+                    setPendingActionLoading(prev => ({ ...prev, [selectedPendingReceipt.id]: false }));
+                  }
+                }}
+                disabled={pendingActionLoading[selectedPendingReceipt.id]}
+                className={`w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 ${
+                  isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-600'
+                }`}
+              >
+                💵 Cash
+              </button>
+              <button
+                onClick={() => setSelectedPendingReceipt(null)}
+                className={`w-full py-2.5 rounded-xl text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

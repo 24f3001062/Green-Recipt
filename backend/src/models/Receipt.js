@@ -120,6 +120,16 @@ const receiptSchema = new mongoose.Schema(
       email: { type: String, trim: true },
       phone: { type: String, trim: true },
     },
+    // Customer-selected intent after scanning the QR (does NOT finalize payment)
+    customerPaymentIntent: {
+      type: String,
+      enum: ["upi", "cash", "khata"],
+      default: null,
+    },
+    customerPaymentIntentAt: {
+      type: Date,
+      default: null,
+    },
     category: {
       type: String,
       trim: true,

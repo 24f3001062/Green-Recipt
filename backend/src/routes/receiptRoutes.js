@@ -60,7 +60,6 @@ router.post("/claim", protect, requireRole("customer"), validate(claimReceiptSch
 router.patch("/:id/mark-paid", protect, requireRole("merchant"), validate(markPaidSchema), markReceiptPaid);
 router.patch("/:id", protect, validate(updateReceiptSchema), updateReceipt);
 router.delete("/:id", protect, validate(receiptIdParamSchema), deleteReceipt);
-router.get("/:id", protect, validate(receiptIdParamSchema), getReceiptById);
 
 // Khata (Pending) routes - Merchant
 router.get("/merchant/pending", protect, requireRole("merchant"), getMerchantPendingReceipts);
@@ -72,5 +71,8 @@ router.post("/:id/mark-paid-manual", protect, requireRole("merchant"), validate(
 router.get("/customer/pending", protect, requireRole("customer"), getCustomerPendingReceipts);
 router.get("/customer/pending/summary", protect, requireRole("customer"), getCustomerPendingSummary);
 router.post("/:id/pay-pending", protect, requireRole("customer"), validate(payPendingSchema), payPendingBill);
+
+// IMPORTANT: Keep "/:id" at the end so it doesn't shadow more specific routes like "/merchant/pending".
+router.get("/:id", protect, validate(receiptIdParamSchema), getReceiptById);
 
 export default router;

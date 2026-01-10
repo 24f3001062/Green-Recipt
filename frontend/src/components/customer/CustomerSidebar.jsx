@@ -44,7 +44,6 @@ const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
     { id: 'home', icon: Home, label: t('nav.home') },
     { id: 'receipts', icon: FileText, label: t('nav.receipts') },
     { id: 'bills', icon: CreditCard, label: t('nav.bills', 'Bills') },
-    { id: 'pending', icon: Wallet, label: 'Pending' },
     { id: 'calendar', icon: Calendar, label: t('nav.history') },
     { id: 'insights', icon: PieChart, label: t('nav.insights') },
     { id: 'notifications', icon: Bell, label: t('nav.alerts'), hasBadge: true },
@@ -55,7 +54,6 @@ const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
   const mobileNavItems = [
     { id: 'home', icon: Home, label: t('nav.home') },
     { id: 'receipts', icon: FileText, label: t('nav.receipts') },
-    { id: 'pending', icon: Wallet, label: 'Pending' },
     { id: 'insights', icon: PieChart, label: t('nav.insights') },
     { id: 'profile', icon: User, label: t('nav.profile') },
   ];
@@ -208,7 +206,7 @@ const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
               <button 
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl transition-all active:scale-95 relative ${
+                className={`flex flex-col items-center gap-1 py-2 px-3 rounded-xl transition-all active:scale-95 relative flex-1 ${
                   isActive 
                     ? isDark ? 'text-emerald-400' : 'text-emerald-600'
                     : isDark ? 'text-slate-500' : 'text-slate-400'

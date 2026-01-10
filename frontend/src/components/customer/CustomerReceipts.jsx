@@ -128,14 +128,14 @@ const CustomerReceipts = () => {
     <div className="max-w-3xl mx-auto space-y-4 md:space-y-5 pb-24 md:pb-10">
       
       {/* ========== HEADER ========== */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className={`text-xl md:text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('receipts.title')}</h1>
-          <p className={`text-xs md:text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{stats.count} {t('common.receipts')} • ₹{stats.total.toLocaleString('en-IN')} {t('common.total')}</p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className={`text-xl md:text-2xl font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('receipts.title')}</h1>
+          <p className={`text-xs md:text-sm mt-0.5 truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{stats.count} {t('common.receipts')} • ₹{stats.total.toLocaleString('en-IN')} {t('common.total')}</p>
         </div>
         <button 
           onClick={() => setShowFilters(!showFilters)}
-          className={`p-2 md:p-2.5 rounded-xl border transition-all ${showFilters 
+          className={`p-2 md:p-2.5 rounded-xl border transition-all shrink-0 ${showFilters  
             ? 'bg-emerald-50 border-emerald-200 text-emerald-600' 
             : isDark 
               ? 'bg-dark-card border-dark-border text-slate-400 hover:bg-dark-surface' 

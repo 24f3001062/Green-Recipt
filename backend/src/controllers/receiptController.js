@@ -43,6 +43,8 @@ const mapReceiptToClient = (receipt) => {
     customerName: receipt.customerSnapshot?.name || null,
     customerEmail: receipt.customerSnapshot?.email || null,
     customerPhone: receipt.customerSnapshot?.phone || null,
+    claimedByCustomer: Boolean(receipt.userId),
+    customerPaymentIntent: receipt.customerPaymentIntent || null,
     amount: receipt.total,
     pendingAmount: receipt.pendingAmount || 0,
     lastReminderSentAt: receipt.lastReminderSentAt ? new Date(receipt.lastReminderSentAt).toISOString() : null,
@@ -339,7 +341,7 @@ export const getCustomerReceipts = async (req, res) => {
 
 export const claimReceipt = async (req, res) => {
   try {
-    const { receiptId } = req.body;
+    const { receiptId, paymentIntent = null } = req.body;
     
     // Check if receipt exists and is not already claimed by someone else
     const receiptCheck = await Receipt.findById(receiptId);
@@ -351,9 +353,13 @@ export const claimReceipt = async (req, res) => {
       return res.status(403).json({ message: "Receipt already claimed" });
     }
 
-    // Prepare customer snapshot
+    // Prepare customer snapshot (include phone for khata/pending flows)
     const user = await User.findById(req.user.id).lean();
-    const customerSnapshot = user ? { name: user.name, email: user.email } : null;
+    const customerSnapshot = user
+      ? { name: user.name, email: user.email, phone: user.phone || null }
+      : null;
+
+    const intent = ["upi", "cash", "khata"].includes(paymentIntent) ? paymentIntent : null;
 
     // Use atomic update to avoid race conditions with markReceiptPaid
     const receipt = await Receipt.findByIdAndUpdate(
@@ -361,7 +367,9 @@ export const claimReceipt = async (req, res) => {
       {
         $set: {
           userId: req.user.id,
-          customerSnapshot: customerSnapshot
+          customerSnapshot: customerSnapshot,
+          customerPaymentIntent: intent,
+          customerPaymentIntentAt: intent ? getNowIST() : null,
         }
       },
       { new: true }
@@ -436,34 +444,34 @@ export const markReceiptPaid = async (req, res) => {
         { new: true }
       );
 
-      // Create notification for customer if phone matches a user
-      if (customerPhone) {
-        try {
-          const User = (await import("../models/User.js")).default;
-          const matchedUser = await User.findOne({ 
-            phone: customerPhone,
-            role: "customer"
-          });
+      // Create notification for customer:
+      // - Preferred: receipt already linked via claimReceipt (receipt.userId)
+      // - Fallback: merchant provided customerPhone
+      try {
+        let targetUserId = receipt?.userId || null;
 
-          if (matchedUser) {
-            // Link the receipt to the user
-            receipt.userId = matchedUser._id;
-            await receipt.save();
-
-            // Create pending notification for customer
-            await Notification.create({
-              userId: matchedUser._id,
-              type: "pending_created",
-              title: "New Pending Bill",
-              message: `You have a pending bill of ₹${receipt.total} from ${req.user.shopName || "Merchant"}`,
-              sourceType: "pending_receipt",
-              sourceId: receipt._id,
-              idempotencyKey: `pending_created:${receipt._id}`,
-            });
+        if (!targetUserId && customerPhone) {
+          const matchedUser = await User.findOne({ phone: customerPhone, role: "customer" }).lean();
+          if (matchedUser?._id) {
+            targetUserId = matchedUser._id;
+            // Link the receipt to the user if we found a match
+            await Receipt.findByIdAndUpdate(id, { $set: { userId: matchedUser._id } });
           }
-        } catch (notifErr) {
-          console.warn("Failed to create pending notification:", notifErr);
         }
+
+        if (targetUserId) {
+          await Notification.create({
+            userId: targetUserId,
+            type: "pending_created",
+            title: "New Pending Bill",
+            message: `You have a pending bill of ₹${receipt.total} from ${req.user.shopName || "Merchant"}`,
+            sourceType: "pending_receipt",
+            sourceId: receipt._id,
+            idempotencyKey: `pending_created:${receipt._id}`,
+          });
+        }
+      } catch (notifErr) {
+        console.warn("Failed to create pending notification:", notifErr);
       }
 
       return res.json(mapReceiptToClient(receipt.toObject()));

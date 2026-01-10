@@ -72,6 +72,7 @@ export const createReceiptSchema = {
 export const claimReceiptSchema = {
   body: z.object({
     receiptId: objectId,
+    paymentIntent: z.enum(["upi", "cash", "khata"]).optional().nullable(),
   }),
 };
 
@@ -81,7 +82,7 @@ export const receiptIdParamSchema = { params: z.object({ id: objectId }) };
 export const markPaidSchema = {
   params: z.object({ id: objectId }),
   body: z.object({
-    paymentMethod: z.enum(["upi", "cash", "card", "other"]).optional(),
+    paymentMethod: z.enum(["upi", "cash", "card", "other", "pending"]).optional(),
   }),
 };
 
