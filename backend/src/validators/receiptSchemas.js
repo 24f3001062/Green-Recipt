@@ -18,6 +18,14 @@ const quantity = z.coerce
   .nullable()
   .optional();
 
+// Phone number validation (Indian format)
+const phoneNumber = z.string()
+  .trim()
+  .regex(/^(\+91)?[6-9]\d{9}$/, "Invalid phone number")
+  .transform(val => val.replace(/^\+91/, ""))
+  .optional()
+  .nullable();
+
 export const createReceiptSchema = {
   body: z.object({
     userId: objectId.optional().nullable(),
@@ -55,6 +63,9 @@ export const createReceiptSchema = {
     footer: z.string().trim().max(200).optional().nullable(),
     category: z.string().trim().max(100).optional().nullable(),
     total: z.coerce.number().min(0).optional().nullable(),
+    // Khata (pending) fields
+    customerName: z.string().trim().max(200).optional().nullable(),
+    customerPhone: z.string().trim().optional().nullable(),
   }).passthrough(), // Allow extra fields from QR codes
 };
 
@@ -82,5 +93,18 @@ export const updateReceiptSchema = {
     note: z.string().trim().max(500).optional(),
     excludeFromStats: z.boolean().optional(),
     category: z.string().trim().max(100).optional(),
+  }),
+};
+
+// Schema for sending payment reminder
+export const sendReminderSchema = {
+  params: z.object({ id: objectId }),
+};
+
+// Schema for customer paying pending bill
+export const payPendingSchema = {
+  params: z.object({ id: objectId }),
+  body: z.object({
+    paymentMethod: z.enum(["upi", "cash", "card", "other"]).optional(),
   }),
 };

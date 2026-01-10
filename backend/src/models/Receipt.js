@@ -61,6 +61,16 @@ const receiptSchema = new mongoose.Schema(
       enum: ["completed", "pending", "void"],
       default: "completed",
     },
+    // Khata (pending dues) fields
+    pendingAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    lastReminderSentAt: {
+      type: Date,
+      default: null,
+    },
     paymentMethod: {
       type: String,
       enum: ["upi", "card", "cash", "other"],
@@ -108,6 +118,7 @@ const receiptSchema = new mongoose.Schema(
     customerSnapshot: {
       name: { type: String, trim: true },
       email: { type: String, trim: true },
+      phone: { type: String, trim: true },
     },
     category: {
       type: String,
@@ -128,6 +139,8 @@ const receiptSchema = new mongoose.Schema(
 
 receiptSchema.index({ merchantId: 1, transactionDate: -1 });
 receiptSchema.index({ merchantCode: 1, transactionDate: -1 });
+receiptSchema.index({ merchantId: 1, status: 1, transactionDate: 1 }); // For pending receipts (khata)
+receiptSchema.index({ userId: 1, status: 1 }); // For customer pending receipts
 receiptSchema.index({ userId: 1, transactionDate: -1 });
 receiptSchema.index({ source: 1 });
 receiptSchema.index({ excludeFromStats: 1 });

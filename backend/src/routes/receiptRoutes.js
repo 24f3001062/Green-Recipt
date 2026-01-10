@@ -9,10 +9,26 @@ import {
   markReceiptPaid,
   updateReceipt,
   deleteReceipt,
+  // Khata (Pending) APIs
+  getMerchantPendingReceipts,
+  getCustomerPendingReceipts,
+  sendPaymentReminder,
+  markPendingAsPaid,
+  payPendingBill,
+  getMerchantPendingSummary,
+  getCustomerPendingSummary,
 } from "../controllers/receiptController.js";
 import { protect, requireRole } from "../middleware/authMiddleware.js";
 import { validate } from "../middleware/validate.js";
-import { createReceiptSchema, receiptIdParamSchema, claimReceiptSchema, updateReceiptSchema, markPaidSchema } from "../validators/receiptSchemas.js";
+import { 
+  createReceiptSchema, 
+  receiptIdParamSchema, 
+  claimReceiptSchema, 
+  updateReceiptSchema, 
+  markPaidSchema,
+  sendReminderSchema,
+  payPendingSchema,
+} from "../validators/receiptSchemas.js";
 
 const router = express.Router();
 
@@ -28,8 +44,15 @@ const createReceiptLimiter = rateLimit({
   message: { message: "Too many receipts created, please slow down" },
 });
 
+const reminderLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // Max 10 reminders per hour across all receipts
+  message: { message: "Too many reminders sent. Please try again later." },
+});
+
 router.use(receiptLimiter);
 
+// Standard receipt routes
 router.post("/", protect, requireRole("merchant", "customer"), createReceiptLimiter, validate(createReceiptSchema), createReceipt);
 router.get("/customer", protect, requireRole("customer"), getCustomerReceipts);
 router.get("/merchant", protect, requireRole("merchant"), getMerchantReceipts);
@@ -38,5 +61,16 @@ router.patch("/:id/mark-paid", protect, requireRole("merchant"), validate(markPa
 router.patch("/:id", protect, validate(updateReceiptSchema), updateReceipt);
 router.delete("/:id", protect, validate(receiptIdParamSchema), deleteReceipt);
 router.get("/:id", protect, validate(receiptIdParamSchema), getReceiptById);
+
+// Khata (Pending) routes - Merchant
+router.get("/merchant/pending", protect, requireRole("merchant"), getMerchantPendingReceipts);
+router.get("/merchant/pending/summary", protect, requireRole("merchant"), getMerchantPendingSummary);
+router.post("/:id/send-reminder", protect, requireRole("merchant"), reminderLimiter, validate(sendReminderSchema), sendPaymentReminder);
+router.post("/:id/mark-paid-manual", protect, requireRole("merchant"), validate(markPaidSchema), markPendingAsPaid);
+
+// Khata (Pending) routes - Customer
+router.get("/customer/pending", protect, requireRole("customer"), getCustomerPendingReceipts);
+router.get("/customer/pending/summary", protect, requireRole("customer"), getCustomerPendingSummary);
+router.post("/:id/pay-pending", protect, requireRole("customer"), validate(payPendingSchema), payPendingBill);
 
 export default router;

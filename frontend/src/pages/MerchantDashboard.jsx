@@ -14,6 +14,7 @@ import MerchantBilling from '../components/merchant/MerchantBilling';
 import MerchantItems from '../components/merchant/MerchantItems';
 import MerchantInsights from '../components/merchant/MerchantInsights';
 import MerchantProfile from '../components/merchant/MerchantProfile';
+import MerchantKhata from '../components/merchant/MerchantKhata';
 import MerchantOnboardingWizard from '../components/onboarding/MerchantOnboardingWizard';
 
 const MerchantDashboard = () => {
@@ -152,6 +153,7 @@ const MerchantDashboard = () => {
                   <Route path="items" element={<MerchantItems />} />
                   <Route path="insights" element={<MerchantInsights />} />
                   <Route path="profile" element={<MerchantProfile />} />
+                  <Route path="khata" element={<MerchantKhata />} />
                   
                   {/* Catch-all redirect to overview */}
                   <Route path="*" element={<Navigate to="/merchant/overview" replace />} />

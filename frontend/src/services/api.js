@@ -367,8 +367,9 @@ export const fetchMerchantReceipts = (page = 1, limit = 50) =>
 export const createReceipt = (payload) => api.post("/receipts", payload);
 export const claimReceipt = (payload) => api.post("/receipts/claim", payload);
 // Mark receipt as paid - MERCHANT ONLY (source of truth for payment)
-export const markReceiptPaid = (id, paymentMethod) => 
-  api.patch(`/receipts/${id}/mark-paid`, { paymentMethod });
+// For "pending" method, extra customerInfo { customerName, customerPhone } can be passed
+export const markReceiptPaid = (id, paymentMethod, customerInfo = {}) => 
+  api.patch(`/receipts/${id}/mark-paid`, { paymentMethod, ...customerInfo });
 export const updateReceipt = (id, payload) => api.patch(`/receipts/${id}`, payload);
 export const deleteReceipt = (id) => api.delete(`/receipts/${id}`);
 export const getReceiptById = (id) => api.get(`/receipts/${id}`);
@@ -378,6 +379,27 @@ export const fetchProfile = () => api.get("/auth/me");
 export const updateProfile = (payload) => api.patch("/auth/me", payload);
 export const changePassword = (payload) => api.post("/auth/change-password", payload);
 export const deleteAccount = () => api.delete("/auth/me");
+
+// ==========================================
+// KHATA (PENDING DUES) APIs
+// ==========================================
+// Merchant APIs
+export const fetchMerchantPendingReceipts = (page = 1, limit = 50) => 
+  api.get(`/receipts/merchant/pending?page=${page}&limit=${limit}`);
+export const fetchMerchantPendingSummary = () => 
+  api.get("/receipts/merchant/pending/summary");
+export const sendPaymentReminder = (receiptId) => 
+  api.post(`/receipts/${receiptId}/send-reminder`);
+export const markPendingAsPaid = (receiptId, paymentMethod = "cash") => 
+  api.post(`/receipts/${receiptId}/mark-paid-manual`, { paymentMethod });
+
+// Customer APIs
+export const fetchCustomerPendingReceipts = (page = 1, limit = 50) => 
+  api.get(`/receipts/customer/pending?page=${page}&limit=${limit}`);
+export const fetchCustomerPendingSummary = () => 
+  api.get("/receipts/customer/pending/summary");
+export const payPendingBill = (receiptId, paymentMethod = "upi") => 
+  api.post(`/receipts/${receiptId}/pay-pending`, { paymentMethod });
 
 // ==========================================
 // MERCHANT ONBOARDING APIs

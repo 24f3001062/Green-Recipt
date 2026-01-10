@@ -1,6 +1,7 @@
 import Receipt from "../models/Receipt.js";
 import Merchant from "../models/Merchant.js";
 import User from "../models/User.js";
+import Notification from "../models/Notification.js";
 import { getNowIST, normalizeToIST, formatISTDate, formatISTTime } from "../utils/timezone.js";
 import { clearAnalyticsCache } from "./analyticsController.js";
 import { sendReceiptEmail } from "../utils/sendEmail.js";
@@ -41,7 +42,10 @@ const mapReceiptToClient = (receipt) => {
     businessCategory: receipt.merchantSnapshot?.businessCategory || null,
     customerName: receipt.customerSnapshot?.name || null,
     customerEmail: receipt.customerSnapshot?.email || null,
+    customerPhone: receipt.customerSnapshot?.phone || null,
     amount: receipt.total,
+    pendingAmount: receipt.pendingAmount || 0,
+    lastReminderSentAt: receipt.lastReminderSentAt ? new Date(receipt.lastReminderSentAt).toISOString() : null,
     subtotal: receipt.subtotal || 0,
     discount: receipt.discount || 0,
     transactionDate: receipt.transactionDate ? new Date(receipt.transactionDate).toISOString() : null,
@@ -89,6 +93,9 @@ export const createReceipt = async (req, res) => {
       receiptId = null,
       // For customer uploads without merchant
       merchantName = null,
+      // For pending (khata) receipts - customer info from merchant
+      customerName: providedCustomerName = null,
+      customerPhone: providedCustomerPhone = null,
     } = req.body;
 
     const resolvedMerchantId = req.user.role === "merchant" ? req.user.id : bodyMerchantId;
@@ -154,18 +161,27 @@ export const createReceipt = async (req, res) => {
       try {
         const user = await User.findById(userId).lean();
         if (user) {
-          customerSnapshot = { name: user.name, email: user.email };
+          customerSnapshot = { name: user.name, email: user.email, phone: user.phone || null };
         } else {
           // User authenticated but not found in DB - create minimal snapshot
           // This can happen in edge cases, but we should still save the receipt
-          customerSnapshot = { name: "Customer", email: null };
+          customerSnapshot = { name: "Customer", email: null, phone: null };
           console.log(`Warning: Customer ${userId} not found in DB but authenticated`);
         }
       } catch (lookupError) {
         // Database error during lookup - proceed with minimal snapshot
         console.error("Customer lookup error:", lookupError.message);
-        customerSnapshot = { name: "Customer", email: null };
+        customerSnapshot = { name: "Customer", email: null, phone: null };
       }
+    }
+    
+    // For pending (khata) receipts, use customer info provided by merchant
+    if (status === "pending" && (providedCustomerName || providedCustomerPhone)) {
+      customerSnapshot = {
+        name: providedCustomerName || customerSnapshot?.name || "Customer",
+        email: customerSnapshot?.email || null,
+        phone: providedCustomerPhone || customerSnapshot?.phone || null,
+      };
     }
 
     // Snapshot merchant data (or use provided name from QR code)
@@ -219,6 +235,8 @@ export const createReceipt = async (req, res) => {
       source,
       paymentMethod,
       status,
+      // For pending receipts, set pendingAmount to total
+      pendingAmount: status === "pending" ? finalTotal : 0,
       // Normalize to IST
       transactionDate: normalizeToIST(transactionDate),
       note,
@@ -229,6 +247,37 @@ export const createReceipt = async (req, res) => {
       merchantSnapshot,
       customerSnapshot,
     });
+
+    // If pending receipt created, try to notify customer if they exist in system
+    if (status === "pending" && providedCustomerPhone) {
+      try {
+        // Find customer by phone number
+        const customer = await User.findOne({ phone: providedCustomerPhone }).lean();
+        if (customer) {
+          // Create notification for customer
+          await Notification.createIfNotExists({
+            userId: customer._id,
+            type: "pending_created",
+            title: "New Pending Bill",
+            message: `You have a pending bill of ₹${finalTotal} at ${merchantSnapshot.shopName}`,
+            sourceType: "pending_receipt",
+            sourceId: receipt._id,
+            metadata: {
+              amount: finalTotal,
+              billName: merchantSnapshot.shopName,
+              currency: "INR",
+            },
+            actionUrl: `/pending/${receipt._id}`,
+            actionLabel: "View Bill",
+            idempotencyKey: `pending_created:${receipt._id}`,
+            priority: 5,
+          });
+        }
+      } catch (notifError) {
+        // Don't fail receipt creation if notification fails
+        console.error("Failed to create pending notification:", notifError.message);
+      }
+    }
 
     // Update analytics cache
     if (merchant?._id) {
@@ -344,7 +393,7 @@ export const claimReceipt = async (req, res) => {
 export const markReceiptPaid = async (req, res) => {
   try {
     const { id } = req.params;
-    const { paymentMethod } = req.body; // Accept payment method from merchant
+    const { paymentMethod, customerName, customerPhone } = req.body; // Accept payment method and optional customer info
     
     // Use atomic update to avoid race conditions with customer claim
     // We first check authorization in the query itself or separate check
@@ -362,6 +411,65 @@ export const markReceiptPaid = async (req, res) => {
     const isGeneric = !currentMethod || currentMethod === 'other';
     let newPaymentMethod = currentMethod;
 
+    // Check if this is a "pending" (khata) action
+    const isPendingAction = paymentMethod === 'pending';
+
+    if (isPendingAction) {
+      // Mark as pending (khata) - keep status as "pending", store customer info
+      const updateData = {
+        status: "pending",
+        paymentMethod: "other", // Payment method not yet decided
+        pendingAmount: receiptCheck.total,
+      };
+
+      // Add customer info if provided
+      if (customerName) {
+        updateData["customerSnapshot.name"] = customerName;
+      }
+      if (customerPhone) {
+        updateData["customerSnapshot.phone"] = customerPhone;
+      }
+
+      const receipt = await Receipt.findByIdAndUpdate(
+        id,
+        { $set: updateData },
+        { new: true }
+      );
+
+      // Create notification for customer if phone matches a user
+      if (customerPhone) {
+        try {
+          const User = (await import("../models/User.js")).default;
+          const matchedUser = await User.findOne({ 
+            phone: customerPhone,
+            role: "customer"
+          });
+
+          if (matchedUser) {
+            // Link the receipt to the user
+            receipt.userId = matchedUser._id;
+            await receipt.save();
+
+            // Create pending notification for customer
+            await Notification.create({
+              userId: matchedUser._id,
+              type: "pending_created",
+              title: "New Pending Bill",
+              message: `You have a pending bill of ₹${receipt.total} from ${req.user.shopName || "Merchant"}`,
+              sourceType: "pending_receipt",
+              sourceId: receipt._id,
+              idempotencyKey: `pending_created:${receipt._id}`,
+            });
+          }
+        } catch (notifErr) {
+          console.warn("Failed to create pending notification:", notifErr);
+        }
+      }
+
+      return res.json(mapReceiptToClient(receipt.toObject()));
+    }
+
+    // Regular paid action
     if (paymentMethod && ["upi", "cash", "card", "other"].includes(paymentMethod)) {
        // Allow overwrite if current is generic OR we want to trust the merchant's explicit action
        // The merchant's "Paid via Cash" or "Paid via UPI" button is a strong signal of what actually happened at the counter.
@@ -375,7 +483,8 @@ export const markReceiptPaid = async (req, res) => {
         $set: {
             status: "completed",
             paymentMethod: newPaymentMethod,
-            paidAt: getNowIST()
+            paidAt: getNowIST(),
+            pendingAmount: 0, // Clear pending amount when paid
         }
       },
       { new: true } // Return updated doc
@@ -516,5 +625,454 @@ export const deleteReceipt = async (req, res) => {
   } catch (error) {
     console.error("deleteReceipt error", error);
     res.status(500).json({ message: "Failed to delete receipt" });
+  }
+};
+
+// ==========================================
+// KHATA (PENDING DUES) APIs
+// ==========================================
+
+/**
+ * Get all pending receipts for merchant (Khata page)
+ * GET /api/receipts/merchant/pending
+ * Returns oldest first for follow-up priority
+ */
+export const getMerchantPendingReceipts = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
+    const filter = { 
+      merchantId: req.user.id, 
+      status: "pending",
+      pendingAmount: { $gt: 0 }
+    };
+
+    const [receipts, total, totalPendingAmount] = await Promise.all([
+      Receipt.find(filter)
+        .sort({ transactionDate: 1 }) // Oldest first
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Receipt.countDocuments(filter),
+      Receipt.aggregate([
+        { $match: filter },
+        { $group: { _id: null, total: { $sum: "$pendingAmount" } } }
+      ]),
+    ]);
+
+    res.json({
+      receipts: receipts.map(mapReceiptToClient),
+      totalPendingAmount: totalPendingAmount[0]?.total || 0,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    });
+  } catch (error) {
+    console.error("getMerchantPendingReceipts error", error);
+    res.status(500).json({ message: "Failed to load pending receipts" });
+  }
+};
+
+/**
+ * Get all pending receipts for customer
+ * GET /api/receipts/customer/pending
+ */
+export const getCustomerPendingReceipts = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
+    // Get customer's phone from their profile
+    const customer = await User.findById(req.user.id).lean();
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    // Find pending receipts either by userId or by phone number in customerSnapshot
+    const filter = { 
+      status: "pending",
+      pendingAmount: { $gt: 0 },
+      $or: [
+        { userId: req.user.id },
+        ...(customer.phone ? [{ "customerSnapshot.phone": customer.phone }] : [])
+      ]
+    };
+
+    const [receipts, total, totalPendingAmount] = await Promise.all([
+      Receipt.find(filter)
+        .sort({ transactionDate: 1 }) // Oldest first
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Receipt.countDocuments(filter),
+      Receipt.aggregate([
+        { $match: filter },
+        { $group: { _id: null, total: { $sum: "$pendingAmount" } } }
+      ]),
+    ]);
+
+    res.json({
+      receipts: receipts.map(mapReceiptToClient),
+      totalPendingAmount: totalPendingAmount[0]?.total || 0,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    });
+  } catch (error) {
+    console.error("getCustomerPendingReceipts error", error);
+    res.status(500).json({ message: "Failed to load pending receipts" });
+  }
+};
+
+/**
+ * Send payment reminder to customer
+ * POST /api/receipts/:id/send-reminder
+ * Merchant only - 1 reminder per 24 hours
+ */
+export const sendPaymentReminder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const REMINDER_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+    const receipt = await Receipt.findById(id);
+    if (!receipt) {
+      return res.status(404).json({ message: "Receipt not found" });
+    }
+
+    // Check merchant owns this receipt
+    if (!receipt.merchantId || receipt.merchantId.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized to send reminder for this receipt" });
+    }
+
+    // Check receipt is pending
+    if (receipt.status !== "pending") {
+      return res.status(400).json({ message: "Can only send reminders for pending receipts" });
+    }
+
+    // Check 24-hour cooldown
+    if (receipt.lastReminderSentAt) {
+      const timeSinceLastReminder = Date.now() - new Date(receipt.lastReminderSentAt).getTime();
+      if (timeSinceLastReminder < REMINDER_COOLDOWN_MS) {
+        const hoursRemaining = Math.ceil((REMINDER_COOLDOWN_MS - timeSinceLastReminder) / (60 * 60 * 1000));
+        return res.status(429).json({ 
+          message: `Please wait ${hoursRemaining} hour(s) before sending another reminder`,
+          nextReminderAt: new Date(new Date(receipt.lastReminderSentAt).getTime() + REMINDER_COOLDOWN_MS).toISOString()
+        });
+      }
+    }
+
+    // Find customer to send notification
+    let customerId = receipt.userId;
+    if (!customerId && receipt.customerSnapshot?.phone) {
+      const customer = await User.findOne({ phone: receipt.customerSnapshot.phone }).lean();
+      if (customer) {
+        customerId = customer._id;
+      }
+    }
+
+    if (!customerId) {
+      return res.status(400).json({ message: "No customer linked to this receipt. Cannot send reminder." });
+    }
+
+    // Create notification
+    const merchantName = receipt.merchantSnapshot?.shopName || "Merchant";
+    const reminderMessage = `You have ₹${receipt.pendingAmount} pending at ${merchantName}. Please clear your dues.`;
+
+    await Notification.createIfNotExists({
+      userId: customerId,
+      type: "payment_reminder",
+      title: "Payment Reminder",
+      message: reminderMessage,
+      sourceType: "pending_receipt",
+      sourceId: receipt._id,
+      metadata: {
+        amount: receipt.pendingAmount,
+        billName: merchantName,
+        currency: "INR",
+      },
+      actionUrl: `/pending/${receipt._id}`,
+      actionLabel: "Pay Now",
+      idempotencyKey: `payment_reminder:${receipt._id}:${Date.now()}`,
+      priority: 7,
+    });
+
+    // Update lastReminderSentAt
+    const updatedReceipt = await Receipt.findByIdAndUpdate(
+      id,
+      { $set: { lastReminderSentAt: getNowIST() } },
+      { new: true }
+    );
+
+    res.json({ 
+      message: "Reminder sent successfully",
+      receipt: mapReceiptToClient(updatedReceipt.toObject())
+    });
+  } catch (error) {
+    console.error("sendPaymentReminder error", error);
+    res.status(500).json({ message: "Failed to send reminder" });
+  }
+};
+
+/**
+ * Mark pending receipt as paid (manual) - Merchant only
+ * POST /api/receipts/:id/mark-paid-manual
+ */
+export const markPendingAsPaid = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { paymentMethod = "cash" } = req.body;
+
+    const receipt = await Receipt.findById(id);
+    if (!receipt) {
+      return res.status(404).json({ message: "Receipt not found" });
+    }
+
+    // Check merchant owns this receipt
+    if (!receipt.merchantId || receipt.merchantId.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized to update this receipt" });
+    }
+
+    // Check receipt is pending
+    if (receipt.status !== "pending") {
+      return res.status(400).json({ message: "Receipt is not pending" });
+    }
+
+    // Update receipt to paid
+    const updatedReceipt = await Receipt.findByIdAndUpdate(
+      id,
+      { 
+        $set: { 
+          status: "completed",
+          pendingAmount: 0,
+          lastReminderSentAt: null,
+          paymentMethod,
+          paidAt: getNowIST()
+        } 
+      },
+      { new: true }
+    );
+
+    // Notify customer that their pending bill is cleared
+    let customerId = receipt.userId;
+    if (!customerId && receipt.customerSnapshot?.phone) {
+      const customer = await User.findOne({ phone: receipt.customerSnapshot.phone }).lean();
+      if (customer) {
+        customerId = customer._id;
+      }
+    }
+
+    if (customerId) {
+      try {
+        const merchantName = receipt.merchantSnapshot?.shopName || "Merchant";
+        await Notification.createIfNotExists({
+          userId: customerId,
+          type: "pending_paid",
+          title: "Payment Confirmed",
+          message: `Your pending bill of ₹${receipt.total} at ${merchantName} has been marked as paid.`,
+          sourceType: "pending_receipt",
+          sourceId: receipt._id,
+          metadata: {
+            amount: receipt.total,
+            billName: merchantName,
+            currency: "INR",
+          },
+          idempotencyKey: `pending_paid:${receipt._id}`,
+          priority: 5,
+        });
+      } catch (notifError) {
+        console.error("Failed to create paid notification:", notifError.message);
+      }
+    }
+
+    // Invalidate analytics cache
+    clearAnalyticsCache(req.user.id);
+    if (receipt.userId) {
+      clearAnalyticsCache(receipt.userId.toString());
+    }
+
+    res.json({ 
+      message: "Receipt marked as paid",
+      receipt: mapReceiptToClient(updatedReceipt.toObject())
+    });
+  } catch (error) {
+    console.error("markPendingAsPaid error", error);
+    res.status(500).json({ message: "Failed to mark receipt as paid" });
+  }
+};
+
+/**
+ * Customer pays pending bill
+ * POST /api/receipts/:id/pay-pending
+ */
+export const payPendingBill = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { paymentMethod = "upi" } = req.body;
+
+    const receipt = await Receipt.findById(id);
+    if (!receipt) {
+      return res.status(404).json({ message: "Receipt not found" });
+    }
+
+    // Check receipt is pending
+    if (receipt.status !== "pending") {
+      return res.status(400).json({ message: "Receipt is not pending" });
+    }
+
+    // Verify customer is authorized (either by userId or phone)
+    const customer = await User.findById(req.user.id).lean();
+    const isAuthorized = 
+      (receipt.userId && receipt.userId.toString() === req.user.id) ||
+      (customer?.phone && receipt.customerSnapshot?.phone === customer.phone);
+
+    if (!isAuthorized) {
+      return res.status(403).json({ message: "Not authorized to pay this receipt" });
+    }
+
+    // Update receipt to paid
+    const updatedReceipt = await Receipt.findByIdAndUpdate(
+      id,
+      { 
+        $set: { 
+          status: "completed",
+          pendingAmount: 0,
+          lastReminderSentAt: null,
+          paymentMethod,
+          paidAt: getNowIST(),
+          userId: req.user.id, // Link to customer if not already
+          customerSnapshot: {
+            name: customer?.name || receipt.customerSnapshot?.name,
+            email: customer?.email || receipt.customerSnapshot?.email,
+            phone: customer?.phone || receipt.customerSnapshot?.phone,
+          }
+        } 
+      },
+      { new: true }
+    );
+
+    // Notify merchant that payment was received
+    if (receipt.merchantId) {
+      try {
+        const customerName = customer?.name || receipt.customerSnapshot?.name || "Customer";
+        await Notification.createIfNotExists({
+          userId: receipt.merchantId,
+          type: "pending_paid",
+          title: "Payment Received",
+          message: `${customerName} has paid their pending bill of ₹${receipt.total}`,
+          sourceType: "pending_receipt",
+          sourceId: receipt._id,
+          metadata: {
+            amount: receipt.total,
+            billName: customerName,
+            currency: "INR",
+          },
+          idempotencyKey: `pending_paid_merchant:${receipt._id}`,
+          priority: 5,
+        });
+      } catch (notifError) {
+        console.error("Failed to create merchant notification:", notifError.message);
+      }
+    }
+
+    // Invalidate analytics cache
+    if (receipt.merchantId) {
+      clearAnalyticsCache(receipt.merchantId.toString());
+    }
+    clearAnalyticsCache(req.user.id);
+
+    res.json({ 
+      message: "Payment successful",
+      receipt: mapReceiptToClient(updatedReceipt.toObject())
+    });
+  } catch (error) {
+    console.error("payPendingBill error", error);
+    res.status(500).json({ message: "Failed to process payment" });
+  }
+};
+
+/**
+ * Get pending summary for merchant dashboard
+ * GET /api/receipts/merchant/pending/summary
+ */
+export const getMerchantPendingSummary = async (req, res) => {
+  try {
+    const filter = { 
+      merchantId: req.user.id, 
+      status: "pending",
+      pendingAmount: { $gt: 0 }
+    };
+
+    const [summary] = await Receipt.aggregate([
+      { $match: filter },
+      { 
+        $group: { 
+          _id: null, 
+          totalAmount: { $sum: "$pendingAmount" },
+          count: { $sum: 1 }
+        } 
+      }
+    ]);
+
+    res.json({
+      totalPendingAmount: summary?.totalAmount || 0,
+      pendingCount: summary?.count || 0,
+    });
+  } catch (error) {
+    console.error("getMerchantPendingSummary error", error);
+    res.status(500).json({ message: "Failed to load pending summary" });
+  }
+};
+
+/**
+ * Get pending summary for customer dashboard
+ * GET /api/receipts/customer/pending/summary
+ */
+export const getCustomerPendingSummary = async (req, res) => {
+  try {
+    const customer = await User.findById(req.user.id).lean();
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    const filter = { 
+      status: "pending",
+      pendingAmount: { $gt: 0 },
+      $or: [
+        { userId: req.user.id },
+        ...(customer.phone ? [{ "customerSnapshot.phone": customer.phone }] : [])
+      ]
+    };
+
+    const [summary] = await Receipt.aggregate([
+      { $match: filter },
+      { 
+        $group: { 
+          _id: null, 
+          totalAmount: { $sum: "$pendingAmount" },
+          count: { $sum: 1 }
+        } 
+      }
+    ]);
+
+    res.json({
+      totalPendingAmount: summary?.totalAmount || 0,
+      pendingCount: summary?.count || 0,
+    });
+  } catch (error) {
+    console.error("getCustomerPendingSummary error", error);
+    res.status(500).json({ message: "Failed to load pending summary" });
   }
 };

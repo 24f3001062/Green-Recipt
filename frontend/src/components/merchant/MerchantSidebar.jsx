@@ -232,7 +232,8 @@ import {
   Store, 
   X,
   ChevronRight,
-  LogOut
+  LogOut,
+  Wallet
 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -366,6 +367,7 @@ const MerchantSidebar = ({ isOpen, onClose }) => {
           {/* 👇 UPDATED LINKS: Pointing to real routes now */}
           <NavItem to="/merchant/overview" icon={LayoutDashboard} label={t('nav.overview')} subLabel={t('dashboard.title')} />
           <NavItem to="/merchant/billing" icon={PlusCircle} label={t('nav.billing')} subLabel={t('nav.newTransaction') || 'New Transaction'} />
+          <NavItem to="/merchant/khata" icon={Wallet} label="Khata" subLabel="Pending Dues" />
           <NavItem to="/merchant/calendar" icon={Calendar} label={t('nav.calendar')} subLabel={t('nav.salesHistory') || 'Sales History'} />
           <NavItem to="/merchant/insights" icon={BarChart3} label={t('nav.salesInsights')} subLabel={t('nav.analytics') || 'Analytics'} />
           <NavItem to="/merchant/items" icon={Package} label={t('nav.items')} subLabel={t('nav.inventory') || 'Inventory'} />

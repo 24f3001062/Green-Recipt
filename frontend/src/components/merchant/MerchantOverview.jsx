@@ -363,7 +363,7 @@ import {
   Trash2,
   CheckCircle,
 } from "lucide-react";
-import { fetchMerchantReceipts, deleteReceipt as deleteReceiptApi } from "../../services/api";
+import { fetchMerchantReceipts, deleteReceipt as deleteReceiptApi, fetchMerchantPendingSummary } from "../../services/api";
 import { getNowIST, formatISTDate, formatISTDateDisplay } from "../../utils/timezone";
 import { useTheme } from "../../contexts/ThemeContext";
 import { createPortal } from 'react-dom';
@@ -380,14 +380,34 @@ const MerchantOverview = () => {
   const [sales, setSales] = useState([]);
   const [viewingReceipt, setViewingReceipt] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingSummary, setPendingSummary] = useState({ totalPendingAmount: 0, pendingCount: 0 });
 
   // Centralized loader with retry + fallback
   const loadReceipts = useCallback(async () => {
     try {
-      const { data } = await fetchMerchantReceipts();
-      const receiptsData = data.receipts || data || [];
-      setSales(receiptsData);
-      localStorage.setItem("merchantSales", JSON.stringify(receiptsData));
+      const [receiptsRes, pendingRes] = await Promise.allSettled([
+        fetchMerchantReceipts(),
+        fetchMerchantPendingSummary()
+      ]);
+      
+      if (receiptsRes.status === 'fulfilled') {
+        const receiptsData = receiptsRes.value.data.receipts || receiptsRes.value.data || [];
+        setSales(receiptsData);
+        localStorage.setItem("merchantSales", JSON.stringify(receiptsData));
+      } else {
+        const saved = localStorage.getItem("merchantSales");
+        if (saved) {
+          try {
+            setSales(JSON.parse(saved));
+          } catch (e) {
+            // Ignore corrupt cache
+          }
+        }
+      }
+      
+      if (pendingRes.status === 'fulfilled') {
+        setPendingSummary(pendingRes.value.data || { totalPendingAmount: 0, pendingCount: 0 });
+      }
     } catch (error) {
       const saved = localStorage.getItem("merchantSales");
       if (saved) {
@@ -723,6 +743,40 @@ const MerchantOverview = () => {
           size={80}
         />
       </div>
+
+      {/* Pending Dues (Khata) Alert */}
+      {pendingSummary.totalPendingAmount > 0 && (
+        <div 
+          onClick={() => navigate('/merchant/khata')}
+          className={`rounded-2xl border p-4 md:p-5 cursor-pointer transition-all hover:shadow-md ${
+            isDark ? 'bg-red-500/10 border-red-500/20 hover:border-red-500/40' : 'bg-red-50 border-red-100 hover:border-red-200'
+          }`}
+        >
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl ${isDark ? 'bg-red-500/20' : 'bg-red-100'}`}>
+                <Wallet size={20} className="text-red-500" />
+              </div>
+              <div>
+                <h3 className={`font-bold text-sm md:text-base ${isDark ? 'text-red-400' : 'text-red-700'}`}>
+                  📒 Khata (Pending Dues)
+                </h3>
+                <p className={`text-xs ${isDark ? 'text-red-400/70' : 'text-red-600'}`}>
+                  {pendingSummary.pendingCount} pending bill{pendingSummary.pendingCount !== 1 ? 's' : ''} to collect
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className={`text-xl md:text-2xl font-black ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                ₹{pendingSummary.totalPendingAmount?.toLocaleString('en-IN')}
+              </p>
+              <p className={`text-[10px] font-medium ${isDark ? 'text-red-400/70' : 'text-red-500'}`}>
+                Tap to manage →
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recent Activity & Trending */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

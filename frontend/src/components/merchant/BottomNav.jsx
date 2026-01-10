@@ -167,7 +167,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Home, BarChart3, Plus, Package, FileClock } from 'lucide-react';
+import { Home, BarChart3, Plus, Wallet, FileClock } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 
 const BottomNav = () => {
@@ -224,10 +224,10 @@ const BottomNav = () => {
         </NavLink>
       </div>
 
-      {/* 4. ITEMS (Inventory) */}
-      <NavLink to="/merchant/items" className={navClass}>
-        <Package strokeWidth={2.5} className="w-6 h-6" />
-        <span className="text-[10px] font-bold">{t('nav.items')}</span>
+      {/* 4. KHATA (Pending Dues) */}
+      <NavLink to="/merchant/khata" className={navClass}>
+        <Wallet strokeWidth={2.5} className="w-6 h-6" />
+        <span className="text-[10px] font-bold">Khata</span>
       </NavLink>
 
       {/* 5. HISTORY (or Profile) */}

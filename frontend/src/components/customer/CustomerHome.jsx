@@ -5,9 +5,9 @@ import {
   TrendingUp, TrendingDown, Wallet, QrCode, UploadCloud, X, Save,
   Image as ImageIcon, Calendar, PieChart, Store, CheckCircle, Loader2,
   Receipt, Sparkles, ArrowUpRight, ArrowDownRight, Smartphone, Banknote,
-  ChevronRight, Clock, Zap, Target, CreditCard
+  ChevronRight, Clock, Zap, Target, CreditCard, AlertCircle
 } from 'lucide-react';
-import { fetchCustomerReceipts, createReceipt, fetchCustomerAnalytics, fetchUpcomingBills } from '../../services/api';
+import { fetchCustomerReceipts, createReceipt, fetchCustomerAnalytics, fetchUpcomingBills, fetchCustomerPendingSummary } from '../../services/api';
 import toast from 'react-hot-toast';
 import { getTodayIST, formatISTDateDisplay } from '../../utils/timezone';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -76,16 +76,18 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
   const [receipts, setReceipts] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [upcomingBills, setUpcomingBills] = useState([]);
+  const [pendingSummary, setPendingSummary] = useState({ totalPendingAmount: 0, pendingCount: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       try {
-        const [receiptsRes, analyticsRes, billsRes] = await Promise.allSettled([
+        const [receiptsRes, analyticsRes, billsRes, pendingRes] = await Promise.allSettled([
           fetchCustomerReceipts(),
           fetchCustomerAnalytics(),
-          fetchUpcomingBills(7) // Next 7 days
+          fetchUpcomingBills(7), // Next 7 days
+          fetchCustomerPendingSummary()
         ]);
         
         if (receiptsRes.status === 'fulfilled') {
@@ -106,6 +108,10 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
         
         if (billsRes.status === 'fulfilled' && mounted) {
           setUpcomingBills(billsRes.value.data?.bills || []);
+        }
+        
+        if (pendingRes.status === 'fulfilled' && mounted) {
+          setPendingSummary(pendingRes.value.data || { totalPendingAmount: 0, pendingCount: 0 });
         }
       } catch (error) {
         const cached = localStorage.getItem('customerReceipts');
@@ -513,6 +519,40 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
               +{upcomingBills.length - 3} {t('bills.moreBills', 'more bills')}
             </button>
           )}
+        </div>
+      )}
+
+      {/* ========== PENDING DUES WIDGET ========== */}
+      {pendingSummary.totalPendingAmount > 0 && (
+        <div 
+          onClick={() => onNavigate('pending')}
+          className={`p-4 md:p-5 rounded-xl md:rounded-2xl border cursor-pointer transition-all hover:shadow-md ${
+            isDark ? 'bg-red-500/10 border-red-500/20 hover:border-red-500/40' : 'bg-red-50 border-red-100 hover:border-red-200'
+          }`}
+        >
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl ${isDark ? 'bg-red-500/20' : 'bg-red-100'}`}>
+                <AlertCircle size={20} className="text-red-500" />
+              </div>
+              <div>
+                <h3 className={`font-bold text-sm md:text-base ${isDark ? 'text-red-400' : 'text-red-700'}`}>
+                  Pending Payments
+                </h3>
+                <p className={`text-xs ${isDark ? 'text-red-400/70' : 'text-red-600'}`}>
+                  {pendingSummary.pendingCount} bill{pendingSummary.pendingCount !== 1 ? 's' : ''} to clear
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className={`text-xl md:text-2xl font-black ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                ₹{pendingSummary.totalPendingAmount?.toLocaleString('en-IN')}
+              </p>
+              <p className={`text-[10px] font-medium flex items-center justify-end gap-1 ${isDark ? 'text-red-400/70' : 'text-red-500'}`}>
+                View all <ChevronRight size={12} />
+              </p>
+            </div>
+          </div>
         </div>
       )}
 

@@ -1780,6 +1780,10 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowLeft,
+  Wallet,
+  User,
+  Phone,
+  Loader2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { createReceipt, deleteReceipt, markReceiptPaid } from "../../services/api";
@@ -1820,6 +1824,12 @@ const MerchantBilling = ({ inventory, profile }) => {
   const [showQr, setShowQr] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [generatedBill, setGeneratedBill] = useState(null);
+
+  // 📒 Pending/Khata State
+  const [showPendingModal, setShowPendingModal] = useState(false);
+  const [pendingCustomerName, setPendingCustomerName] = useState("");
+  const [pendingCustomerPhone, setPendingCustomerPhone] = useState("");
+  const [pendingLoading, setPendingLoading] = useState(false);
 
   // 🔍 Search & Filter State
   const [searchQuery, setSearchQuery] = useState("");
@@ -2119,6 +2129,64 @@ const MerchantBilling = ({ inventory, profile }) => {
       console.error(err);
       toast.error("Could not mark paid. Please try again.");
     } finally {
+      paymentInProgressRef.current = false;
+    }
+  };
+
+  // 📒 MARK AS PENDING (Khata)
+  const handleMarkAsPending = async () => {
+    if (!generatedBill) return;
+    
+    if (!pendingCustomerName.trim()) {
+      toast.error("Please enter customer name");
+      return;
+    }
+    
+    if (!pendingCustomerPhone.trim() || pendingCustomerPhone.length < 10) {
+      toast.error("Please enter valid phone number");
+      return;
+    }
+
+    const persistedId = generatedBill.rid || generatedBill.id;
+    if (!persistedId) {
+      toast.error("Missing bill id. Please generate again.");
+      return;
+    }
+
+    try {
+      setPendingLoading(true);
+      paymentInProgressRef.current = true;
+
+      // Update the existing pending receipt with customer info and mark as "pending" (khata)
+      const { data: updated } = await markReceiptPaid(persistedId, "pending", {
+        customerName: pendingCustomerName.trim(),
+        customerPhone: pendingCustomerPhone.trim(),
+      });
+
+      paymentFinalizedRef.current = true;
+      pendingReceiptIdRef.current = null;
+
+      // Close modals and reset
+      setShowPendingModal(false);
+      setShowQr(false);
+      setGeneratedBill(null);
+      setQrDataUrl("");
+      setCart([]);
+      setIsMobileCartOpen(false);
+      setPendingCustomerName("");
+      setPendingCustomerPhone("");
+
+      toast.success(`Added to Khata for ${pendingCustomerName}!`, {
+        icon: "📒",
+      });
+
+      // Navigate to Khata page to see the new entry
+      navigate("/merchant/khata");
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not mark as pending. Please try again.");
+    } finally {
+      setPendingLoading(false);
       paymentInProgressRef.current = false;
     }
   };
@@ -2934,6 +3002,178 @@ const MerchantBilling = ({ inventory, profile }) => {
               >
                 <Banknote size={18} />
                 <span className="text-[10px]">Paid via Cash</span>
+              </button>
+            </div>
+
+            {/* Mark as Pending (Khata) Button */}
+            <button
+              onClick={() => setShowPendingModal(true)}
+              className={`w-full mt-3 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors ${
+                isDark 
+                  ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30" 
+                  : "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
+              }`}
+            >
+              <Wallet size={18} />
+              <span className="text-xs">Mark as Pending (Khata)</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 📒 Pending/Khata Modal */}
+      {showPendingModal && (
+        <div className="fixed inset-0 bg-black/90 md:bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div
+            className={`${
+              isDark ? "bg-dark-card" : "bg-white"
+            } rounded-3xl p-6 max-w-sm w-full animate-[popIn_0.2s_ease-out]`}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2
+                className={`text-lg font-bold ${
+                  isDark ? "text-white" : "text-slate-800"
+                }`}
+              >
+                📒 Add to Khata
+              </h2>
+              <button
+                onClick={() => {
+                  setShowPendingModal(false);
+                  setPendingCustomerName("");
+                  setPendingCustomerPhone("");
+                }}
+                disabled={pendingLoading}
+                className={`p-2 ${
+                  isDark
+                    ? "bg-dark-surface hover:bg-dark-hover"
+                    : "bg-slate-100 hover:bg-slate-200"
+                } rounded-full`}
+              >
+                <X size={18} className={isDark ? "text-slate-400" : ""} />
+              </button>
+            </div>
+
+            <p
+              className={`text-sm mb-4 ${
+                isDark ? "text-slate-400" : "text-slate-500"
+              }`}
+            >
+              Enter customer details to track this pending payment
+            </p>
+
+            {/* Amount Display */}
+            <div
+              className={`text-center py-3 mb-4 rounded-xl ${
+                isDark ? "bg-amber-500/10" : "bg-amber-50"
+              }`}
+            >
+              <p className={`text-xs ${isDark ? "text-amber-400" : "text-amber-600"}`}>
+                Pending Amount
+              </p>
+              <p className={`text-2xl font-black ${isDark ? "text-amber-400" : "text-amber-600"}`}>
+                ₹{Math.max(0, cartTotal - discount)}
+              </p>
+            </div>
+
+            {/* Customer Name Input */}
+            <div className="mb-3">
+              <label
+                className={`text-xs font-semibold mb-1 block ${
+                  isDark ? "text-slate-400" : "text-slate-600"
+                }`}
+              >
+                Customer Name *
+              </label>
+              <div className="relative">
+                <User
+                  size={16}
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 ${
+                    isDark ? "text-slate-500" : "text-slate-400"
+                  }`}
+                />
+                <input
+                  type="text"
+                  value={pendingCustomerName}
+                  onChange={(e) => setPendingCustomerName(e.target.value)}
+                  placeholder="Enter customer name"
+                  disabled={pendingLoading}
+                  className={`w-full pl-10 pr-4 py-3 rounded-xl border outline-none transition-all ${
+                    isDark
+                      ? "bg-dark-surface border-dark-border text-white placeholder-slate-500 focus:border-amber-500"
+                      : "bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-amber-500"
+                  }`}
+                />
+              </div>
+            </div>
+
+            {/* Customer Phone Input */}
+            <div className="mb-4">
+              <label
+                className={`text-xs font-semibold mb-1 block ${
+                  isDark ? "text-slate-400" : "text-slate-600"
+                }`}
+              >
+                Phone Number *
+              </label>
+              <div className="relative">
+                <Phone
+                  size={16}
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 ${
+                    isDark ? "text-slate-500" : "text-slate-400"
+                  }`}
+                />
+                <input
+                  type="tel"
+                  value={pendingCustomerPhone}
+                  onChange={(e) => setPendingCustomerPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  placeholder="10 digit phone number"
+                  disabled={pendingLoading}
+                  className={`w-full pl-10 pr-4 py-3 rounded-xl border outline-none transition-all ${
+                    isDark
+                      ? "bg-dark-surface border-dark-border text-white placeholder-slate-500 focus:border-amber-500"
+                      : "bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-amber-500"
+                  }`}
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowPendingModal(false);
+                  setPendingCustomerName("");
+                  setPendingCustomerPhone("");
+                }}
+                disabled={pendingLoading}
+                className={`flex-1 py-3 rounded-xl font-semibold transition-colors ${
+                  isDark
+                    ? "bg-dark-surface text-slate-300 hover:bg-dark-hover"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleMarkAsPending}
+                disabled={pendingLoading || !pendingCustomerName.trim() || pendingCustomerPhone.length < 10}
+                className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors ${
+                  pendingLoading || !pendingCustomerName.trim() || pendingCustomerPhone.length < 10
+                    ? isDark
+                      ? "bg-amber-500/20 text-amber-500/50 cursor-not-allowed"
+                      : "bg-amber-100 text-amber-400 cursor-not-allowed"
+                    : "bg-amber-500 text-white hover:bg-amber-600"
+                }`}
+              >
+                {pendingLoading ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <>
+                    <Wallet size={18} />
+                    Add to Khata
+                  </>
+                )}
               </button>
             </div>
           </div>

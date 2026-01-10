@@ -31,6 +31,10 @@ const notificationSchema = new mongoose.Schema(
         "return",             // Return window closing
         "system",             // System notifications
         "promo",              // Promotional (opt-in)
+        // Khata (pending dues) types
+        "pending_created",    // New pending bill created for customer
+        "payment_reminder",   // Merchant sent payment reminder
+        "pending_paid",       // Customer paid pending dues
       ],
       required: true,
       index: true,
@@ -50,7 +54,7 @@ const notificationSchema = new mongoose.Schema(
     // Reference to source entity (bill, receipt, etc.)
     sourceType: {
       type: String,
-      enum: ["recurring_bill", "receipt", "system", "other"],
+      enum: ["recurring_bill", "receipt", "pending_receipt", "system", "other"],
       default: "other",
     },
     sourceId: {
