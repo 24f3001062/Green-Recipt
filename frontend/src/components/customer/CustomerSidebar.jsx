@@ -49,11 +49,13 @@ const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
     { id: 'notifications', icon: Bell, label: t('nav.alerts'), hasBadge: true },
     { id: 'profile', icon: User, label: t('nav.profile') },
   ];
-
+  
   // Mobile nav items (show main ones only for space)
   const mobileNavItems = [
     { id: 'home', icon: Home, label: t('nav.home') },
     { id: 'receipts', icon: FileText, label: t('nav.receipts') },
+    // { id: 'calendar', icon: Calendar, label: t('nav.history') },
+    { id: 'bills', icon: CreditCard, label: t('nav.bills', 'Bills') },
     { id: 'insights', icon: PieChart, label: t('nav.insights') },
     { id: 'profile', icon: User, label: t('nav.profile') },
   ];
