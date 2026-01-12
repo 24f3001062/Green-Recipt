@@ -62,9 +62,8 @@ const refreshLimiter = rateLimit({
 
 router.use(authLimiter);
 
-// ========================================
+
 // NEW: OTP-based Email Verification Flow
-// ========================================
 // Step 1: Send OTP to email before signup
 router.post("/send-signup-otp", otpLimiter, validate(sendSignupOtpSchema), sendSignupOtp);
 // Step 2: Verify OTP and complete signup
@@ -82,9 +81,8 @@ router.post("/otp/request", otpLimiter, validate(otpRequestSchema), requestOtp);
 router.post("/otp/verify", otpLimiter, validate(otpVerifySchema), verifyOtp);
 router.get("/verify/:token", verifyEmail);
 
-// ========================================
 // Password Reset Flow (OTP-based)
-// ========================================
+
 router.post('/forgot-password', otpLimiter, validate(forgotPasswordSchema), forgotPassword);
 router.post('/reset-password', otpLimiter, validate(resetPasswordSchema), resetPassword);
 
