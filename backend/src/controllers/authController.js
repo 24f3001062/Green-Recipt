@@ -50,21 +50,50 @@ const enforceAllowedOrigin = (req, res) => {
   return true;
 };
 
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  // NOTE: For cross-domain frontend/backend deployments (e.g., Vercel + Render),
-  // refresh cookies must be sent in XHR/fetch, which requires SameSite=None + Secure.
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  maxAge: REFRESH_TOKEN_EXPIRES_IN_MS,
-  path: "/",
+const isHttpsRequest = (req) => {
+  // Priority order:
+  // 1) Explicit override (useful for tricky proxy setups)
+  if (String(process.env.FORCE_SECURE_COOKIES || "").toLowerCase() === "true") return true;
+
+  // 2) Express req.secure (works when `trust proxy` is configured and x-forwarded-proto is correct)
+  if (req?.secure) return true;
+
+  // 3) Proxy header
+  const xfProto = req?.headers?.["x-forwarded-proto"];
+  if (typeof xfProto === "string" && xfProto.toLowerCase() === "https") return true;
+
+  // 4) Browser-origin signal (very reliable for XHR/fetch)
+  const origin = req?.headers?.origin;
+  if (typeof origin === "string" && origin.toLowerCase().startsWith("https://")) return true;
+  const referer = req?.headers?.referer;
+  if (typeof referer === "string" && referer.toLowerCase().startsWith("https://")) return true;
+
+  return false;
 };
 
-const CLEAR_COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  path: "/",
+const getRefreshCookieOptions = (req) => {
+  // Cross-site refresh cookies require: SameSite=None + Secure
+  // Using request HTTPS detection makes this work even if NODE_ENV is misconfigured.
+  const secure = process.env.NODE_ENV === "production" || isHttpsRequest(req);
+  const sameSite = secure ? "none" : "lax";
+  return {
+    httpOnly: true,
+    secure,
+    sameSite,
+    maxAge: REFRESH_TOKEN_EXPIRES_IN_MS,
+    path: "/",
+  };
+};
+
+const getClearRefreshCookieOptions = (req) => {
+  const secure = process.env.NODE_ENV === "production" || isHttpsRequest(req);
+  const sameSite = secure ? "none" : "lax";
+  return {
+    httpOnly: true,
+    secure,
+    sameSite,
+    path: "/",
+  };
 };
 
 // Legacy token expiry (kept for backward compat)
@@ -664,7 +693,7 @@ export const login = async (req, res) => {
     await persistRefreshToken(account, refreshToken);
 
     // Set HTTP-only cookie
-    res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
+    res.cookie("refreshToken", refreshToken, getRefreshCookieOptions(req));
 
     res.json({
       accessToken,
@@ -967,7 +996,7 @@ export const refreshAccessToken = async (req, res) => {
       decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
     } catch (error) {
       // Clear bad cookie
-      res.clearCookie("refreshToken", CLEAR_COOKIE_OPTIONS);
+      res.clearCookie("refreshToken", getClearRefreshCookieOptions(req));
 
       if (error.name === "TokenExpiredError") {
         return res.status(401).json({ message: "Refresh token expired. Please login again.", code: "REFRESH_TOKEN_EXPIRED" });
@@ -985,7 +1014,7 @@ export const refreshAccessToken = async (req, res) => {
 
     // Validate stored token exists
     if (!account.refreshToken || !account.refreshTokenExpiry) {
-      res.clearCookie("refreshToken", CLEAR_COOKIE_OPTIONS);
+      res.clearCookie("refreshToken", getClearRefreshCookieOptions(req));
       return res.status(401).json({ message: "Session expired. Please login again.", code: "SESSION_EXPIRED" });
     }
 
@@ -993,14 +1022,14 @@ export const refreshAccessToken = async (req, res) => {
     if (account.refreshTokenExpiry < new Date()) {
       // Clean up expired token
       await clearRefreshToken(account);
-      res.clearCookie("refreshToken", CLEAR_COOKIE_OPTIONS);
+      res.clearCookie("refreshToken", getClearRefreshCookieOptions(req));
       return res.status(401).json({ message: "Session expired. Please login again.", code: "SESSION_EXPIRED" });
     }
 
     // Version mismatch = password was changed
     if (decoded.tokenVersion !== (account.tokenVersion || 0)) {
       await clearRefreshToken(account);
-      res.clearCookie("refreshToken", CLEAR_COOKIE_OPTIONS);
+      res.clearCookie("refreshToken", getClearRefreshCookieOptions(req));
       return res.status(401).json({ message: "Session invalidated. Please login again.", code: "SESSION_INVALIDATED" });
     }
 
@@ -1009,7 +1038,7 @@ export const refreshAccessToken = async (req, res) => {
     if (!isValidToken) {
       // Clear all tokens on suspected attack
       await clearRefreshToken(account);
-      res.clearCookie("refreshToken", CLEAR_COOKIE_OPTIONS);
+      res.clearCookie("refreshToken", getClearRefreshCookieOptions(req));
       return res.status(401).json({ message: "Invalid session. Please login again.", code: "INVALID_SESSION" });
     }
 
@@ -1021,7 +1050,7 @@ export const refreshAccessToken = async (req, res) => {
     await persistRefreshToken(account, newRefreshToken);
 
     // Update cookie
-    res.cookie("refreshToken", newRefreshToken, COOKIE_OPTIONS);
+    res.cookie("refreshToken", newRefreshToken, getRefreshCookieOptions(req));
 
     res.json({
       accessToken: newAccessToken,
@@ -1047,7 +1076,7 @@ export const logout = async (req, res) => {
     const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
     // Clear cookie regardless
-    res.clearCookie("refreshToken", CLEAR_COOKIE_OPTIONS);
+    res.clearCookie("refreshToken", getClearRefreshCookieOptions(req));
 
     if (!refreshToken) {
       // No token but still succeed (idempotent)
