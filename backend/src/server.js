@@ -14,6 +14,7 @@ import analyticsRoutes from "./routes/analyticsRoutes.js";
 import merchantRoutes from "./routes/merchantRoutes.js";
 import billRoutes from "./routes/billRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import posRoutes from "./routes/posRoutes.js";
 import { startScheduler, stopScheduler } from "./services/reminderScheduler.js";
 
 const app = express();
@@ -79,6 +80,7 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/merchant", merchantRoutes);
 app.use("/api/bills", billRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/pos", posRoutes);
 
 // Start reminder scheduler after routes are set up
 startScheduler();

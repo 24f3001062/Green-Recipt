@@ -175,6 +175,23 @@ const merchantSchema = new mongoose.Schema(
 			trim: true,
 		},
 
+		// UPI Payment Settings (for POS system)
+		upiId: {
+			type: String,
+			trim: true,
+			lowercase: true,
+			default: null,
+		},
+		upiName: {
+			type: String,
+			trim: true,
+			default: null,
+		},
+		isUpiVerified: {
+			type: Boolean,
+			default: false,
+		},
+
 		// OTP fields
 		otpCodeHash: {
 			type: String,

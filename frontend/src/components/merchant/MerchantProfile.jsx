@@ -1144,6 +1144,7 @@ import { fetchProfile, updateProfile, fetchMerchantAnalytics, clearSession } fro
 import { formatISTDisplay } from '../../utils/timezone';
 import { useTheme } from '../../contexts/ThemeContext';
 import ThemeToggle from '../common/ThemeToggle';
+import UPISettings from './UPISettings';
 
 // ============== TOAST NOTIFICATION ==============
 const Toast = ({ message, type = 'success', onClose }) => {
@@ -1569,6 +1570,9 @@ const MerchantProfile = () => {
                     </div>
                 </div>
             </div>
+
+            {/* 🆕 UPI PAYMENT SETTINGS */}
+            <UPISettings />
 
             {/* 4️⃣ STATS & LOGOUT */}
             <div className={`${isDark ? 'bg-emerald-900/10 border-emerald-900/30' : 'bg-emerald-50 border-emerald-100'} rounded-2xl border p-6 relative overflow-hidden`}>

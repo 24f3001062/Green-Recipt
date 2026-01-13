@@ -395,3 +395,125 @@ export const getFullProfile = async (req, res) => {
 		res.status(500).json({ message: "Failed to fetch profile" });
 	}
 };
+
+/**
+ * GET /api/merchant/upi-settings
+ * Get merchant's UPI payment settings
+ */
+export const getUPISettings = async (req, res) => {
+	try {
+		const merchant = await Merchant.findById(req.user.id)
+			.select("upiId upiName isUpiVerified shopName")
+			.lean();
+
+		if (!merchant) {
+			return res.status(404).json({ message: "Merchant not found" });
+		}
+
+		res.json({
+			upiId: merchant.upiId || null,
+			upiName: merchant.upiName || merchant.shopName || null,
+			isUpiVerified: merchant.isUpiVerified || false,
+			isConfigured: !!merchant.upiId,
+		});
+	} catch (error) {
+		console.error("getUPISettings error:", error);
+		res.status(500).json({ message: "Failed to fetch UPI settings" });
+	}
+};
+
+/**
+ * POST /api/merchant/upi-settings
+ * Update merchant's UPI payment settings
+ * 
+ * Request body:
+ * {
+ *   upiId: string (required) - e.g., "merchant@upi", "9876543210@paytm"
+ *   upiName: string (optional) - Display name shown to customers
+ * }
+ */
+export const updateUPISettings = async (req, res) => {
+	try {
+		const { upiId, upiName } = req.body;
+
+		// Validate UPI ID format
+		if (!upiId || typeof upiId !== "string") {
+			return res.status(400).json({ message: "UPI ID is required" });
+		}
+
+		const trimmedUpiId = upiId.trim().toLowerCase();
+
+		// Basic UPI ID validation (should contain @)
+		if (!trimmedUpiId.includes("@")) {
+			return res.status(400).json({ 
+				message: "Invalid UPI ID format. Example: yourname@upi, 9876543210@paytm" 
+			});
+		}
+
+		// Validate UPI ID pattern (alphanumeric.alphanumeric@provider)
+		const upiPattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9]+$/;
+		if (!upiPattern.test(trimmedUpiId)) {
+			return res.status(400).json({ 
+				message: "Invalid UPI ID format. Use only letters, numbers, dots, hyphens, underscores" 
+			});
+		}
+
+		const merchant = await Merchant.findById(req.user.id);
+		if (!merchant) {
+			return res.status(404).json({ message: "Merchant not found" });
+		}
+
+		merchant.upiId = trimmedUpiId;
+		merchant.upiName = upiName?.trim() || merchant.shopName || null;
+		// UPI verification is done manually/out-of-band for now
+		// In production, you'd integrate with a UPI verification service
+		merchant.isUpiVerified = false;
+
+		await merchant.save();
+
+		res.json({
+			message: "UPI settings updated successfully",
+			upiId: merchant.upiId,
+			upiName: merchant.upiName,
+			isUpiVerified: merchant.isUpiVerified,
+		});
+	} catch (error) {
+		console.error("updateUPISettings error:", error);
+		res.status(500).json({ message: "Failed to update UPI settings" });
+	}
+};
+
+/**
+ * POST /api/merchant/upi-settings/verify
+ * Mark UPI as verified (admin/manual verification)
+ * In production, this would be triggered after UPI verification flow
+ */
+export const verifyUPI = async (req, res) => {
+	try {
+		const merchant = await Merchant.findById(req.user.id);
+		if (!merchant) {
+			return res.status(404).json({ message: "Merchant not found" });
+		}
+
+		if (!merchant.upiId) {
+			return res.status(400).json({ message: "No UPI ID configured to verify" });
+		}
+
+		// In production, you would:
+		// 1. Send a small test payment (₹1) to the UPI ID
+		// 2. Ask merchant to confirm receipt
+		// 3. Mark as verified after confirmation
+		// For now, we just mark it as verified
+		merchant.isUpiVerified = true;
+		await merchant.save();
+
+		res.json({
+			message: "UPI ID verified successfully",
+			upiId: merchant.upiId,
+			isUpiVerified: true,
+		});
+	} catch (error) {
+		console.error("verifyUPI error:", error);
+		res.status(500).json({ message: "Failed to verify UPI" });
+	}
+};

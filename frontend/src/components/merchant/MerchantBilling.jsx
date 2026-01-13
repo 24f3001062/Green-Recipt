@@ -1783,9 +1783,21 @@ import {
   Wallet,
   Clock,
   Loader2,
+  AlertCircle,
+  Settings,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { createReceipt, deleteReceipt, markReceiptPaid, getReceiptById } from "../../services/api";
+import { 
+  createReceipt, 
+  deleteReceipt, 
+  markReceiptPaid, 
+  getReceiptById,
+  // New POS APIs
+  createPOSBill,
+  confirmPOSPayment,
+  cancelPOSBill,
+  fetchUPISettings,
+} from "../../services/api";
 import { getTodayIST, formatISTDisplay, getNowIST } from "../../utils/timezone";
 import { useTheme } from "../../contexts/ThemeContext";
 
@@ -1798,6 +1810,48 @@ const MerchantBilling = ({ inventory, profile }) => {
   const paymentInProgressRef = useRef(false);
 
   const isObjectId = (id) => /^[a-f\d]{24}$/i.test(String(id || ""));
+
+  // 🆕 UPI POS State
+  const [upiSettings, setUpiSettings] = useState(null);
+  const [upiLoading, setUpiLoading] = useState(true);
+  const [posBill, setPosBill] = useState(null);
+  const [upiQrUrl, setUpiQrUrl] = useState("");
+  const [showUpiQr, setShowUpiQr] = useState(false);
+  const [billExpiry, setBillExpiry] = useState(null);
+  const [expiryCountdown, setExpiryCountdown] = useState(0);
+
+  // Load UPI settings on mount
+  useEffect(() => {
+    const loadUPISettings = async () => {
+      try {
+        const { data } = await fetchUPISettings();
+        setUpiSettings(data);
+      } catch (err) {
+        console.warn("Could not load UPI settings:", err);
+        setUpiSettings({ isConfigured: false });
+      } finally {
+        setUpiLoading(false);
+      }
+    };
+    loadUPISettings();
+  }, []);
+
+  // Countdown timer for bill expiry
+  useEffect(() => {
+    if (!showUpiQr || !billExpiry) return;
+    
+    const timer = setInterval(() => {
+      const remaining = Math.max(0, Math.floor((new Date(billExpiry) - Date.now()) / 1000));
+      setExpiryCountdown(remaining);
+      
+      if (remaining <= 0) {
+        toast.error("Bill expired. Please generate a new QR.");
+        handleCloseUpiQr();
+      }
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [showUpiQr, billExpiry]);
 
   const voidPendingReceipt = async () => {
     const pendingId = pendingReceiptIdRef.current;
@@ -2072,6 +2126,110 @@ const MerchantBilling = ({ inventory, profile }) => {
     } catch (err) {
       console.error("QR generation failed", err);
       toast.error("Could not generate QR. Please try again.");
+    }
+  };
+
+  // 🆕 GENERATE UPI QR (Merchant-Confirmed UPI Payment Flow)
+  // This creates a proper UPI deep link QR that opens GPay/PhonePe directly
+  const handleGenerateUpiQR = async () => {
+    const finalAmount = Math.max(0, cartTotal - discount);
+    
+    if (cart.length === 0) return;
+    
+    // Check if UPI is configured
+    if (!upiSettings?.isConfigured) {
+      toast.error("Please configure your UPI ID in settings first", {
+        icon: "⚠️",
+        duration: 4000,
+      });
+      return;
+    }
+
+    try {
+      // Create POS bill using new API
+      const payload = {
+        items: cart.map((item) => ({
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+        })),
+        expiryMinutes: 10, // Bill expires in 10 minutes
+      };
+
+      const { data } = await createPOSBill(payload);
+      
+      // Store bill data
+      setPosBill(data);
+      setBillExpiry(data.bill.expiresAt);
+      setExpiryCountdown(Math.floor((new Date(data.bill.expiresAt) - Date.now()) / 1000));
+      
+      // Generate QR from UPI link
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(data.upi.link)}`;
+      setUpiQrUrl(qrUrl);
+      setShowUpiQr(true);
+      
+    } catch (err) {
+      console.error("UPI QR generation failed", err);
+      if (err.response?.data?.code === "UPI_NOT_CONFIGURED") {
+        toast.error("Please configure your UPI ID in settings first");
+      } else {
+        toast.error(err.response?.data?.message || "Could not generate UPI QR. Please try again.");
+      }
+    }
+  };
+
+  // 🆕 Close UPI QR Modal
+  const handleCloseUpiQr = async () => {
+    // Cancel the pending bill if not confirmed
+    if (posBill?.bill?.id) {
+      try {
+        await cancelPOSBill(posBill.bill.id);
+      } catch (err) {
+        console.warn("Could not cancel bill:", err);
+      }
+    }
+    
+    setShowUpiQr(false);
+    setPosBill(null);
+    setUpiQrUrl("");
+    setBillExpiry(null);
+    setExpiryCountdown(0);
+  };
+
+  // 🆕 CONFIRM UPI PAYMENT RECEIVED (Merchant is the source of truth)
+  const handleConfirmUpiPayment = async () => {
+    if (!posBill?.bill?.id) {
+      toast.error("Missing bill. Please generate again.");
+      return;
+    }
+
+    try {
+      const { data } = await confirmPOSPayment(posBill.bill.id);
+      
+      // Success! Payment confirmed
+      toast.success("Payment Confirmed! Receipt generated.", {
+        icon: "✅",
+        duration: 3000,
+      });
+
+      // Trigger events to update other components
+      window.dispatchEvent(new Event("customer-receipts-updated"));
+      window.dispatchEvent(new Event("merchantStorage"));
+      window.dispatchEvent(new Event("merchant-receipts-updated"));
+
+      // Reset state
+      setShowUpiQr(false);
+      setPosBill(null);
+      setUpiQrUrl("");
+      setBillExpiry(null);
+      setCart([]);
+      setDiscount(0);
+      setIsMobileCartOpen(false);
+      
+    } catch (err) {
+      console.error("Payment confirmation failed", err);
+      const message = err.response?.data?.message || "Could not confirm payment";
+      toast.error(message);
     }
   };
 
@@ -2926,13 +3084,67 @@ const MerchantBilling = ({ inventory, profile }) => {
               </div>
             </div>
 
+            {/* 🆕 UPI PAYMENT BUTTON (Primary - Bank-grade UPI flow) */}
+            <button 
+              onClick={handleGenerateUpiQR} 
+              disabled={cart.length === 0 || upiLoading} 
+              className={`w-full py-4 rounded-xl font-bold shadow-xl flex justify-center items-center gap-2 text-sm transition-transform active:scale-[0.98] mb-2 ${
+                upiSettings?.isConfigured
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-purple-500/20'
+                  : isDark 
+                    ? 'bg-slate-700 text-slate-400 cursor-not-allowed' 
+                    : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              title={!upiSettings?.isConfigured ? "Configure UPI ID in settings" : ""}
+            >
+              {upiLoading ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <>
+                  <Smartphone size={18} /> 
+                  Pay via UPI (₹{Math.max(0, cartTotal - discount)})
+                </>
+              )}
+            </button>
+            
+            {/* UPI Status Badge */}
+            {!upiLoading && (
+              <div className={`text-[10px] text-center mb-3 flex items-center justify-center gap-1 ${
+                upiSettings?.isConfigured 
+                  ? isDark ? 'text-emerald-400' : 'text-emerald-600'
+                  : isDark ? 'text-amber-400' : 'text-amber-600'
+              }`}>
+                {upiSettings?.isConfigured ? (
+                  <>
+                    <CheckCircle size={10} />
+                    UPI: {upiSettings.upiId}
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle size={10} />
+                    <button 
+                      onClick={() => navigate('/merchant/profile')}
+                      className="underline hover:no-underline"
+                    >
+                      Configure UPI ID →
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Legacy QR Button (for receipt sharing) */}
             <button 
               onClick={handleGenerateQR} 
               disabled={cart.length === 0} 
-              className="w-full py-4 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-emerald-500/20 flex justify-center items-center gap-2 text-sm transition-transform active:scale-[0.98]"
+              className={`w-full py-3 rounded-xl font-medium flex justify-center items-center gap-2 text-xs transition-transform active:scale-[0.98] ${
+                isDark 
+                  ? 'bg-dark-surface border border-dark-border text-slate-300 hover:bg-dark-hover' 
+                  : 'bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              <QrCode size={18} /> 
-              Generate QR Code
+              <QrCode size={14} /> 
+              Receipt QR (Old Flow)
             </button>
           </div>
         </div>
@@ -3070,6 +3282,120 @@ const MerchantBilling = ({ inventory, profile }) => {
                 Customer selected: {scannedCustomerIntent === "khata" ? "Khata (Pending)" : scannedCustomerIntent.toUpperCase()}
               </p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 UPI PAYMENT QR MODAL - Bank-grade Merchant-Confirmed Flow */}
+      {showUpiQr && posBill && (
+        <div className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4 backdrop-blur-md">
+          <div
+            className={`${
+              isDark ? "bg-dark-card" : "bg-white"
+            } rounded-3xl p-6 max-w-sm w-full text-center animate-[popIn_0.2s_ease-out] shadow-2xl`}
+          >
+            {/* Header with close button */}
+            <div className="flex justify-between items-start mb-4">
+              <div className="text-left">
+                <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-slate-800"}`}>
+                  UPI Payment
+                </h2>
+                <p className={`text-[10px] ${isDark ? "text-slate-500" : "text-slate-500"}`}>
+                  Customer scans → pays → you confirm
+                </p>
+              </div>
+              <button
+                onClick={handleCloseUpiQr}
+                className={`p-2 ${
+                  isDark ? "bg-dark-surface hover:bg-dark-hover" : "bg-slate-100 hover:bg-slate-200"
+                } rounded-full transition-colors`}
+              >
+                <X size={18} className={isDark ? "text-slate-400" : ""} />
+              </button>
+            </div>
+
+            {/* Expiry Timer */}
+            <div className={`flex items-center justify-center gap-2 mb-4 px-4 py-2 rounded-full ${
+              expiryCountdown < 60 
+                ? 'bg-red-500/10 text-red-500' 
+                : expiryCountdown < 180 
+                  ? 'bg-amber-500/10 text-amber-500'
+                  : isDark ? 'bg-dark-surface text-slate-400' : 'bg-slate-100 text-slate-600'
+            }`}>
+              <Clock size={14} />
+              <span className="text-xs font-bold">
+                Expires in {Math.floor(expiryCountdown / 60)}:{String(expiryCountdown % 60).padStart(2, '0')}
+              </span>
+            </div>
+
+            {/* QR Code - Opens UPI App directly */}
+            <div className={`relative bg-white p-3 rounded-2xl inline-block mb-4 border-2 ${
+              isDark ? "border-purple-500/30" : "border-purple-200"
+            } shadow-lg`}>
+              {upiQrUrl ? (
+                <img
+                  src={upiQrUrl}
+                  alt="UPI Payment QR"
+                  className="w-56 h-56 rounded-xl"
+                />
+              ) : (
+                <div className={`w-56 h-56 ${isDark ? "bg-dark-surface" : "bg-slate-100"} flex items-center justify-center rounded-xl`}>
+                  <Loader2 size={24} className="animate-spin text-purple-500" />
+                </div>
+              )}
+              
+              {/* UPI Badge */}
+              <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-md">
+                SCAN WITH ANY UPI APP
+              </div>
+            </div>
+
+            {/* Amount Display */}
+            <div className="mb-4">
+              <div className={`text-4xl font-black ${isDark ? "text-white" : "text-slate-900"}`}>
+                ₹{posBill.bill.total}
+              </div>
+              <div className={`text-xs ${isDark ? "text-slate-500" : "text-slate-400"} mt-1`}>
+                Pay to: <span className="font-medium">{posBill.upi.payeeName}</span>
+              </div>
+            </div>
+
+            {/* Bill Reference */}
+            <div className={`${isDark ? "bg-dark-surface" : "bg-slate-50"} rounded-xl p-3 mb-5`}>
+              <div className={`text-[10px] ${isDark ? "text-slate-500" : "text-slate-400"} uppercase tracking-wider mb-1`}>
+                Transaction Note (Check in UPI App)
+              </div>
+              <div className={`font-mono font-bold ${isDark ? "text-purple-400" : "text-purple-600"}`}>
+                {posBill.bill.upiNote}
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div className={`text-left ${isDark ? "bg-dark-surface/50" : "bg-amber-50"} rounded-xl p-3 mb-5 text-[11px]`}>
+              <div className={`font-bold mb-2 ${isDark ? "text-amber-400" : "text-amber-700"}`}>
+                ⚠️ Important Steps:
+              </div>
+              <ol className={`list-decimal list-inside space-y-1 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                <li>Customer scans QR with GPay/PhonePe</li>
+                <li>Customer completes payment</li>
+                <li>Check your UPI app for <span className="font-bold">₹{posBill.bill.total}</span></li>
+                <li>Match note: <span className="font-mono font-bold text-purple-500">{posBill.bill.upiNote}</span></li>
+                <li>Click confirm below only after receiving</li>
+              </ol>
+            </div>
+
+            {/* Confirm Payment Button - THE ONLY SOURCE OF TRUTH */}
+            <button
+              onClick={handleConfirmUpiPayment}
+              className="w-full py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-bold hover:from-emerald-600 hover:to-green-700 shadow-xl shadow-emerald-500/30 flex justify-center items-center gap-2 transition-all active:scale-[0.98]"
+            >
+              <CheckCircle size={20} />
+              I RECEIVED ₹{posBill.bill.total}
+            </button>
+
+            <p className={`text-[9px] mt-3 ${isDark ? "text-slate-600" : "text-slate-400"}`}>
+              Only confirm after verifying payment in your UPI app
+            </p>
           </div>
         </div>
       )}

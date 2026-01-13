@@ -569,4 +569,80 @@ export const dismissAllNotifications = (type = null) =>
  */
 export const fetchNotificationPreferences = () => api.get("/notifications/preferences");
 
+// ==========================================
+// POS (Point of Sale) APIs - Merchant UPI Payment System
+// ==========================================
+
+/**
+ * Create a new POS bill and get UPI QR data
+ * @param {Object} payload - { items: [{ name, price, quantity }], customerPhone?, customerName?, expiryMinutes? }
+ */
+export const createPOSBill = (payload) => api.post("/pos/bills", payload);
+
+/**
+ * Get all POS bills with filtering
+ * @param {Object} params - { status?, page?, limit? }
+ */
+export const fetchPOSBills = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.status) queryParams.append('status', params.status);
+  if (params.page) queryParams.append('page', params.page);
+  if (params.limit) queryParams.append('limit', params.limit);
+  const queryString = queryParams.toString();
+  return api.get(`/pos/bills${queryString ? `?${queryString}` : ''}`);
+};
+
+/**
+ * Get a single POS bill by ID
+ * @param {string} billId - Bill ID
+ */
+export const fetchPOSBillById = (billId) => api.get(`/pos/bills/${billId}`);
+
+/**
+ * Get active (awaiting payment) bills
+ */
+export const fetchActivePOSBills = () => api.get("/pos/bills/active");
+
+/**
+ * Confirm payment received for a bill - MERCHANT CONFIRMS
+ * This is the ONLY way to mark a bill as PAID.
+ * @param {string} billId - Bill ID
+ * @param {Object} payload - { customerPhone?, customerName? }
+ */
+export const confirmPOSPayment = (billId, payload = {}) => 
+  api.post(`/pos/bills/${billId}/confirm`, payload);
+
+/**
+ * Cancel a pending bill
+ * @param {string} billId - Bill ID
+ */
+export const cancelPOSBill = (billId) => api.post(`/pos/bills/${billId}/cancel`);
+
+/**
+ * Get POS statistics
+ * @param {string} period - 'today' | 'week' | 'month'
+ */
+export const fetchPOSStats = (period = 'today') => 
+  api.get(`/pos/stats?period=${period}`);
+
+// ==========================================
+// UPI Settings APIs
+// ==========================================
+
+/**
+ * Get merchant's UPI settings
+ */
+export const fetchUPISettings = () => api.get("/merchant/upi-settings");
+
+/**
+ * Update merchant's UPI settings
+ * @param {Object} payload - { upiId: string, upiName?: string }
+ */
+export const updateUPISettings = (payload) => api.post("/merchant/upi-settings", payload);
+
+/**
+ * Verify UPI ID (marks as verified)
+ */
+export const verifyUPISettings = () => api.post("/merchant/upi-settings/verify");
+
 export default api;

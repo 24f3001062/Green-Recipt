@@ -9,6 +9,9 @@ import {
 	completeOnboarding,
 	skipOnboarding,
 	getFullProfile,
+	getUPISettings,
+	updateUPISettings,
+	verifyUPI,
 } from "../controllers/merchantController.js";
 import {
 	getCategories,
@@ -45,6 +48,11 @@ router.post("/onboarding/skip", skipOnboarding);
 
 // Profile
 router.get("/profile/full", getFullProfile);
+
+// UPI Payment Settings (for POS system)
+router.get("/upi-settings", getUPISettings);
+router.post("/upi-settings", updateUPISettings);
+router.post("/upi-settings/verify", verifyUPI);
 
 // Categories
 router.get("/categories", getCategories);
