@@ -82,12 +82,14 @@ const MerchantDashboard = () => {
   // Inventory state for billing (fetched from API)
   const [inventory, setInventory] = useState([]);
   
-  useEffect(() => {
-    const loadInventory = async () => {
-      if (!isProfileComplete) return;
-      try {
-        const { data } = await api.fetchItems();
-        const items = (data.items || []).map(item => ({
+  // Load inventory function (reusable)
+  const loadInventory = useCallback(async () => {
+    if (!isProfileComplete) return;
+    try {
+      const { data } = await api.fetchItems();
+      const items = (data.items || [])
+        .filter(item => item.isAvailable !== false) // Only include available items
+        .map(item => ({
           id: item._id,
           name: item.name,
           price: item.price,
@@ -95,13 +97,26 @@ const MerchantDashboard = () => {
           isAvailable: item.isAvailable,
           imageUrl: item.imageUrl,
         }));
-        setInventory(items);
-      } catch (err) {
-        console.error('Failed to load inventory:', err);
-      }
-    };
-    loadInventory();
+      setInventory(items);
+    } catch (err) {
+      console.error('Failed to load inventory:', err);
+    }
   }, [isProfileComplete]);
+
+  // Initial inventory load
+  useEffect(() => {
+    loadInventory();
+  }, [loadInventory]);
+
+  // Listen for inventory updates from MerchantItems
+  useEffect(() => {
+    const handleItemsUpdate = () => {
+      loadInventory();
+    };
+    
+    window.addEventListener('merchant-items-updated', handleItemsUpdate);
+    return () => window.removeEventListener('merchant-items-updated', handleItemsUpdate);
+  }, [loadInventory]);
 
   // Show loading while checking profile
   if (loading) {

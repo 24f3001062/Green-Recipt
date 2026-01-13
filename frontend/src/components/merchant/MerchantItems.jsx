@@ -75,7 +75,7 @@ const MerchantItems = () => {
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
   }, []);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (dispatchUpdate = false) => {
     try {
       setLoading(true);
       const [categoriesRes, itemsRes] = await Promise.all([
@@ -84,6 +84,11 @@ const MerchantItems = () => {
       ]);
       setCategories(categoriesRes.data || []);
       setItems(itemsRes.data?.items || []);
+      
+      // Dispatch event to notify other components (like Billing page) of updates
+      if (dispatchUpdate) {
+        window.dispatchEvent(new Event('merchant-items-updated'));
+      }
     } catch (err) {
       console.error('Fetch error:', err);
       showToast('Failed to load data', 'error');
@@ -251,7 +256,7 @@ const MerchantItems = () => {
         showToast('Item created!');
       }
       closeItemModal();
-      fetchData();
+      fetchData(true); // Dispatch update event
     } catch (err) {
       console.error('Save item error:', err);
       showToast(err.response?.data?.message || 'Failed to save item', 'error');
@@ -267,7 +272,7 @@ const MerchantItems = () => {
       setSaving(true);
       await api.deleteItem(item._id, true);
       showToast('Item deleted!');
-      fetchData();
+      fetchData(true); // Dispatch update event
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to delete item', 'error');
     } finally {
@@ -281,6 +286,8 @@ const MerchantItems = () => {
       setItems(items.map(i => 
         i._id === item._id ? { ...i, isAvailable: !i.isAvailable } : i
       ));
+      // Dispatch update event for billing page
+      window.dispatchEvent(new Event('merchant-items-updated'));
       showToast(item.isAvailable ? 'Item marked unavailable' : 'Item marked available');
     } catch (err) {
       showToast('Failed to update availability', 'error');

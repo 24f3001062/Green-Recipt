@@ -213,7 +213,7 @@ posBillSchema.statics.expireOldBills = async function () {
 
 // Indexes for efficient queries
 posBillSchema.index({ merchantId: 1, status: 1, createdAt: -1 });
-posBillSchema.index({ upiNote: 1 });
+// Note: upiNote index is already created via unique:true in schema
 posBillSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0, partialFilterExpression: { status: "EXPIRED" } });
 
 const POSBill = mongoose.model("POSBill", posBillSchema);
