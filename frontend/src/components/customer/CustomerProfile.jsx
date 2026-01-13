@@ -4,9 +4,10 @@ import {
   Save, CheckCircle, Lock, Eye, EyeOff, X, Loader2, Receipt, Calendar,
   TrendingUp, RefreshCw, Trash2, Camera, Edit3, Palette, Globe
 } from 'lucide-react';
-import { fetchProfile, updateProfile, clearSession, changePassword, deleteAccount, fetchCustomerAnalytics } from '../../services/api';
+import { fetchProfile, updateProfile, changePassword, deleteAccount, fetchCustomerAnalytics } from '../../services/api';
 import { formatISTDisplay } from '../../utils/timezone';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
 import ThemeToggle from '../common/ThemeToggle';
 import { useTranslation } from 'react-i18next';
 
@@ -78,6 +79,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 
 // ============== MAIN COMPONENT ==============
 const CustomerProfile = () => {
+  const { logout } = useAuth();
   const { isDark } = useTheme();
   const { t, i18n } = useTranslation();
   
@@ -297,7 +299,7 @@ const CustomerProfile = () => {
     setDeleting(true);
     try {
       await deleteAccount();
-      clearSession();
+      await logout();
       window.location.href = '/';
     } catch (e) {
       setToast({ message: e?.response?.data?.message || t('profile.messages.deleteFailed'), type: 'error' });
@@ -305,11 +307,10 @@ const CustomerProfile = () => {
     }
   };
 
-  const handleLogout = () => {
-    if (window.confirm(t('profile.messages.logoutConfirm'))) {
-      clearSession();
-      window.location.href = '/customer-login';
-    }
+  const handleLogout = async () => {
+    if (!window.confirm(t('profile.messages.logoutConfirm'))) return;
+    await logout();
+    window.location.href = '/customer-login';
   };
 
   // Language change handler

@@ -1140,9 +1140,10 @@ import {
   ShieldCheck, Leaf, Trophy, RefreshCw, Loader2, CheckCircle, AlertTriangle,
   ImageIcon, Upload, Camera, Palette, Globe 
 } from 'lucide-react';
-import { fetchProfile, updateProfile, fetchMerchantAnalytics, clearSession } from '../../services/api';
+import { fetchProfile, updateProfile, fetchMerchantAnalytics } from '../../services/api';
 import { formatISTDisplay } from '../../utils/timezone';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
 import ThemeToggle from '../common/ThemeToggle';
 import UPISettings from './UPISettings';
 
@@ -1185,6 +1186,7 @@ const ProfileSkeleton = () => {
 };
 
 const MerchantProfile = () => {
+  const { logout } = useAuth();
   const { isDark } = useTheme();
   const { t, i18n } = useTranslation();
   const [profile, setProfile] = useState(null);
@@ -1321,11 +1323,10 @@ const MerchantProfile = () => {
     }
   };
 
-  const handleLogout = () => {
-    if(window.confirm(t('merchant.profile.logoutConfirm'))) {
-      clearSession();
-      window.location.href = '/merchant-login';
-    }
+  const handleLogout = async () => {
+    if (!window.confirm(t('merchant.profile.logoutConfirm'))) return;
+    await logout();
+    window.location.href = '/merchant-login';
   };
 
   const handleRefresh = () => loadProfile(true);
