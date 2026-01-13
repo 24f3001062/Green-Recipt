@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { loginUser, setSession } from "../services/api.js";
+import { useAuth } from "../contexts/AuthContext";
 import { Receipt, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react"; // 👈 Used Lucide for consistent icons
 import useForceLightMode from "../hooks/useForceLightMode";
 
@@ -8,6 +8,7 @@ const CustomerLogin = () => {
   useForceLightMode();
   const navigate = useNavigate();
   const location = useLocation();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,15 +27,7 @@ const CustomerLogin = () => {
     setError("");
     setRoleMismatch(null);
     try {
-      const { data } = await loginUser({ email, password, role: "customer" });
-      // Use new token storage with accessToken and refreshToken
-      setSession({ 
-        accessToken: data.accessToken, 
-        refreshToken: data.refreshToken,
-        expiresIn: data.expiresIn,
-        role: data.role,
-        user: data.user,
-      });
+      await login(email, password, "customer");
       
       // Redirect to return URL if provided (e.g., /pay/:billId), otherwise dashboard
       if (returnTo) {

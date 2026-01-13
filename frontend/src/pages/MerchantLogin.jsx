@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { loginUser, setSession } from "../services/api.js";
+import { useAuth } from "../contexts/AuthContext";
 import { Store, Briefcase, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import useForceLightMode from "../hooks/useForceLightMode";
 
 const MerchantLogin = () => {
   useForceLightMode();
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,16 +23,7 @@ const MerchantLogin = () => {
     setError("");
     setRoleMismatch(null);
     try {
-      const { data } = await loginUser({ email, password, role: "merchant" });
-      // Use new token storage with accessToken and refreshToken
-      setSession({ 
-        accessToken: data.accessToken, 
-        refreshToken: data.refreshToken,
-        expiresIn: data.expiresIn,
-        role: data.role,
-        user: data.user,
-        isProfileComplete: data.user?.isProfileComplete,
-      });
+      await login(email, password, "merchant");
       // Always go to overview - MerchantDashboard will handle onboarding redirect
       navigate('/merchant/overview');
     } catch (err) {
