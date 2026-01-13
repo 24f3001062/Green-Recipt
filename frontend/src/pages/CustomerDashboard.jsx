@@ -405,6 +405,7 @@
 
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Scanner } from '@yudiel/react-qr-scanner'; 
 import CustomerSidebar from '../components/customer/CustomerSidebar';
 import CustomerHome from '../components/customer/CustomerHome';
@@ -420,6 +421,7 @@ import { createReceipt, claimReceipt, fetchCustomerReceipts } from '../services/
 import toast from 'react-hot-toast';
 
 const CustomerDashboard = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("home");
   const [receipts, setReceipts] = useState([]);
 
@@ -474,10 +476,53 @@ const CustomerDashboard = () => {
     setIsScanning(true);
   };
 
-  // 🧠 HANDLE REAL SCAN RESULT - NOW SHOWS IMMEDIATE PAYMENT CHOICE
+  // 🧠 HANDLE REAL SCAN RESULT - SUPPORTS BOTH URL (POS) AND JSON (LEGACY) QR FORMATS
   const handleScan = async (rawText) => {
     if (rawText && !scanResult) {
       try {
+        // ========================
+        // 🆕 CHECK FOR URL-BASED QR (NEW POS FLOW)
+        // Format: https://yourapp.com/pay/BILL_ID or just /pay/BILL_ID
+        // ========================
+        const urlMatch = rawText.match(/\/pay\/([a-f0-9]{24})/i);
+        if (urlMatch) {
+          const billId = urlMatch[1];
+          console.log('[QR Scanner] Detected POS bill URL, billId:', billId);
+          
+          // Close scanner and navigate to payment page
+          setIsScanning(false);
+          setScanResult(null);
+          toast.success('Bill found! Opening payment...', { duration: 1500 });
+          
+          // Navigate to the payment page
+          navigate(`/pay/${billId}`);
+          return;
+        }
+        
+        // Also check for full URLs
+        if (rawText.startsWith('http://') || rawText.startsWith('https://')) {
+          // Try to extract billId from any URL format
+          const urlBillMatch = rawText.match(/pay\/([a-f0-9]{24})/i);
+          if (urlBillMatch) {
+            const billId = urlBillMatch[1];
+            console.log('[QR Scanner] Detected full URL with billId:', billId);
+            
+            setIsScanning(false);
+            setScanResult(null);
+            toast.success('Bill found! Opening payment...', { duration: 1500 });
+            navigate(`/pay/${billId}`);
+            return;
+          }
+          
+          // If it's a URL but not a payment URL, show error
+          console.log('[QR Scanner] Unknown URL format:', rawText);
+          toast.error('Unrecognized QR code');
+          return;
+        }
+        
+        // ========================
+        // 📋 LEGACY JSON QR FORMAT
+        // ========================
         // 1. Parse the text from QR
         const receiptData = JSON.parse(rawText);
 

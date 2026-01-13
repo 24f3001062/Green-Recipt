@@ -681,6 +681,103 @@ export const selectPaymentMethod = async (req, res) => {
 };
 
 // ==========================================
+// CUSTOMER AUTH ROUTES
+// For logged-in customers to claim receipts
+// ==========================================
+
+/**
+ * POST /api/pos/bills/:billId/claim
+ * Customer claims a POS receipt and links it to their account
+ * 
+ * This allows customers to:
+ * 1. Scan a QR, make payment
+ * 2. After merchant confirms, save receipt to their account
+ * 
+ * Request: Auth token required (customer)
+ * URL Params: billId
+ */
+export const claimReceipt = async (req, res) => {
+  try {
+    const { billId } = req.params;
+    const customerId = req.user.id; // From auth middleware
+
+    // Find the POS bill
+    const bill = await POSBill.findById(billId);
+    
+    if (!bill) {
+      return res.status(404).json({ message: "Bill not found" });
+    }
+
+    // Bill must be PAID to claim
+    if (bill.status !== "PAID") {
+      return res.status(400).json({ 
+        message: "Bill has not been paid yet. Cannot claim receipt.",
+        code: "BILL_NOT_PAID"
+      });
+    }
+
+    // Bill must have a receipt
+    if (!bill.receiptId) {
+      return res.status(400).json({ 
+        message: "No receipt found for this bill",
+        code: "NO_RECEIPT"
+      });
+    }
+
+    // Find the receipt
+    const receipt = await Receipt.findById(bill.receiptId);
+    
+    if (!receipt) {
+      return res.status(404).json({ message: "Receipt not found" });
+    }
+
+    // Check if receipt is already claimed by someone
+    if (receipt.userId) {
+      // Check if it's the same user
+      if (receipt.userId.toString() === customerId.toString()) {
+        return res.status(200).json({ 
+          message: "Receipt already saved to your account",
+          receipt: {
+            id: receipt._id,
+            total: receipt.total,
+            transactionDate: receipt.transactionDate,
+          }
+        });
+      }
+      // Different user - this shouldn't happen normally
+      return res.status(400).json({ 
+        message: "This receipt has already been claimed",
+        code: "ALREADY_CLAIMED"
+      });
+    }
+
+    // Link receipt to customer
+    receipt.userId = customerId;
+    await receipt.save();
+
+    // Also update bill with customer reference
+    bill.customerId = customerId;
+    await bill.save();
+
+    console.log(`[POS] Receipt ${receipt._id} claimed by customer ${customerId}`);
+
+    res.json({
+      message: "Receipt saved to your account!",
+      receipt: {
+        id: receipt._id,
+        total: receipt.total,
+        transactionDate: receipt.transactionDate,
+        merchantSnapshot: receipt.merchantSnapshot,
+        items: receipt.items,
+      }
+    });
+  } catch (error) {
+    console.error("[POS] Claim receipt error:", error);
+    res.status(500).json({ message: "Failed to claim receipt" });
+  }
+};
+
+// ==========================================
 // HELPER FUNCTIONS
 // ==========================================
 

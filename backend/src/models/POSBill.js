@@ -126,6 +126,13 @@ const posBillSchema = new mongoose.Schema(
       default: null,
     },
     
+    // Reference to customer who claimed this receipt (if logged in)
+    customerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    
     // Payment method selected by customer (cash or upi)
     paymentMethod: {
       type: String,

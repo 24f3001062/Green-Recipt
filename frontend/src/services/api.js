@@ -645,6 +645,13 @@ export const fetchPublicBill = (billId) => api.get(`/pos/public/bills/${billId}`
 export const selectPaymentMethod = (billId, method, customerInfo = {}) => 
   api.post(`/pos/public/bills/${billId}/select-payment`, { method, ...customerInfo });
 
+/**
+ * Claim a POS receipt and link it to customer's account (AUTH REQUIRED)
+ * @param {string} billId - The POS Bill ID to claim
+ */
+export const claimPOSReceipt = (billId) => 
+  api.post(`/pos/bills/${billId}/claim`);
+
 // ==========================================
 // UPI Settings APIs
 // ==========================================

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { loginUser, setSession } from "../services/api.js";
 import { Receipt, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react"; // 👈 Used Lucide for consistent icons
 import useForceLightMode from "../hooks/useForceLightMode";
@@ -7,6 +7,7 @@ import useForceLightMode from "../hooks/useForceLightMode";
 const CustomerLogin = () => {
   useForceLightMode();
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -15,6 +16,9 @@ const CustomerLogin = () => {
 
   // 👁️ VISIBILITY STATE
   const [showPassword, setShowPassword] = useState(false);
+  
+  // Get return URL from location state (for redirecting after payment QR scan)
+  const returnTo = location.state?.returnTo;
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -31,7 +35,13 @@ const CustomerLogin = () => {
         role: data.role,
         user: data.user,
       });
-      navigate("/customer-dashboard");
+      
+      // Redirect to return URL if provided (e.g., /pay/:billId), otherwise dashboard
+      if (returnTo) {
+        navigate(returnTo);
+      } else {
+        navigate("/customer-dashboard");
+      }
     } catch (error) {
       const responseData = error.response?.data;
       if (responseData?.code === "ROLE_MISMATCH") {

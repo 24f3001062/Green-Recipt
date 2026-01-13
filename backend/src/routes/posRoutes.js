@@ -10,6 +10,7 @@ import {
   getPOSStats,
   getPublicBill,
   selectPaymentMethod,
+  claimReceipt,
 } from "../controllers/posController.js";
 
 const router = Router();
@@ -24,6 +25,7 @@ const router = Router();
  * 4. If UPI: Customer redirected to UPI app, pays
  * 5. POST /bills/:billId/confirm - Merchant confirms payment
  * 6. Receipt auto-generated
+ * 7. Customer can claim receipt to link to their account
  */
 
 // ==========================================
@@ -34,7 +36,13 @@ router.get("/public/bills/:billId", getPublicBill);
 router.post("/public/bills/:billId/select-payment", selectPaymentMethod);
 
 // ==========================================
-// PROTECTED ROUTES (Merchant Auth Required)
+// CUSTOMER ROUTES (Customer Auth Required)
+// For logged-in customers to claim receipts
+// ==========================================
+router.post("/bills/:billId/claim", protect, requireRole("customer"), claimReceipt);
+
+// ==========================================
+// MERCHANT ROUTES (Merchant Auth Required)
 // ==========================================
 router.use(protect);
 router.use(requireRole("merchant"));
