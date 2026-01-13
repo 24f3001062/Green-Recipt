@@ -2002,12 +2002,17 @@ const MerchantBilling = ({ inventory, profile }) => {
 
   const addToCart = (item) => {
     setCart((prev) => {
-      const exists = prev.find((i) => i.id === item.id);
-      if (exists)
+      const itemId = item?.id ?? item?._id;
+      if (!itemId) return prev;
+
+      const exists = prev.find((i) => i.id === itemId);
+      if (exists) {
         return prev.map((i) =>
-          i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+          i.id === itemId ? { ...i, quantity: i.quantity + 1 } : i
         );
-      return [...prev, { ...item, quantity: 1 }];
+      }
+
+      return [...prev, { ...item, id: itemId, quantity: 1 }];
     });
   };
 
@@ -2520,14 +2525,15 @@ const MerchantBilling = ({ inventory, profile }) => {
           </div>
       ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
-              {filteredItems.map(item => {
+                {filteredItems.map(item => {
                   // Check cart quantity for badge
-                  const cartItem = cart.find(c => c.id === item.id || c._id === item._id);
+                  const itemId = item?._id ?? item?.id;
+                  const cartItem = itemId ? cart.find(c => c.id === itemId) : undefined;
                   const qty = cartItem ? cartItem.quantity : 0;
 
                   return (
                       <button 
-                        key={item.id} 
+                    key={itemId ?? `${item?.name ?? 'item'}-${item?.price ?? '0'}`} 
                         onClick={() => addToCart(item)} 
                         className={`
                            group relative text-left transition-all duration-200

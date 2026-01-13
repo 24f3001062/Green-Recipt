@@ -404,8 +404,8 @@
 
 
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Scanner } from '@yudiel/react-qr-scanner'; 
 import CustomerSidebar from '../components/customer/CustomerSidebar';
 import CustomerHome from '../components/customer/CustomerHome';
@@ -422,7 +422,50 @@ import toast from 'react-hot-toast';
 
 const CustomerDashboard = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("home");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const allowedTabs = useMemo(
+    () =>
+      new Set([
+        'home',
+        'receipts',
+        'bills',
+        'calendar',
+        'insights',
+        'profile',
+        'notifications',
+      ]),
+    []
+  );
+
+  const getTabFromParams = useCallback(() => {
+    const tab = searchParams.get('tab') || 'home';
+    return allowedTabs.has(tab) ? tab : 'home';
+  }, [allowedTabs, searchParams]);
+
+  const [activeTab, setActiveTab] = useState(() => getTabFromParams());
+
+  const navigateTab = useCallback(
+    (tab, options = {}) => {
+      const nextTab = allowedTabs.has(tab) ? tab : 'home';
+      setSearchParams({ tab: nextTab }, { replace: !!options.replace });
+    },
+    [allowedTabs, setSearchParams]
+  );
+
+  // Ensure a stable tab param exists (without adding a new history entry).
+  useEffect(() => {
+    if (!searchParams.get('tab')) {
+      setSearchParams({ tab: 'home' }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep UI state in sync with browser back/forward.
+  useEffect(() => {
+    const tab = getTabFromParams();
+    if (tab !== activeTab) setActiveTab(tab);
+  }, [activeTab, getTabFromParams]);
   const [receipts, setReceipts] = useState([]);
 
   // 📸 SCANNER STATE
@@ -616,7 +659,7 @@ const CustomerDashboard = () => {
       toast.success("Receipt saved successfully!");
       setTimeout(() => {
         setIsScanning(false);
-        setActiveTab("receipts");
+        navigateTab('receipts');
         window.dispatchEvent(new Event("storage"));
       }, 1500);
 
@@ -644,7 +687,7 @@ const CustomerDashboard = () => {
     }`}>
       <CustomerSidebar
         activeTab={activeTab}
-        onNavigate={setActiveTab}
+        onNavigate={navigateTab}
         receipts={receipts}
       />
 
@@ -671,7 +714,7 @@ const CustomerDashboard = () => {
           </h1>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setActiveTab("notifications")}
+              onClick={() => navigateTab('notifications')}
               className={`p-2 rounded-full active:scale-95 transition-all relative ${
                 isDark 
                   ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
@@ -691,7 +734,7 @@ const CustomerDashboard = () => {
           <div className="max-w-4xl mx-auto animate-fade-in relative z-10">
             {activeTab === "home" && (
               <CustomerHome
-                onNavigate={setActiveTab}
+                onNavigate={navigateTab}
                 onScanTrigger={handleGlobalScan}
               />
             )}
@@ -707,7 +750,7 @@ const CustomerDashboard = () => {
 
       {/* 🗓️ 3D FLOATING CALENDAR BUTTON (WhatsApp Style) */}
       <button 
-        onClick={() => setActiveTab("calendar")}
+        onClick={() => navigateTab('calendar')}
         className={`
           fixed right-5 bottom-24 md:bottom-10 z-40 group
           w-14 h-14 rounded-full flex items-center justify-center 
