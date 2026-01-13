@@ -35,73 +35,94 @@ export const AuthProvider = ({ children }) => {
     setError(null);
 
     try {
-      // Check if we have stored session data
       const hasStoredSession = api.hasSession();
-      
+      const token = api.getAccessToken();
+      const tokenExpired = api.isTokenExpired();
+
+      // Case A: No local session marker (role), but cookie-based refresh may still exist.
       if (!hasStoredSession) {
-        // No stored session, but try to refresh anyway (cookie might still be valid)
         try {
-          const newToken = await api.refreshAccessToken();
-          if (newToken) {
-            // We have a valid refresh token cookie, get session info
-            const { data } = await api.validateSession();
-            if (data.valid) {
-              setUser(data.user);
-              setRole(data.role);
-              setIsAuthenticated(true);
-              // Store role/user for future checks
-              localStorage.setItem('role', data.role);
-              localStorage.setItem('user', JSON.stringify(data.user));
-            }
+          await api.refreshAccessToken();
+          const { data } = await api.validateSession();
+          if (data?.valid) {
+            setUser(data.user);
+            setRole(data.role);
+            setIsAuthenticated(true);
+            localStorage.setItem('role', data.role);
+            localStorage.setItem('user', JSON.stringify(data.user));
+          } else {
+            setIsAuthenticated(false);
+            setUser(null);
+            setRole(null);
           }
         } catch (err) {
-          // No valid session
+          // No valid refresh cookie (or server/network issue). Stay logged out.
           setIsAuthenticated(false);
           setUser(null);
           setRole(null);
         }
-        setIsLoading(false);
         return;
       }
 
-      // Try to refresh access token using HTTP-only cookie
+      // Case B: Local session exists. Prefer validating with access token if it's still valid.
+      if (token && !tokenExpired) {
+        try {
+          const { data } = await api.validateSession();
+          if (data?.valid) {
+            setUser(data.user);
+            setRole(data.role);
+            setIsAuthenticated(true);
+            // Keep local cache fresh
+            localStorage.setItem('role', data.role);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            return;
+          }
+        } catch (err) {
+          // If access token expired, fall through to refresh.
+          if (err.response?.data?.code !== 'TOKEN_EXPIRED' && err.response?.status !== 401) {
+            // Non-auth failure (server down, etc). Keep cached session.
+            const storedUser = api.getStoredUser();
+            const storedRole = api.getStoredRole();
+            if (storedUser && storedRole) {
+              setUser(storedUser);
+              setRole(storedRole);
+              setIsAuthenticated(true);
+              return;
+            }
+          }
+        }
+      }
+
+      // Case C: Token missing/expired (or session check said expired) -> try refresh via cookie.
       try {
         await api.refreshAccessToken();
-        
-        // Token refreshed successfully, validate session
         const { data } = await api.validateSession();
-        
-        if (data.valid) {
+        if (data?.valid) {
           setUser(data.user);
           setRole(data.role);
           setIsAuthenticated(true);
+          localStorage.setItem('role', data.role);
+          localStorage.setItem('user', JSON.stringify(data.user));
         } else {
-          // Session invalid, clear everything
           api.clearSession();
           setIsAuthenticated(false);
           setUser(null);
           setRole(null);
         }
       } catch (err) {
-        // Refresh failed - either network error or 21 days expired
-        // Use stored data as fallback for offline scenarios
+        // Refresh failed. If it was a definitive auth failure, api.refreshAccessToken already cleared.
+        // For network/server issues, keep cached session if present.
         const storedUser = api.getStoredUser();
         const storedRole = api.getStoredRole();
-        
-        if (err.response?.status === 401 || err.response?.status === 403) {
-          // Session expired (21 days passed), clear everything
-          api.clearSession();
-          setIsAuthenticated(false);
-          setUser(null);
-          setRole(null);
-        } else if (storedUser && storedRole) {
-          // Network error - use cached data
+
+        if (storedUser && storedRole) {
           setUser(storedUser);
           setRole(storedRole);
           setIsAuthenticated(true);
         } else {
-          api.clearSession();
           setIsAuthenticated(false);
+          setUser(null);
+          setRole(null);
         }
       }
     } catch (err) {

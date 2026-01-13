@@ -157,8 +157,29 @@ export const refreshAccessToken = async () => {
     
     return accessToken;
   } catch (error) {
-    // If refresh fails, clear session and throw
-    clearSession();
+    // IMPORTANT:
+    // Do NOT blindly clear local session on any refresh error.
+    // - Network/server errors should not log users out immediately.
+    // - Only clear when the server definitively says the refresh token/session is invalid.
+    const status = error.response?.status;
+    const code = error.response?.data?.code;
+
+    const isDefinitiveRefreshFailure =
+      status === 401 &&
+      [
+        "NO_REFRESH_TOKEN",
+        "REFRESH_TOKEN_EXPIRED",
+        "INVALID_REFRESH_TOKEN",
+        "SESSION_EXPIRED",
+        "SESSION_INVALIDATED",
+        "INVALID_SESSION",
+        "ACCOUNT_NOT_FOUND",
+      ].includes(code);
+
+    if (isDefinitiveRefreshFailure) {
+      clearSession();
+    }
+
     throw error;
   }
 };

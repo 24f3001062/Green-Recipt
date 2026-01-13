@@ -16,17 +16,19 @@
 
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import * as api from "../services/api";
+import { useAuth } from "../contexts/AuthContext";
 
 const ProtectedRoute = ({ children, role }) => {
   const location = useLocation();
-  
-  // Use the new API functions to check authentication
-  const isAuth = api.isAuthenticated();
-  const userRole = api.getStoredRole();
+  const { isLoading, isAuthenticated, role: userRole } = useAuth();
+
+  // Avoid redirecting while we're still restoring a session (prevents flicker + false logouts)
+  if (isLoading) {
+    return null;
+  }
 
   // 1. CASE: User is NOT logged in at all
-  if (!isAuth) {
+  if (!isAuthenticated) {
     // Redirect to login based on the route they were trying to access
     const loginPath = location.pathname.includes('/merchant') ? '/merchant-login' : '/customer-login';
     return <Navigate to={loginPath} state={{ from: location }} replace />;

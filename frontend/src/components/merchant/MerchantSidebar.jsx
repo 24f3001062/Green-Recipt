@@ -236,17 +236,22 @@ import {
   Wallet
 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { logoutUser, clearSession } from '../../services/api';
 
 const MerchantSidebar = ({ isOpen, onClose }) => {
   const { isDark } = useTheme();
   const { t } = useTranslation();
 
   // 🚪 Logout Logic
-  const handleLogout = () => {
-    if(window.confirm("Are you sure you want to logout?")) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('role');
-      window.location.href = '/'; 
+  const handleLogout = async () => {
+    if (!window.confirm("Are you sure you want to logout?")) return;
+    try {
+      await logoutUser();
+    } catch (e) {
+      // Ignore network/server errors; we still clear local session.
+    } finally {
+      clearSession();
+      window.location.href = '/';
     }
   };
 

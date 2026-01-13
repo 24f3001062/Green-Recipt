@@ -145,14 +145,14 @@
 // export default App;
 
 import React, { useState } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import AppWalkthrough from "./components/onboarding/AppWalkthrough";
 
 // 1. 👇 Import Splash Screen only
 import ServerAwake from "./components/common/ServerAwake";
 
 // Auth Provider
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 // Pages & Components
 import Home from "./pages/Home";
@@ -178,8 +178,16 @@ import SignupSuccess from "./pages/SignupSuccess";
 
 // Utils
 import ProtectedRoute from "./components/ProtectedRoute";
+import GuestRoute from "./components/GuestRoute";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+
+const RootRoute = () => {
+  const { isLoading, isAuthenticated, role } = useAuth();
+  if (isLoading) return null;
+  if (!isAuthenticated) return <Home />;
+  return <Navigate to={role === 'merchant' ? '/merchant/overview' : '/customer-dashboard'} replace />;
+};
 
 function App() {
   // 2. 👇 State: Track if the backend is awake
@@ -196,8 +204,8 @@ function App() {
       <Router>
         <Routes>
           {/* 1. Public Routes */}
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<AuthSelection />} />
+          <Route path="/" element={<RootRoute />} />
+          <Route path="/login" element={<GuestRoute><AuthSelection /></GuestRoute>} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           
@@ -205,7 +213,7 @@ function App() {
           <Route path="/pay/:billId" element={<CustomerPayment />} />
 
           {/* 2. Customer Routes */}
-          <Route path="/customer-login" element={<CustomerLogin />} />
+          <Route path="/customer-login" element={<GuestRoute><CustomerLogin /></GuestRoute>} />
           <Route path="/customer-signup" element={<CustomerSignup />} />
           <Route path="/verify-customer" element={<CustomerVerify />} />
           
@@ -225,7 +233,7 @@ function App() {
           />
 
           {/* 3. Merchant Routes */}
-          <Route path="/merchant-login" element={<MerchantLogin />} />
+          <Route path="/merchant-login" element={<GuestRoute><MerchantLogin /></GuestRoute>} />
           <Route path="/merchant-signup" element={<MerchantSignup />} />
           <Route path="/verify-merchant" element={<MerchantVerify />} />
 
@@ -240,7 +248,7 @@ function App() {
           />
 
           {/* 4. 404 Fallback */}
-          <Route path="*" element={<Home />} />
+          <Route path="*" element={<RootRoute />} />
         </Routes>
       </Router>
     </AuthProvider>
