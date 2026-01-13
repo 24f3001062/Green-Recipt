@@ -1811,34 +1811,17 @@ const MerchantBilling = ({ inventory, profile }) => {
 
   const isObjectId = (id) => /^[a-f\d]{24}$/i.test(String(id || ""));
 
-  // 🆕 UPI POS State
-  const [upiSettings, setUpiSettings] = useState(null);
-  const [upiLoading, setUpiLoading] = useState(true);
+  // 🆕 UNIFIED PAYMENT QR State (Single flow for Cash + UPI)
   const [posBill, setPosBill] = useState(null);
-  const [upiQrUrl, setUpiQrUrl] = useState("");
-  const [showUpiQr, setShowUpiQr] = useState(false);
+  const [paymentQrUrl, setPaymentQrUrl] = useState("");
+  const [showPaymentQr, setShowPaymentQr] = useState(false);
   const [billExpiry, setBillExpiry] = useState(null);
   const [expiryCountdown, setExpiryCountdown] = useState(0);
-
-  // Load UPI settings on mount
-  useEffect(() => {
-    const loadUPISettings = async () => {
-      try {
-        const { data } = await fetchUPISettings();
-        setUpiSettings(data);
-      } catch (err) {
-        console.warn("Could not load UPI settings:", err);
-        setUpiSettings({ isConfigured: false });
-      } finally {
-        setUpiLoading(false);
-      }
-    };
-    loadUPISettings();
-  }, []);
+  const [customerPaymentMethod, setCustomerPaymentMethod] = useState(null);
 
   // Countdown timer for bill expiry
   useEffect(() => {
-    if (!showUpiQr || !billExpiry) return;
+    if (!showPaymentQr || !billExpiry) return;
     
     const timer = setInterval(() => {
       const remaining = Math.max(0, Math.floor((new Date(billExpiry) - Date.now()) / 1000));
@@ -1846,12 +1829,34 @@ const MerchantBilling = ({ inventory, profile }) => {
       
       if (remaining <= 0) {
         toast.error("Bill expired. Please generate a new QR.");
-        handleCloseUpiQr();
+        handleClosePaymentQr();
       }
     }, 1000);
     
     return () => clearInterval(timer);
-  }, [showUpiQr, billExpiry]);
+  }, [showPaymentQr, billExpiry]);
+
+  // Poll for customer payment method selection
+  useEffect(() => {
+    if (!showPaymentQr || !posBill?.bill?.id) return;
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        const { data } = await import('../../services/api').then(m => m.fetchPublicBill(posBill.bill.id));
+        if (data.customerSelected && data.paymentMethod) {
+          setCustomerPaymentMethod(data.paymentMethod);
+        }
+        if (data.status === 'EXPIRED') {
+          toast.error("Bill expired");
+          handleClosePaymentQr();
+        }
+      } catch (err) {
+        // Ignore polling errors
+      }
+    }, 2000);
+    
+    return () => clearInterval(pollInterval);
+  }, [showPaymentQr, posBill?.bill?.id]);
 
   const voidPendingReceipt = async () => {
     const pendingId = pendingReceiptIdRef.current;

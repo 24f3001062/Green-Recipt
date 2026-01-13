@@ -170,6 +170,9 @@ import MerchantSignup from "./pages/MerchantSignup";
 import MerchantVerify from "./pages/MerchantVerify";
 import MerchantDashboard from "./pages/MerchantDashboard";
 
+// Customer Payment Page (Public - for QR scan)
+import CustomerPayment from "./pages/CustomerPayment";
+
 // Success Page
 import SignupSuccess from "./pages/SignupSuccess";
 
@@ -197,6 +200,9 @@ function App() {
           <Route path="/login" element={<AuthSelection />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          
+          {/* Customer Payment Page (Public - QR scan destination) */}
+          <Route path="/pay/:billId" element={<CustomerPayment />} />
 
           {/* 2. Customer Routes */}
           <Route path="/customer-login" element={<CustomerLogin />} />

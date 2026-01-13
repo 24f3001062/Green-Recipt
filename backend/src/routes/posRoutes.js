@@ -8,6 +8,8 @@ import {
   getBills,
   getActiveBills,
   getPOSStats,
+  getPublicBill,
+  selectPaymentMethod,
 } from "../controllers/posController.js";
 
 const router = Router();
@@ -15,16 +17,25 @@ const router = Router();
 /**
  * POS Routes - Merchant-Confirmed UPI Payment System
  * 
- * All routes require merchant authentication.
- * 
  * Flow:
- * 1. POST /bills - Create bill, get QR
- * 2. Customer scans QR, pays via UPI app
- * 3. POST /bills/:billId/confirm - Merchant confirms payment
- * 4. Receipt auto-generated
+ * 1. POST /bills - Merchant creates bill, gets QR with payment URL
+ * 2. Customer scans QR, opens /pay/:billId page
+ * 3. Customer chooses Cash or UPI
+ * 4. If UPI: Customer redirected to UPI app, pays
+ * 5. POST /bills/:billId/confirm - Merchant confirms payment
+ * 6. Receipt auto-generated
  */
 
-// All POS routes require merchant authentication
+// ==========================================
+// PUBLIC ROUTES (No Auth Required)
+// For customer payment flow
+// ==========================================
+router.get("/public/bills/:billId", getPublicBill);
+router.post("/public/bills/:billId/select-payment", selectPaymentMethod);
+
+// ==========================================
+// PROTECTED ROUTES (Merchant Auth Required)
+// ==========================================
 router.use(protect);
 router.use(requireRole("merchant"));
 

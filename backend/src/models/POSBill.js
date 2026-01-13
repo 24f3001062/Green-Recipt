@@ -126,6 +126,19 @@ const posBillSchema = new mongoose.Schema(
       default: null,
     },
     
+    // Payment method selected by customer (cash or upi)
+    paymentMethod: {
+      type: String,
+      enum: ["cash", "upi", null],
+      default: null,
+    },
+    
+    // Flag to track if customer has selected payment method
+    customerSelected: {
+      type: Boolean,
+      default: false,
+    },
+    
     // Currency (always INR for UPI)
     currency: {
       type: String,

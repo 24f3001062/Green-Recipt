@@ -533,6 +533,154 @@ export const getPOSStats = async (req, res) => {
 };
 
 // ==========================================
+// PUBLIC ENDPOINTS (No Auth Required)
+// For customer payment flow
+// ==========================================
+
+/**
+ * GET /api/pos/public/bills/:billId
+ * Public endpoint - Get bill details for customer payment page
+ * No authentication required
+ */
+export const getPublicBill = async (req, res) => {
+  try {
+    const { billId } = req.params;
+
+    const bill = await POSBill.findById(billId).lean();
+    
+    if (!bill) {
+      return res.status(404).json({ message: "Bill not found" });
+    }
+
+    // Check and update expired status
+    if (bill.status === "AWAITING_PAYMENT" && new Date(bill.expiresAt) < new Date()) {
+      await POSBill.findByIdAndUpdate(billId, { status: "EXPIRED" });
+      bill.status = "EXPIRED";
+    }
+
+    // Get merchant details
+    const merchant = await Merchant.findById(bill.merchantId).select(
+      "shopName addressLine upiId upiName merchantCode"
+    ).lean();
+
+    res.json({
+      id: bill._id,
+      billId: bill._id,
+      upiNote: bill.upiNote,
+      total: bill.total,
+      items: bill.items,
+      status: bill.status,
+      expiresAt: bill.expiresAt,
+      createdAt: bill.createdAt,
+      paymentMethod: bill.paymentMethod || null,
+      customerSelected: bill.customerSelected || false,
+      merchant: {
+        shopName: merchant?.shopName || "Merchant",
+        address: merchant?.addressLine || "",
+        upiId: merchant?.upiId || null,
+        upiName: merchant?.upiName || merchant?.shopName,
+        code: merchant?.merchantCode,
+      },
+    });
+  } catch (error) {
+    console.error("[POS] Get public bill error:", error);
+    res.status(500).json({ message: "Failed to fetch bill" });
+  }
+};
+
+/**
+ * POST /api/pos/public/bills/:billId/select-payment
+ * Public endpoint - Customer selects payment method (cash or upi)
+ * No authentication required
+ * 
+ * Request body:
+ * {
+ *   method: "cash" | "upi",
+ *   customerName?: string,
+ *   customerPhone?: string
+ * }
+ */
+export const selectPaymentMethod = async (req, res) => {
+  try {
+    const { billId } = req.params;
+    const { method, customerName, customerPhone } = req.body;
+
+    // Validate method
+    if (!method || !["cash", "upi"].includes(method)) {
+      return res.status(400).json({ message: "Invalid payment method. Use 'cash' or 'upi'" });
+    }
+
+    const bill = await POSBill.findById(billId);
+    
+    if (!bill) {
+      return res.status(404).json({ message: "Bill not found" });
+    }
+
+    // Check status
+    if (bill.status !== "AWAITING_PAYMENT") {
+      return res.status(400).json({ 
+        message: `Bill is ${bill.status.toLowerCase()}. Cannot process payment.`,
+        code: "INVALID_STATUS"
+      });
+    }
+
+    // Check expiry
+    if (new Date(bill.expiresAt) < new Date()) {
+      bill.status = "EXPIRED";
+      await bill.save();
+      return res.status(400).json({ 
+        message: "Bill has expired",
+        code: "BILL_EXPIRED"
+      });
+    }
+
+    // Update bill with customer's choice
+    bill.paymentMethod = method;
+    bill.customerSelected = true;
+    if (customerName) bill.customerName = customerName.trim();
+    if (customerPhone) bill.customerPhone = customerPhone.trim();
+    await bill.save();
+
+    // For UPI, generate the deep link
+    let upiLink = null;
+    if (method === "upi") {
+      const merchant = await Merchant.findById(bill.merchantId).select("upiId upiName shopName");
+      
+      if (!merchant?.upiId) {
+        return res.status(400).json({ 
+          message: "Merchant UPI not configured",
+          code: "UPI_NOT_CONFIGURED"
+        });
+      }
+
+      const upiPayeeName = merchant.upiName || merchant.shopName || "Merchant";
+      upiLink = buildUPILink({
+        pa: merchant.upiId,
+        pn: upiPayeeName,
+        am: bill.total,
+        cu: "INR",
+        tn: bill.upiNote,
+      });
+    }
+
+    res.json({
+      message: `Payment method '${method}' selected`,
+      bill: {
+        id: bill._id,
+        upiNote: bill.upiNote,
+        total: bill.total,
+        status: bill.status,
+        paymentMethod: method,
+      },
+      upiLink, // Only populated for UPI method
+    });
+  } catch (error) {
+    console.error("[POS] Select payment method error:", error);
+    res.status(500).json({ message: "Failed to process payment selection" });
+  }
+};
+
+// ==========================================
 // HELPER FUNCTIONS
 // ==========================================
 

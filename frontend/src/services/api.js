@@ -626,6 +626,26 @@ export const fetchPOSStats = (period = 'today') =>
   api.get(`/pos/stats?period=${period}`);
 
 // ==========================================
+// PUBLIC POS APIs (No Auth Required)
+// For customer payment page
+// ==========================================
+
+/**
+ * Get bill details for customer payment page (PUBLIC - No auth)
+ * @param {string} billId - Bill ID
+ */
+export const fetchPublicBill = (billId) => api.get(`/pos/public/bills/${billId}`);
+
+/**
+ * Customer selects payment method (PUBLIC - No auth)
+ * @param {string} billId - Bill ID
+ * @param {string} method - 'cash' | 'upi'
+ * @param {Object} customerInfo - { customerName?, customerPhone? }
+ */
+export const selectPaymentMethod = (billId, method, customerInfo = {}) => 
+  api.post(`/pos/public/bills/${billId}/select-payment`, { method, ...customerInfo });
+
+// ==========================================
 // UPI Settings APIs
 // ==========================================
 
