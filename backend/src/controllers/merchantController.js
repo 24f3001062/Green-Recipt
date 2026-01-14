@@ -403,7 +403,7 @@ export const getFullProfile = async (req, res) => {
 export const getUPISettings = async (req, res) => {
 	try {
 		const merchant = await Merchant.findById(req.user.id)
-			.select("upiId upiName isUpiVerified shopName")
+			.select("upiId upiName isUpiVerified shopName upiType")
 			.lean();
 
 		if (!merchant) {
@@ -413,6 +413,7 @@ export const getUPISettings = async (req, res) => {
 		res.json({
 			upiId: merchant.upiId || null,
 			upiName: merchant.upiName || merchant.shopName || null,
+			upiType: merchant.upiType || "PERSONAL",
 			isUpiVerified: merchant.isUpiVerified || false,
 			isConfigured: !!merchant.upiId,
 		});
@@ -430,11 +431,12 @@ export const getUPISettings = async (req, res) => {
  * {
  *   upiId: string (required) - e.g., "merchant@upi", "9876543210@paytm"
  *   upiName: string (optional) - Display name shown to customers
+ *   upiType: string (optional) - "MERCHANT" | "PERSONAL"
  * }
  */
 export const updateUPISettings = async (req, res) => {
 	try {
-		const { upiId, upiName } = req.body;
+		const { upiId, upiName, upiType } = req.body;
 
 		// Validate UPI ID format
 		if (!upiId || typeof upiId !== "string") {
@@ -458,6 +460,12 @@ export const updateUPISettings = async (req, res) => {
 			});
 		}
 
+		// Validate UPI Type
+		let validUpiType = "PERSONAL"; // Default to personal if invalid/missing
+		if (upiType && ["MERCHANT", "PERSONAL"].includes(upiType.toUpperCase())) {
+			validUpiType = upiType.toUpperCase();
+		}
+
 		const merchant = await Merchant.findById(req.user.id);
 		if (!merchant) {
 			return res.status(404).json({ message: "Merchant not found" });
@@ -465,6 +473,8 @@ export const updateUPISettings = async (req, res) => {
 
 		merchant.upiId = trimmedUpiId;
 		merchant.upiName = upiName?.trim() || merchant.shopName || null;
+		merchant.upiType = validUpiType;
+		
 		// UPI verification is done manually/out-of-band for now
 		// In production, you'd integrate with a UPI verification service
 		merchant.isUpiVerified = false;
@@ -475,6 +485,7 @@ export const updateUPISettings = async (req, res) => {
 			message: "UPI settings updated successfully",
 			upiId: merchant.upiId,
 			upiName: merchant.upiName,
+			upiType: merchant.upiType,
 			isUpiVerified: merchant.isUpiVerified,
 		});
 	} catch (error) {

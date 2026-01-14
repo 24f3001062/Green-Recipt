@@ -53,7 +53,7 @@ export const createBill = async (req, res) => {
     }
 
     // Get merchant details for UPI
-    const merchant = await Merchant.findById(merchantId).select("shopName upiId upiName isUpiVerified merchantCode");
+    const merchant = await Merchant.findById(merchantId).select("shopName upiId upiName isUpiVerified merchantCode upiType");
     
     if (!merchant) {
       return res.status(404).json({ message: "Merchant not found" });
@@ -92,6 +92,7 @@ export const createBill = async (req, res) => {
       am: total,
       cu: "INR",
       tn: bill.upiNote,
+      upiType: merchant.upiType || "PERSONAL", // Default to PERSONAL for safety
     });
 
     res.status(201).json({
@@ -310,7 +311,7 @@ export const getBillById = async (req, res) => {
       await bill.checkAndExpire();
     }
 
-    const merchant = await Merchant.findById(merchantId).select("shopName upiId upiName merchantCode");
+    const merchant = await Merchant.findById(merchantId).select("shopName upiId upiName merchantCode upiType");
 
     // Generate UPI link if still awaiting payment
     let upiData = null;
@@ -323,6 +324,7 @@ export const getBillById = async (req, res) => {
           am: bill.total,
           cu: "INR",
           tn: bill.upiNote,
+          upiType: merchant?.upiType || "PERSONAL",
         }),
         payeeId: merchant?.upiId,
         payeeName: upiPayeeName,
@@ -433,7 +435,7 @@ export const getActiveBills = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(10);
 
-    const merchant = await Merchant.findById(merchantId).select("shopName upiId upiName merchantCode");
+    const merchant = await Merchant.findById(merchantId).select("shopName upiId upiName merchantCode upiType");
     const upiPayeeName = merchant?.upiName || merchant?.shopName || "Merchant";
 
     res.json({
@@ -453,6 +455,7 @@ export const getActiveBills = async (req, res) => {
             am: bill.total,
             cu: "INR",
             tn: bill.upiNote,
+            upiType: merchant?.upiType || "PERSONAL",
           }),
           note: bill.upiNote,
         },
@@ -644,7 +647,7 @@ export const selectPaymentMethod = async (req, res) => {
     // For UPI, generate the deep link
     let upiLink = null;
     if (method === "upi") {
-      const merchant = await Merchant.findById(bill.merchantId).select("upiId upiName shopName");
+      const merchant = await Merchant.findById(bill.merchantId).select("upiId upiName shopName upiType");
       
       if (!merchant?.upiId) {
         return res.status(400).json({ 
@@ -660,6 +663,7 @@ export const selectPaymentMethod = async (req, res) => {
         am: bill.total,
         cu: "INR",
         tn: bill.upiNote,
+        upiType: merchant.upiType || "PERSONAL",
       });
     }
 
@@ -785,13 +789,25 @@ export const claimReceipt = async (req, res) => {
  * Build UPI deep link URL
  * Format: upi://pay?pa=xxx&pn=xxx&am=xxx&cu=INR&tn=xxx
  */
-function buildUPILink({ pa, pn, am, cu = "INR", tn }) {
+function buildUPILink({ pa, pn, am, cu = "INR", tn, upiType = "PERSONAL" }) {
+  // Personal UPI Flow (P2P) - No amount pre-filled, simple intent
+  if (upiType === "PERSONAL") {
+    const params = new URLSearchParams({
+      pa, 
+      pn, // Do not encode here, URLSearchParams handles it
+      cu,
+    });
+    return `upi://pay?${params.toString()}`;
+  }
+
+  // Merchant UPI Flow (P2M) - Auto-filled amount
   const params = new URLSearchParams({
     pa, // Payee VPA (UPI ID)
-    pn: encodeURIComponent(pn), // Payee Name
+    pn, // Payee Name
     am: am.toFixed(2), // Amount
     cu, // Currency
     tn, // Transaction Note
+    mode: "02", // Secure QR/Intent mode
   });
   
   return `upi://pay?${params.toString()}`;

@@ -182,6 +182,11 @@ const merchantSchema = new mongoose.Schema(
 			lowercase: true,
 			default: null,
 		},
+		upiType: {
+			type: String,
+			enum: ["MERCHANT", "PERSONAL"],
+			default: "PERSONAL",
+		},
 		upiName: {
 			type: String,
 			trim: true,

@@ -27,6 +27,7 @@ const UPISettings = () => {
   const [settings, setSettings] = useState(null);
   const [upiId, setUpiId] = useState('');
   const [upiName, setUpiName] = useState('');
+  const [upiType, setUpiType] = useState('PERSONAL');
   const [isEditing, setIsEditing] = useState(false);
 
   // Load UPI settings on mount
@@ -40,6 +41,7 @@ const UPISettings = () => {
       setSettings(data);
       setUpiId(data.upiId || '');
       setUpiName(data.upiName || '');
+      setUpiType(data.upiType || 'PERSONAL');
     } catch (err) {
       console.error('Failed to load UPI settings:', err);
       toast.error('Failed to load UPI settings');
@@ -64,7 +66,8 @@ const UPISettings = () => {
     try {
       const { data } = await updateUPISettings({ 
         upiId: upiId.trim(), 
-        upiName: upiName.trim() || null 
+        upiName: upiName.trim() || null,
+        upiType
       });
       
       setSettings(data);
@@ -211,6 +214,45 @@ const UPISettings = () => {
               Shown to customers when scanning QR
             </p>
           </div>
+
+          <div>
+            <label className={`block text-xs font-bold uppercase mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              UPI Account Type
+            </label>
+            <div className={`p-1 rounded-xl flex ${isDark ? 'bg-slate-900 border border-slate-700' : 'bg-slate-100 border border-slate-200'}`}>
+              <button
+                type="button"
+                onClick={() => { setUpiType('PERSONAL'); setIsEditing(true); }}
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                  upiType === 'PERSONAL'
+                    ? (isDark ? 'bg-slate-700 text-white shadow' : 'bg-white text-purple-600 shadow')
+                    : 'text-slate-500 hover:text-slate-400'
+                }`}
+              >
+                Personal (P2P)
+              </button>
+              <button
+                type="button"
+                onClick={() => { setUpiType('MERCHANT'); setIsEditing(true); }}
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                  upiType === 'MERCHANT'
+                    ? (isDark ? 'bg-slate-700 text-white shadow' : 'bg-white text-purple-600 shadow')
+                    : 'text-slate-500 hover:text-slate-400'
+                }`}
+              >
+                Merchant (P2M)
+              </button>
+            </div>
+            {upiType === 'PERSONAL' ? (
+               <p className={`text-[10px] mt-1.5 ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
+                  ⚠️ Personal accounts don't support auto-filled amounts. Customers must enter amount manually.
+               </p>
+            ) : (
+               <p className={`text-[10px] mt-1.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                  ✅ Supports auto-filled amounts for faster payments. Requires a business UPI account.
+               </p>
+            )}
+          </div>
         </div>
 
         {/* Save Button */}
@@ -260,7 +302,8 @@ const UPISettings = () => {
             <p className="font-medium">How it works:</p>
             <ol className="list-decimal list-inside space-y-1">
               <li>Customer scans the QR code with GPay/PhonePe</li>
-              <li>UPI app opens with amount pre-filled</li>
+              <li>UPI app opens{settings?.upiType === 'MERCHANT' ? ' with amount pre-filled' : ''}</li>
+              {settings?.upiType === 'PERSONAL' && <li>Customer enters amount manually</li>}
               <li>Customer enters PIN and pays</li>
               <li>You see payment in your UPI app</li>
               <li>Click "I Received" to confirm & generate receipt</li>
@@ -279,13 +322,17 @@ const UPISettings = () => {
             </div>
             <div className={`inline-block p-3 rounded-xl ${isDark ? 'bg-white' : 'bg-white'} shadow-sm`}>
               <img 
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`upi://pay?pa=${settings.upiId}&pn=${encodeURIComponent(settings.upiName || 'Merchant')}&am=100&cu=INR&tn=Test`)}`}
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
+                  settings.upiType === 'MERCHANT'
+                    ? `upi://pay?pa=${settings.upiId}&pn=${encodeURIComponent(settings.upiName || 'Merchant')}&am=100&cu=INR&tn=Test&mode=02`
+                    : `upi://pay?pa=${settings.upiId}&pn=${encodeURIComponent(settings.upiName || 'Merchant')}&cu=INR`
+                )}`}
                 alt="UPI QR Preview"
                 className="w-24 h-24"
               />
             </div>
             <p className={`text-[10px] mt-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              Sample QR for ₹100 payment
+              {settings.upiType === 'MERCHANT' ? 'Sample QR for ₹100 payment' : 'Sample QR (amount manually entered)'}
             </p>
           </div>
         )}

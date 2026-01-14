@@ -14,7 +14,10 @@ import {
   Leaf,
   LogIn,
   UserPlus,
-  Receipt
+  Receipt,
+  QrCode,
+  Copy,
+  Check
 } from 'lucide-react';
 import { fetchPublicBill, selectPaymentMethod, claimPOSReceipt, getStoredRole, hasSession } from '../services/api';
 import toast from 'react-hot-toast';
@@ -35,6 +38,14 @@ const CustomerPayment = () => {
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [claimingReceipt, setClaimingReceipt] = useState(false);
   const [receiptClaimed, setReceiptClaimed] = useState(false);
+  
+  // iOS-specific states
+  const [showIOSOptions, setShowIOSOptions] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
+  const [copied, setCopied] = useState({ upiId: false, amount: false });
+  
+  // Platform detection
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   
   // Check if customer is logged in
   const isLoggedIn = hasSession() && getStoredRole() === 'customer';
@@ -149,7 +160,15 @@ const CustomerPayment = () => {
       
       if (method === 'upi' && data.upiLink) {
         setUpiLink(data.upiLink);
-        // Auto-redirect to UPI app after small delay for UX
+        
+        // iOS: Show app selection screen instead of auto-redirect
+        if (isIOS) {
+          setShowIOSOptions(true);
+          setProcessing(false);
+          return;
+        }
+        
+        // Android: Auto-redirect to UPI app
         setTimeout(() => {
           window.location.href = data.upiLink;
         }, 500);
@@ -163,6 +182,59 @@ const CustomerPayment = () => {
       setSelectedMethod(null);
     } finally {
       setProcessing(false);
+    }
+  };
+  
+  // Handle iOS app-specific payment
+  const handleIOSAppPayment = (appType) => {
+    if (!bill?.merchant?.upiId) return;
+    
+    const upiId = bill.merchant.upiId;
+    const pn = encodeURIComponent(bill.merchant.upiName || bill.merchant.shopName || 'Merchant');
+    const am = bill.total.toFixed(2);
+    const cu = 'INR';
+    const tn = encodeURIComponent(bill.upiNote || `Payment to ${bill.merchant.shopName}`);
+    
+    let deepLink = '';
+    
+    switch (appType) {
+      case 'gpay':
+        deepLink = `gpay://upi/pay?pa=${upiId}&pn=${pn}&am=${am}&cu=${cu}&tn=${tn}`;
+        break;
+      case 'phonepe':
+        deepLink = `phonepe://pay?pa=${upiId}&pn=${pn}&am=${am}&cu=${cu}&tn=${tn}`;
+        break;
+      case 'paytm':
+        deepLink = `paytmmp://pay?pa=${upiId}&pn=${pn}&am=${am}&cu=${cu}&tn=${tn}`;
+        break;
+      default:
+        return;
+    }
+    
+    // Try to open the app
+    window.location.href = deepLink;
+    
+    // Show fallback message after delay
+    setTimeout(() => {
+      toast('If the app didn\'t open, please use the QR code or copy UPI ID option', {
+        duration: 4000,
+        icon: 'ℹ️',
+      });
+    }, 2000);
+  };
+  
+  // Copy to clipboard helper
+  const copyToClipboard = async (text, type) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(prev => ({ ...prev, [type]: true }));
+      toast.success(`${type === 'upiId' ? 'UPI ID' : 'Amount'} copied!`);
+      setTimeout(() => {
+        setCopied(prev => ({ ...prev, [type]: false }));
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      toast.error('Failed to copy. Please try manually.');
     }
   };
 
@@ -360,6 +432,167 @@ const CustomerPayment = () => {
 
   // UPI selected - redirect screen with polling
   if (selectedMethod === 'upi' && upiLink) {
+    // iOS: Show app selection instead of auto-redirect
+    if (isIOS && showIOSOptions) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-slate-900 to-slate-900 flex items-center justify-center p-4">
+          <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl p-6 max-w-md w-full border border-purple-500/30">
+            {/* Header */}
+            <div className="text-center mb-6">
+              <h1 className="text-2xl font-bold text-white mb-2">Pay ₹{bill.total}</h1>
+              <p className="text-slate-400 text-sm">{bill.merchant?.shopName || 'Merchant'}</p>
+            </div>
+
+            {/* QR Code Section */}
+            {showQRCode ? (
+              <div className="bg-slate-900/50 rounded-2xl p-6 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-white font-bold text-sm">Scan QR Code</h3>
+                  <button 
+                    onClick={() => setShowQRCode(false)}
+                    className="text-slate-400 hover:text-white text-xs"
+                  >
+                    Back
+                  </button>
+                </div>
+                <div className="bg-white p-4 rounded-xl mx-auto w-fit">
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                      `upi://pay?pa=${bill.merchant.upiId}&pn=${encodeURIComponent(bill.merchant.upiName || bill.merchant.shopName)}&cu=INR`
+                    )}`}
+                    alt="UPI QR Code"
+                    className="w-48 h-48"
+                  />
+                </div>
+                <p className="text-slate-400 text-xs text-center mt-3">
+                  Open any UPI app and scan this QR code
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* UPI App Options */}
+                <div className="space-y-3 mb-6">
+                  <p className="text-slate-400 text-xs text-center mb-3">Choose your UPI app</p>
+                  
+                  {/* Google Pay */}
+                  <button
+                    onClick={() => handleIOSAppPayment('gpay')}
+                    className="w-full p-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 rounded-xl flex items-center justify-between transition-all active:scale-[0.98]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-xl">
+                        G
+                      </div>
+                      <span className="font-bold text-white">Google Pay</span>
+                    </div>
+                    <ArrowRight size={18} className="text-white/60" />
+                  </button>
+
+                  {/* PhonePe */}
+                  <button
+                    onClick={() => handleIOSAppPayment('phonepe')}
+                    className="w-full p-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 rounded-xl flex items-center justify-between transition-all active:scale-[0.98]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-xl">
+                        📱
+                      </div>
+                      <span className="font-bold text-white">PhonePe</span>
+                    </div>
+                    <ArrowRight size={18} className="text-white/60" />
+                  </button>
+
+                  {/* Paytm */}
+                  <button
+                    onClick={() => handleIOSAppPayment('paytm')}
+                    className="w-full p-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-xl flex items-center justify-between transition-all active:scale-[0.98]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-xl">
+                        💳
+                      </div>
+                      <span className="font-bold text-white">Paytm</span>
+                    </div>
+                    <ArrowRight size={18} className="text-white/60" />
+                  </button>
+                </div>
+
+                <div className="relative mb-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-slate-700"></div>
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="bg-slate-800 px-2 text-slate-500">OR</span>
+                  </div>
+                </div>
+
+                {/* Alternative Options */}
+                <div className="space-y-3">
+                  {/* Show QR Code */}
+                  <button
+                    onClick={() => setShowQRCode(true)}
+                    className="w-full p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center justify-center gap-2 text-white transition-all"
+                  >
+                    <QrCode size={18} />
+                    <span className="font-medium">Show QR Code</span>
+                  </button>
+
+                  {/* Copy UPI ID */}
+                  <button
+                    onClick={() => copyToClipboard(bill.merchant.upiId, 'upiId')}
+                    className="w-full p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center justify-center gap-2 text-white transition-all"
+                  >
+                    {copied.upiId ? <Check size={18} /> : <Copy size={18} />}
+                    <span className="font-medium">Copy UPI ID</span>
+                  </button>
+
+                  {/* Copy Amount */}
+                  <button
+                    onClick={() => copyToClipboard(bill.total.toString(), 'amount')}
+                    className="w-full p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center justify-center gap-2 text-white transition-all"
+                  >
+                    {copied.amount ? <Check size={18} /> : <Copy size={18} />}
+                    <span className="font-medium">Copy Amount (₹{bill.total})</span>
+                  </button>
+                </div>
+
+                {/* Instructions for bank apps */}
+                <div className="mt-6 bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                  <p className="text-blue-400 text-xs font-medium mb-2">Using a bank UPI app?</p>
+                  <ol className="text-slate-400 text-xs space-y-1 list-decimal list-inside">
+                    <li>Copy the UPI ID and amount above</li>
+                    <li>Open your bank's UPI app</li>
+                    <li>Choose "Send Money" or "Pay"</li>
+                    <li>Paste UPI ID: {bill.merchant.upiId}</li>
+                    <li>Enter amount: ₹{bill.total}</li>
+                  </ol>
+                </div>
+              </>
+            )}
+
+            {/* Waiting status */}
+            <div className="mt-6 flex items-center justify-center gap-2 text-purple-400 text-sm">
+              <Loader2 size={14} className="animate-spin" />
+              <span>Waiting for merchant confirmation...</span>
+            </div>
+
+            {/* Back button */}
+            <button
+              onClick={() => {
+                setShowIOSOptions(false);
+                setSelectedMethod(null);
+                setUpiLink(null);
+              }}
+              className="w-full mt-4 py-2 text-slate-400 hover:text-white text-sm transition-colors"
+            >
+              ← Back to payment options
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
+    // Android: Show simple redirect screen
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-slate-900 to-slate-900 flex items-center justify-center p-4">
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl p-8 max-w-sm w-full text-center border border-purple-500/30">
