@@ -1646,7 +1646,7 @@
 // export default MerchantCalendar;
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Calendar as CalendarIcon, X, Filter, ChevronDown, Check, Receipt, User, ShoppingBag, Wallet, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react'; 
+import { Calendar as CalendarIcon, X, Filter, ChevronDown, Check, Receipt, User, ShoppingBag, Wallet, ChevronLeft, ChevronRight, CheckCircle, Clock } from 'lucide-react';
 import { fetchMerchantReceipts } from '../../services/api';
 import { MONTH_NAMES } from '../../utils/mockData';
 import { getISTYear, getISTMonth } from '../../utils/timezone';
