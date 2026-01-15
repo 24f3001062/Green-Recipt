@@ -20,7 +20,7 @@ const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || JWT_SECRET + "_
 
 // Token config
 const ACCESS_TOKEN_EXPIRES_IN = "15m";
-const REFRESH_TOKEN_EXPIRES_IN_DAYS = 21;
+const REFRESH_TOKEN_EXPIRES_IN_DAYS = 30;
 const REFRESH_TOKEN_EXPIRES_IN_MS = REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000;
 
 const getAllowedOrigins = () => {
@@ -698,7 +698,7 @@ export const login = async (req, res) => {
     res.json({
       accessToken,
       expiresIn: 15 * 60, // 15 minutes in seconds
-      refreshExpiresIn: REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60, // 21 days in seconds
+      refreshExpiresIn: REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60, // 30 days in seconds
       role: account.role,
       user:
         account.role === "customer"

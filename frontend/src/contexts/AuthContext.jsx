@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }) => {
   /**
    * Initialize auth state from stored tokens
    * On app load, attempts to refresh the access token using HTTP-only cookie
-   * This keeps users logged in for 21 days
+  * This keeps users logged in for 30 days
    */
   const initializeAuth = useCallback(async () => {
     setIsLoading(true);

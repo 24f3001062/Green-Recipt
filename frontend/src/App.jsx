@@ -214,11 +214,11 @@ function App() {
 
           {/* 2. Customer Routes */}
           <Route path="/customer-login" element={<GuestRoute><CustomerLogin /></GuestRoute>} />
-          <Route path="/customer-signup" element={<CustomerSignup />} />
-          <Route path="/verify-customer" element={<CustomerVerify />} />
+          <Route path="/customer-signup" element={<GuestRoute><CustomerSignup /></GuestRoute>} />
+          <Route path="/verify-customer" element={<GuestRoute><CustomerVerify /></GuestRoute>} />
           
           {/* Signup Success Page */}
-          <Route path="/signup-success" element={<SignupSuccess />} />
+          <Route path="/signup-success" element={<GuestRoute><SignupSuccess /></GuestRoute>} />
 
           {/* TEMP: Preview Route (Delete this later) */}
           <Route path="/test-tour" element={<AppWalkthrough />} />
@@ -234,8 +234,8 @@ function App() {
 
           {/* 3. Merchant Routes */}
           <Route path="/merchant-login" element={<GuestRoute><MerchantLogin /></GuestRoute>} />
-          <Route path="/merchant-signup" element={<MerchantSignup />} />
-          <Route path="/verify-merchant" element={<MerchantVerify />} />
+          <Route path="/merchant-signup" element={<GuestRoute><MerchantSignup /></GuestRoute>} />
+          <Route path="/verify-merchant" element={<GuestRoute><MerchantVerify /></GuestRoute>} />
 
           {/* Merchant Dashboard (Wildcard handles sub-routes) */}
           <Route
