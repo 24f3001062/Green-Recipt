@@ -20,6 +20,21 @@ const userSchema = new mongoose.Schema(
 			required: true,
 			minlength: 6,
 		},
+		// Google OAuth fields
+		googleId: {
+			type: String,
+			sparse: true,
+			index: true,
+		},
+		authProvider: {
+			type: String,
+			enum: ["email", "google", "both"],
+			default: "email",
+		},
+		avatar: {
+			type: String,
+			trim: true,
+		},
 		role: {
 			type: String,
 			enum: ["customer"],

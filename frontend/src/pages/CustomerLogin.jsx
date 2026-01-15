@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { Receipt, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react"; // 👈 Used Lucide for consistent icons
 import useForceLightMode from "../hooks/useForceLightMode";
+import GoogleLoginButton from "../components/auth/GoogleLoginButton";
 
 const CustomerLogin = () => {
   useForceLightMode();
@@ -167,6 +168,38 @@ const CustomerLogin = () => {
             >
               {loading ? "Logging in..." : "Log In"}
             </button>
+
+            {/* OR Divider */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200"></div>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-4 text-slate-400 font-medium">or continue with</span>
+              </div>
+            </div>
+
+            {/* Google Login Button */}
+            <GoogleLoginButton
+              role="customer"
+              onSuccess={(data) => {
+                if (returnTo) {
+                  navigate(returnTo);
+                } else {
+                  navigate("/customer-dashboard");
+                }
+              }}
+              onError={(err) => {
+                if (err.code === "ROLE_MISMATCH") {
+                  setRoleMismatch({
+                    actualRole: err.error?.response?.data?.actualRole,
+                    message: err.message,
+                  });
+                } else {
+                  setError(err.message);
+                }
+              }}
+            />
 
             {/* NEW LINK BELOW BUTTON */}
             <div className="text-center mt-4">

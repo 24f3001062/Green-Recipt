@@ -236,6 +236,7 @@ import {
   Building2,
 } from "lucide-react"; // 👈 Lucide Icons
 import useForceLightMode from "../hooks/useForceLightMode";
+import GoogleLoginButton from "../components/auth/GoogleLoginButton";
 
 const MerchantSignup = () => {
   useForceLightMode();
@@ -331,6 +332,29 @@ const MerchantSignup = () => {
           <p className="text-slate-500 text-sm mb-6">
             Start generating digital receipts today.
           </p>
+
+          {/* Google Signup Button */}
+          <div className="mb-6">
+            <GoogleLoginButton
+              role="merchant"
+              onSuccess={(data) => {
+                navigate('/merchant/overview');
+              }}
+              onError={(err) => {
+                setError(err.message);
+              }}
+            />
+          </div>
+
+          {/* OR Divider */}
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-4 text-slate-400 font-medium">or sign up with email</span>
+            </div>
+          </div>
 
           <form onSubmit={handleSignup} className="space-y-4">
             {error && <div className="text-sm text-red-600">{error}</div>}

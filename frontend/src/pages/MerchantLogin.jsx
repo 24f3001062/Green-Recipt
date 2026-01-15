@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { Store, Briefcase, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import useForceLightMode from "../hooks/useForceLightMode";
+import GoogleLoginButton from "../components/auth/GoogleLoginButton";
 
 const MerchantLogin = () => {
   useForceLightMode();
@@ -161,6 +162,34 @@ const MerchantLogin = () => {
             >
               {loading ? "Signing in..." : "Access Dashboard"}
             </button>
+
+            {/* OR Divider */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200"></div>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-4 text-slate-400 font-medium">or continue with</span>
+              </div>
+            </div>
+
+            {/* Google Login Button */}
+            <GoogleLoginButton
+              role="merchant"
+              onSuccess={(data) => {
+                navigate('/merchant/overview');
+              }}
+              onError={(err) => {
+                if (err.code === "ROLE_MISMATCH") {
+                  setRoleMismatch({
+                    actualRole: err.error?.response?.data?.actualRole,
+                    message: err.message,
+                  });
+                } else {
+                  setError(err.message);
+                }
+              }}
+            />
 
             {/* NEW LINK BELOW BUTTON */}
             <div className="text-center mt-4">

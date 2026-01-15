@@ -20,6 +20,7 @@ import {
 	logoutAll,
 	getSession,
 } from "../controllers/authController.js";
+import { googleAuth, googleAuthStatus } from "../controllers/googleAuthController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { validate } from "../middleware/validate.js";
 import {
@@ -75,6 +76,10 @@ router.post("/signup/merchant", validate(merchantSignupSchema), registerMerchant
 
 // Login
 router.post("/login", validate(loginSchema), login);
+
+// Google OAuth
+router.post("/google", googleAuth);
+router.get("/google/status", googleAuthStatus);
 
 // Legacy OTP routes (kept for backward compatibility)
 router.post("/otp/request", otpLimiter, validate(otpRequestSchema), requestOtp);
