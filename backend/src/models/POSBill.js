@@ -151,6 +151,53 @@ const posBillSchema = new mongoose.Schema(
       type: String,
       default: "INR",
     },
+    
+    // ==========================================
+    // CASHFREE PAYMENT GATEWAY FIELDS
+    // Used for Cashfree-based UPI payments (Zomato-style flow)
+    // ==========================================
+    
+    // Cashfree order ID (returned by Cashfree API when order is created)
+    // Format: order_XXXXXXX - unique identifier in Cashfree system
+    cashfreeOrderId: {
+      type: String,
+      sparse: true,
+      index: true,
+    },
+    
+    // Payment session ID for Cashfree hosted checkout
+    // Used to initialize Cashfree SDK or redirect to checkout page
+    paymentSessionId: {
+      type: String,
+      sparse: true,
+    },
+    
+    // Cashfree payment ID (received via webhook after successful payment)
+    // This is the actual payment transaction ID
+    cashfreePaymentId: {
+      type: String,
+      sparse: true,
+    },
+    
+    // Order status from Cashfree (tracked for reconciliation)
+    // ACTIVE, PAID, EXPIRED (Cashfree's order states)
+    cashfreeOrderStatus: {
+      type: String,
+      enum: ["ACTIVE", "PAID", "EXPIRED", null],
+      default: null,
+    },
+    
+    // Raw webhook payload (stored for debugging/reconciliation)
+    cashfreeWebhookPayload: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    
+    // Whether payment was via Cashfree gateway (vs direct UPI deep link)
+    isCashfreePayment: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

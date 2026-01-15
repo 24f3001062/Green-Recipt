@@ -723,6 +723,36 @@ export const claimPOSReceipt = (billId) =>
   api.post(`/pos/bills/${billId}/claim`);
 
 // ==========================================
+// CASHFREE PAYMENT GATEWAY APIs
+// Used for Zomato-style payment flow (hosted checkout)
+// ==========================================
+
+/**
+ * Create a Cashfree order for a bill (PUBLIC - No auth)
+ * This initiates the Cashfree payment flow
+ * 
+ * @param {string} billId - Bill ID to create order for
+ * @param {Object} customerInfo - Optional customer details
+ * @param {string} customerInfo.customerPhone - Customer phone (optional)
+ * @param {string} customerInfo.customerEmail - Customer email (optional)
+ * @param {string} customerInfo.customerName - Customer name (optional)
+ * @returns {Promise<{orderId, paymentSessionId, checkoutUrl, amount}>}
+ */
+export const createCashfreeOrder = (billId, customerInfo = {}) =>
+  api.post(`/payments/create-order/${billId}`, customerInfo);
+
+/**
+ * Get payment status for a bill (PUBLIC - No auth)
+ * Used for polling payment completion after Cashfree checkout
+ * 
+ * @param {string} billId - Bill ID to check status for
+ * @param {boolean} verify - If true, verifies status with Cashfree API
+ * @returns {Promise<{billId, status, paymentMethod, amount, paidAt, cashfreeOrderId}>}
+ */
+export const getPaymentStatus = (billId, verify = false) =>
+  api.get(`/payments/status/${billId}${verify ? '?verify=true' : ''}`);
+
+// ==========================================
 // UPI Settings APIs
 // ==========================================
 

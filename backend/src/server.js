@@ -15,6 +15,7 @@ import merchantRoutes from "./routes/merchantRoutes.js";
 import billRoutes from "./routes/billRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import posRoutes from "./routes/posRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 import { startScheduler, stopScheduler } from "./services/reminderScheduler.js";
 
 const app = express();
@@ -51,6 +52,14 @@ app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 app.use(helmet());
 app.use(cookieParser());
+
+// ==========================================
+// CASHFREE WEBHOOK - RAW BODY PARSER
+// CRITICAL: Must be BEFORE express.json() middleware
+// Webhooks require raw body for HMAC signature verification
+// ==========================================
+app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
+
 // Customer receipt uploads may include base64 data URLs (images), which exceed 10kb.
 // Keep a conservative cap to avoid overly large payloads.
 app.use(express.json({ limit: "5mb" }));
@@ -85,6 +94,7 @@ app.use("/api/merchant", merchantRoutes);
 app.use("/api/bills", billRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/pos", posRoutes);
+app.use("/api/payments", paymentRoutes); // Cashfree payment gateway routes
 
 // Start reminder scheduler after routes are set up
 startScheduler();

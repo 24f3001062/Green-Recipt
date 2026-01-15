@@ -527,9 +527,9 @@ const CustomerDashboard = () => {
         // 🆕 CHECK FOR URL-BASED QR (NEW POS FLOW)
         // Format: https://yourapp.com/pay/BILL_ID or just /pay/BILL_ID
         // ========================
-        const urlMatch = rawText.match(/\/pay\/([a-f0-9]{24})/i);
-        if (urlMatch) {
-          const billId = urlMatch[1];
+        const payUrlMatch = rawText.match(/\/pay\/([a-f0-9]{24})/i);
+        if (payUrlMatch) {
+          const billId = payUrlMatch[1];
           console.log('[QR Scanner] Detected POS bill URL, billId:', billId);
           
           // Close scanner and navigate to payment page
@@ -539,6 +539,18 @@ const CustomerDashboard = () => {
           
           // Navigate to the payment page
           navigate(`/pay/${billId}`);
+          return;
+        }
+
+        const receiptUrlMatch = rawText.match(/\/r\/([a-f0-9]{24})/i);
+        if (receiptUrlMatch) {
+          const receiptId = receiptUrlMatch[1];
+          console.log('[QR Scanner] Detected receipt URL, receiptId:', receiptId);
+
+          setIsScanning(false);
+          setScanResult(null);
+          toast.success('Receipt found! Opening...', { duration: 1500 });
+          navigate(`/r/${receiptId}`);
           return;
         }
         
@@ -556,8 +568,20 @@ const CustomerDashboard = () => {
             navigate(`/pay/${billId}`);
             return;
           }
+
+          const urlReceiptMatch = rawText.match(/\/r\/([a-f0-9]{24})/i);
+          if (urlReceiptMatch) {
+            const receiptId = urlReceiptMatch[1];
+            console.log('[QR Scanner] Detected full URL with receiptId:', receiptId);
+
+            setIsScanning(false);
+            setScanResult(null);
+            toast.success('Receipt found! Opening...', { duration: 1500 });
+            navigate(`/r/${receiptId}`);
+            return;
+          }
           
-          // If it's a URL but not a payment URL, show error
+          // If it's a URL but not a recognized URL, show error
           console.log('[QR Scanner] Unknown URL format:', rawText);
           toast.error('Unrecognized QR code');
           return;

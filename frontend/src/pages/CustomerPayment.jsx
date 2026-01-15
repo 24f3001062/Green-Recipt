@@ -16,9 +16,19 @@ import {
   UserPlus,
   Receipt,
   Copy,
-  Check
+  Check,
+  CreditCard,
+  Shield
 } from 'lucide-react';
-import { fetchPublicBill, selectPaymentMethod, claimPOSReceipt, getStoredRole, hasSession } from '../services/api';
+import { 
+  fetchPublicBill, 
+  selectPaymentMethod, 
+  claimPOSReceipt, 
+  getStoredRole, 
+  hasSession,
+  createCashfreeOrder,
+  getPaymentStatus
+} from '../services/api';
 import toast from 'react-hot-toast';
 
 const CustomerPayment = () => {
@@ -41,6 +51,10 @@ const CustomerPayment = () => {
   // iOS-specific states
   const [showIOSOptions, setShowIOSOptions] = useState(false);
   const [copied, setCopied] = useState({ upiId: false, amount: false });
+  
+  // Cashfree payment states
+  const [cashfreeLoading, setCashfreeLoading] = useState(false);
+  const [useCashfree, setUseCashfree] = useState(true); // Default to Cashfree for reliability
   
   // Platform detection
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -208,6 +222,89 @@ const CustomerPayment = () => {
       setSelectedMethod(null);
     } finally {
       setProcessing(false);
+    }
+  };
+
+  /**
+   * Handle Cashfree UPI Payment (Zomato-style flow)
+   * 
+   * This is the recommended payment method because:
+   * 1. Higher success rate across all UPI apps
+   * 2. Merchant KYC compliance (no "merchant not verified" errors)
+   * 3. Automatic payment confirmation via webhook
+   * 4. Works reliably on both iOS and Android
+   * 
+   * Flow:
+   * 1. Call backend to create Cashfree order
+   * 2. Redirect to Cashfree hosted checkout
+   * 3. Customer selects UPI app and completes payment
+   * 4. Cashfree redirects back with status
+   * 5. Webhook confirms payment on backend
+   */
+  const handleCashfreePayment = async () => {
+    if (cashfreeLoading) return;
+    
+    console.log('[CustomerPayment] Starting Cashfree payment flow');
+    setCashfreeLoading(true);
+    setSelectedMethod('upi');
+    
+    try {
+      // Create Cashfree order on backend
+      // Backend uses secret key to create order (secure server-side)
+      const { data } = await createCashfreeOrder(billId, {
+        customerPhone: bill.customerPhone || '',
+        customerName: bill.customerName || '',
+      });
+      
+      console.log('[CustomerPayment] Cashfree order created:', {
+        orderId: data.orderId,
+        hasCheckoutUrl: !!data.checkoutUrl,
+        hasSessionId: !!data.paymentSessionId,
+      });
+      
+      // Option 1: Use checkout URL (redirect flow)
+      if (data.checkoutUrl) {
+        // Redirect to Cashfree hosted checkout
+        // Customer will complete payment there and be redirected back
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+      
+      // Option 2: Use payment session ID with Cashfree SDK
+      // This requires loading Cashfree SDK on frontend
+      if (data.paymentSessionId) {
+        // For now, we'll construct the checkout URL manually
+        // In production, you'd load Cashfree SDK and call:
+        // Cashfree.checkout({ paymentSessionId: data.paymentSessionId })
+        
+        // Cashfree checkout URL format
+        const cashfreeBase = import.meta.env.VITE_CASHFREE_BASE || 'https://sandbox.cashfree.com';
+        const checkoutUrl = `${cashfreeBase}/pg/pay/${data.orderId}?payment_session_id=${data.paymentSessionId}`;
+        
+        window.location.href = checkoutUrl;
+        return;
+      }
+      
+      // Fallback: Show error
+      throw new Error('No checkout URL or session ID received');
+      
+    } catch (err) {
+      console.error('[CustomerPayment] Cashfree payment error:', err);
+      
+      // If Cashfree fails, offer fallback to direct UPI
+      const errorMessage = err.response?.data?.message || err.message || 'Payment gateway error';
+      
+      if (err.response?.data?.code === 'GATEWAY_NOT_CONFIGURED') {
+        // Cashfree not configured - fall back to direct UPI
+        toast.error('Payment gateway not available. Using direct UPI.');
+        setUseCashfree(false);
+        handleSelectMethod('upi');
+      } else {
+        toast.error(errorMessage);
+        setSelectedMethod(null);
+      }
+    } finally {
+      setCashfreeLoading(false);
     }
   };
   
@@ -748,10 +845,40 @@ const CustomerPayment = () => {
           <div className="space-y-3">
             <p className="text-center text-slate-400 text-xs mb-4">Choose Payment Method</p>
             
+            {/* Pay by UPI (Cashfree) - RECOMMENDED */}
+            {useCashfree && (
+              <button
+                onClick={handleCashfreePayment}
+                disabled={cashfreeLoading || processing}
+                className="w-full p-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-emerald-500/20 relative overflow-hidden"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                    <CreditCard size={20} className="text-white" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-bold text-white flex items-center gap-2">
+                      Pay via UPI
+                      <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">RECOMMENDED</span>
+                    </div>
+                    <div className="text-emerald-200 text-xs flex items-center gap-1">
+                      <Shield size={10} />
+                      Secure payment gateway
+                    </div>
+                  </div>
+                </div>
+                {cashfreeLoading ? (
+                  <Loader2 size={18} className="text-white animate-spin" />
+                ) : (
+                  <ArrowRight size={18} className="text-white/60" />
+                )}
+              </button>
+            )}
+            
             {/* Pay by Cash */}
             <button
               onClick={() => handleSelectMethod('cash')}
-              disabled={processing}
+              disabled={processing || cashfreeLoading}
               className="w-full p-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-blue-500/20"
             >
               <div className="flex items-center gap-3">
@@ -766,25 +893,27 @@ const CustomerPayment = () => {
               <ArrowRight size={18} className="text-white/60" />
             </button>
 
-            {/* Pay by UPI */}
-            <button
-              onClick={() => handleSelectMethod('upi')}
-              disabled={processing || !bill.merchant?.upiId}
-              className="w-full p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-purple-500/20"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
-                  <Smartphone size={20} className="text-white" />
+            {/* Direct UPI (fallback) - Only shown if Cashfree is disabled or merchant prefers it */}
+            {(!useCashfree || bill.merchant?.preferDirectUPI) && bill.merchant?.upiId && (
+              <button
+                onClick={() => handleSelectMethod('upi')}
+                disabled={processing || cashfreeLoading}
+                className="w-full p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-purple-500/20"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                    <Smartphone size={20} className="text-white" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-bold text-white">Direct UPI</div>
+                    <div className="text-purple-200 text-xs">GPay, PhonePe, Paytm</div>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <div className="font-bold text-white">Pay by UPI</div>
-                  <div className="text-purple-200 text-xs">GPay, PhonePe, Paytm</div>
-                </div>
-              </div>
-              <ArrowRight size={18} className="text-white/60" />
-            </button>
+                <ArrowRight size={18} className="text-white/60" />
+              </button>
+            )}
             
-            {!bill.merchant?.upiId && (
+            {!useCashfree && !bill.merchant?.upiId && (
               <p className="text-center text-amber-400/70 text-[10px]">
                 <AlertCircle size={10} className="inline mr-1" />
                 UPI not available for this merchant
@@ -793,10 +922,10 @@ const CustomerPayment = () => {
           </div>
 
           {/* Processing indicator */}
-          {processing && (
+          {(processing || cashfreeLoading) && (
             <div className="mt-4 flex items-center justify-center gap-2 text-slate-400 text-sm">
               <Loader2 size={14} className="animate-spin" />
-              Processing...
+              {cashfreeLoading ? 'Preparing secure checkout...' : 'Processing...'}
             </div>
           )}
         </div>

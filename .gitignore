@@ -12,6 +12,8 @@ frontend/dist
 # Env files
 .env
 backend/.env
+backend/.env.example
+frontend/.env.example
 frontend/.env
 
 # Editor
