@@ -136,7 +136,7 @@ export const confirmPayment = async (req, res) => {
   try {
     const merchantId = req.user.id;
     const { billId } = req.params;
-    const { customerPhone, customerName } = req.body;
+    const { customerPhone, customerName, paymentMethod } = req.body;
 
     // Find the bill
     const bill = await POSBill.findOne({ _id: billId, merchantId });
@@ -186,6 +186,19 @@ export const confirmPayment = async (req, res) => {
     // Mark as PAID
     bill.status = "PAID";
     bill.paidAt = new Date();
+
+    // Allow merchant to explicitly set payment method (optional).
+    // If not provided, prefer the customer's selected method; default to 'upi'.
+    if (paymentMethod) {
+      if (!['cash', 'upi'].includes(paymentMethod)) {
+        return res.status(400).json({
+          message: "Invalid payment method. Use 'cash' or 'upi'",
+          code: "INVALID_PAYMENT_METHOD",
+        });
+      }
+      bill.paymentMethod = paymentMethod;
+      bill.customerSelected = true;
+    }
     
     // Update customer info if provided
     if (customerPhone) bill.customerPhone = customerPhone.trim();
@@ -204,7 +217,7 @@ export const confirmPayment = async (req, res) => {
       subtotal: bill.total,
       source: "qr",
       status: "completed",
-      paymentMethod: "upi",
+      paymentMethod: bill.paymentMethod || "upi",
       transactionDate: new Date(),
       paidAt: new Date(),
       note: `POS Bill: ${bill.upiNote}`,
@@ -237,6 +250,7 @@ export const confirmPayment = async (req, res) => {
         total: bill.total,
         status: bill.status,
         paidAt: bill.paidAt,
+        paymentMethod: bill.paymentMethod || null,
       },
       receipt: {
         id: receipt._id,
@@ -790,26 +804,30 @@ export const claimReceipt = async (req, res) => {
  * Format: upi://pay?pa=xxx&pn=xxx&am=xxx&cu=INR&tn=xxx
  */
 function buildUPILink({ pa, pn, am, cu = "INR", tn, upiType = "PERSONAL" }) {
-  // Personal UPI Flow (P2P) - No amount pre-filled, simple intent
-  if (upiType === "PERSONAL") {
-    const params = new URLSearchParams({
-      pa, 
-      pn, // Do not encode here, URLSearchParams handles it
-      cu,
-    });
-    return `upi://pay?${params.toString()}`;
-  }
+  // Build a UPI intent link.
+  // IMPORTANT: include `tn` wherever possible so the merchant can match the payment to the bill.
+  // For PERSONAL UPI we still include amount/note to make scan-to-pay usable out of the box;
+  // merchants who don't want prefilled amount can omit `am` when calling this helper.
 
-  // Merchant UPI Flow (P2M) - Auto-filled amount
   const params = new URLSearchParams({
     pa, // Payee VPA (UPI ID)
     pn, // Payee Name
-    am: am.toFixed(2), // Amount
     cu, // Currency
-    tn, // Transaction Note
-    mode: "02", // Secure QR/Intent mode
   });
-  
+
+  if (typeof tn === "string" && tn.trim()) {
+    params.set("tn", tn);
+  }
+
+  if (typeof am === "number" && Number.isFinite(am)) {
+    params.set("am", am.toFixed(2));
+  }
+
+  if (upiType !== "PERSONAL") {
+    // Secure QR/Intent mode (commonly used for P2M)
+    params.set("mode", "02");
+  }
+
   return `upi://pay?${params.toString()}`;
 }
 
