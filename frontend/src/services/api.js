@@ -432,6 +432,25 @@ export const changePassword = (payload) => api.post("/auth/change-password", pay
 export const deleteAccount = () => api.delete("/auth/me");
 
 // ==========================================
+// RECEIPT ACKNOWLEDGMENT FLOW APIs
+// (Clean receipt-only system - no payment processing)
+// ==========================================
+// Public receipt view (for QR scanning - no auth required)
+export const getPublicReceipt = (id) => api.get(`/receipts/public/${id}`);
+
+// Customer acknowledges receipt ("I received the bill")
+export const acknowledgeReceipt = (receiptId) => 
+  api.post("/receipts/acknowledge", { receiptId });
+
+// Merchant verification APIs
+export const fetchAwaitingVerification = (page = 1, limit = 50) => 
+  api.get(`/receipts/merchant/awaiting-verification?page=${page}&limit=${limit}`);
+export const fetchVerificationSummary = () => 
+  api.get("/receipts/merchant/verification-summary");
+export const verifyReceiptPayment = (receiptId, status, paymentMethod = null) => 
+  api.post(`/receipts/${receiptId}/verify`, { status, paymentMethod });
+
+// ==========================================
 // KHATA (PENDING DUES) APIs
 // ==========================================
 // Merchant APIs

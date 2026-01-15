@@ -67,6 +67,9 @@ const mapReceiptToClient = (receipt) => {
     status: receipt.status,
     paymentMethod: receipt.paymentMethod,
     paidAt: receipt.paidAt ? new Date(receipt.paidAt).toISOString() : null,
+    // Receipt acknowledgment flow timestamps
+    acknowledgedAt: receipt.acknowledgedAt ? new Date(receipt.acknowledgedAt).toISOString() : null,
+    verifiedAt: receipt.verifiedAt ? new Date(receipt.verifiedAt).toISOString() : null,
     createdAt: receipt.createdAt ? new Date(receipt.createdAt).toISOString() : null,
     updatedAt: receipt.updatedAt ? new Date(receipt.updatedAt).toISOString() : null,
   };
@@ -1083,5 +1086,315 @@ export const getCustomerPendingSummary = async (req, res) => {
   } catch (error) {
     console.error("getCustomerPendingSummary error", error);
     res.status(500).json({ message: "Failed to load pending summary" });
+  }
+};
+
+// ==========================================
+// RECEIPT ACKNOWLEDGMENT FLOW APIs
+// (Clean receipt-only system - no payment processing)
+// ==========================================
+
+/**
+ * Get receipt by ID (PUBLIC - No auth required)
+ * GET /api/receipts/public/:id
+ * Used when customer scans QR code to view receipt
+ */
+export const getPublicReceiptById = async (req, res) => {
+  try {
+    const receipt = await Receipt.findById(req.params.id).lean();
+
+    if (!receipt) {
+      return res.status(404).json({ message: "Receipt not found" });
+    }
+
+    // Return limited public data
+    res.json({
+      id: receipt._id,
+      merchant: receipt.merchantSnapshot?.shopName || "Unknown Merchant",
+      merchantCode: receipt.merchantSnapshot?.merchantCode || null,
+      merchantLogo: receipt.merchantSnapshot?.logoUrl || null,
+      brandColor: receipt.merchantSnapshot?.brandColor || "#10b981",
+      items: (receipt.items || []).map((item) => ({
+        name: item.name,
+        qty: item.quantity,
+        price: item.unitPrice,
+      })),
+      total: receipt.total,
+      subtotal: receipt.subtotal || receipt.total,
+      discount: receipt.discount || 0,
+      transactionDate: receipt.transactionDate ? new Date(receipt.transactionDate).toISOString() : null,
+      status: receipt.status,
+      footer: receipt.footer || receipt.merchantSnapshot?.receiptFooter || "Thank you!",
+      // Indicate if already claimed by someone
+      isClaimed: Boolean(receipt.userId),
+      // Show verification status for transparency
+      isVerified: receipt.status === "completed" || receipt.status === "pending",
+    });
+  } catch (error) {
+    console.error("getPublicReceiptById error", error);
+    res.status(500).json({ message: "Failed to load receipt" });
+  }
+};
+
+/**
+ * Acknowledge receipt (Customer saves receipt to their account)
+ * POST /api/receipts/acknowledge
+ * This is the key step - user taps "I received the bill"
+ * Receipt is linked to user, status becomes WAITING_FOR_MERCHANT
+ */
+export const acknowledgeReceipt = async (req, res) => {
+  try {
+    const { receiptId } = req.body;
+    const userId = req.user.id;
+
+    if (!receiptId) {
+      return res.status(400).json({ message: "Receipt ID is required" });
+    }
+
+    // Find the receipt
+    const receipt = await Receipt.findById(receiptId);
+    if (!receipt) {
+      return res.status(404).json({ message: "Receipt not found" });
+    }
+
+    // Check if already acknowledged by someone else
+    if (receipt.userId && receipt.userId.toString() !== userId) {
+      return res.status(403).json({ message: "Receipt already claimed by another user" });
+    }
+
+    // If already acknowledged by same user, just return success
+    if (receipt.userId?.toString() === userId && receipt.status === "waiting_for_merchant") {
+      return res.json({
+        success: true,
+        message: "Receipt already saved",
+        receipt: mapReceiptToClient(receipt.toObject()),
+      });
+    }
+
+    // Get customer info for snapshot
+    const user = await User.findById(userId).lean();
+    const customerSnapshot = user
+      ? { name: user.name, email: user.email, phone: user.phone || null }
+      : { name: "Customer", email: null, phone: null };
+
+    // Update receipt - link to user and set status to waiting for merchant verification
+    const updatedReceipt = await Receipt.findByIdAndUpdate(
+      receiptId,
+      {
+        $set: {
+          userId: userId,
+          customerSnapshot: customerSnapshot,
+          status: "waiting_for_merchant",
+          acknowledgedAt: getNowIST(),
+        }
+      },
+      { new: true }
+    );
+
+    // Send email notification to customer (async, don't block)
+    if (user?.email && updatedReceipt) {
+      sendReceiptEmail({
+        to: user.email,
+        customerName: user.name || "Customer",
+        merchantName: updatedReceipt.merchantSnapshot?.shopName || "Merchant",
+        total: updatedReceipt.total || 0,
+        date: formatISTDate(updatedReceipt.transactionDate || updatedReceipt.createdAt),
+        items: updatedReceipt.items || [],
+        paymentMethod: "Pending Verification"
+      }).catch((err) => {
+        console.error("[Receipt] Email failed:", err.message);
+      });
+    }
+
+    // Notify merchant about new receipt to verify (optional)
+    if (updatedReceipt.merchantId) {
+      try {
+        await Notification.create({
+          userId: updatedReceipt.merchantId,
+          type: "receipt_acknowledged",
+          title: "New Receipt to Verify",
+          message: `${customerSnapshot.name} acknowledged a receipt for ₹${updatedReceipt.total}`,
+          sourceType: "receipt",
+          sourceId: updatedReceipt._id,
+          idempotencyKey: `receipt_acknowledged:${updatedReceipt._id}`,
+          actionUrl: `/merchant/verify`,
+          actionLabel: "Verify Payment",
+        });
+      } catch (notifErr) {
+        console.warn("Failed to create merchant notification:", notifErr);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: "Receipt saved successfully",
+      receipt: mapReceiptToClient(updatedReceipt.toObject()),
+    });
+  } catch (error) {
+    console.error("acknowledgeReceipt error", error);
+    res.status(500).json({ message: "Failed to save receipt" });
+  }
+};
+
+/**
+ * Get all receipts waiting for merchant verification
+ * GET /api/receipts/merchant/awaiting-verification
+ * Merchant's dashboard to verify payments
+ */
+export const getMerchantAwaitingVerification = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
+    const filter = { 
+      merchantId: req.user.id, 
+      status: "waiting_for_merchant"
+    };
+
+    const [receipts, total] = await Promise.all([
+      Receipt.find(filter)
+        .sort({ acknowledgedAt: -1 }) // Most recent first
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Receipt.countDocuments(filter),
+    ]);
+
+    res.json({
+      receipts: receipts.map(mapReceiptToClient),
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    });
+  } catch (error) {
+    console.error("getMerchantAwaitingVerification error", error);
+    res.status(500).json({ message: "Failed to load receipts awaiting verification" });
+  }
+};
+
+/**
+ * Verify receipt payment (Merchant confirms payment was received)
+ * POST /api/receipts/:id/verify
+ * Merchant checks their UPI app/cash box and marks as PAID or UNPAID
+ */
+export const verifyReceiptPayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, paymentMethod } = req.body; // status: "paid" or "unpaid"
+
+    if (!["paid", "unpaid"].includes(status)) {
+      return res.status(400).json({ message: "Status must be 'paid' or 'unpaid'" });
+    }
+
+    // Find and verify ownership
+    const receipt = await Receipt.findById(id);
+    if (!receipt) {
+      return res.status(404).json({ message: "Receipt not found" });
+    }
+
+    if (!receipt.merchantId || receipt.merchantId.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized to verify this receipt" });
+    }
+
+    // Update receipt based on verification
+    const updateData = {
+      verifiedAt: getNowIST(),
+    };
+
+    if (status === "paid") {
+      updateData.status = "completed";
+      updateData.paidAt = getNowIST();
+      updateData.pendingAmount = 0;
+      if (paymentMethod && ["upi", "cash", "card", "other"].includes(paymentMethod)) {
+        updateData.paymentMethod = paymentMethod;
+      }
+    } else {
+      // Mark as unpaid/pending - customer didn't actually pay
+      updateData.status = "pending";
+      updateData.pendingAmount = receipt.total;
+    }
+
+    const updatedReceipt = await Receipt.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true }
+    );
+
+    // Notify customer about verification result
+    if (receipt.userId) {
+      try {
+        const notifTitle = status === "paid" 
+          ? "Payment Verified ✅" 
+          : "Payment Not Received";
+        const notifMessage = status === "paid"
+          ? `Your payment of ₹${receipt.total} at ${receipt.merchantSnapshot?.shopName || 'Merchant'} has been verified!`
+          : `Payment of ₹${receipt.total} at ${receipt.merchantSnapshot?.shopName || 'Merchant'} was not received. Please contact the merchant.`;
+
+        await Notification.create({
+          userId: receipt.userId,
+          type: status === "paid" ? "payment_verified" : "payment_not_received",
+          title: notifTitle,
+          message: notifMessage,
+          sourceType: "receipt",
+          sourceId: receipt._id,
+          idempotencyKey: `payment_verified:${receipt._id}:${status}`,
+        });
+      } catch (notifErr) {
+        console.warn("Failed to create customer notification:", notifErr);
+      }
+    }
+
+    // Clear analytics cache
+    clearAnalyticsCache(req.user.id);
+    if (receipt.userId) {
+      clearAnalyticsCache(receipt.userId.toString());
+    }
+
+    res.json({
+      success: true,
+      message: status === "paid" ? "Payment verified successfully" : "Marked as unpaid",
+      receipt: mapReceiptToClient(updatedReceipt.toObject()),
+    });
+  } catch (error) {
+    console.error("verifyReceiptPayment error", error);
+    res.status(500).json({ message: "Failed to verify payment" });
+  }
+};
+
+/**
+ * Get verification summary for merchant dashboard
+ * GET /api/receipts/merchant/verification-summary
+ */
+export const getMerchantVerificationSummary = async (req, res) => {
+  try {
+    const filter = { 
+      merchantId: req.user.id, 
+      status: "waiting_for_merchant"
+    };
+
+    const [summary] = await Receipt.aggregate([
+      { $match: filter },
+      { 
+        $group: { 
+          _id: null, 
+          totalAmount: { $sum: "$total" },
+          count: { $sum: 1 }
+        } 
+      }
+    ]);
+
+    res.json({
+      totalAwaitingAmount: summary?.totalAmount || 0,
+      awaitingCount: summary?.count || 0,
+    });
+  } catch (error) {
+    console.error("getMerchantVerificationSummary error", error);
+    res.status(500).json({ message: "Failed to load verification summary" });
   }
 };

@@ -17,6 +17,12 @@ import {
   payPendingBill,
   getMerchantPendingSummary,
   getCustomerPendingSummary,
+  // Receipt Acknowledgment Flow APIs
+  getPublicReceiptById,
+  acknowledgeReceipt,
+  getMerchantAwaitingVerification,
+  verifyReceiptPayment,
+  getMerchantVerificationSummary,
 } from "../controllers/receiptController.js";
 import { protect, requireRole } from "../middleware/authMiddleware.js";
 import { validate } from "../middleware/validate.js";
@@ -52,7 +58,27 @@ const reminderLimiter = rateLimit({
 
 router.use(receiptLimiter);
 
-// Standard receipt routes
+// ==========================================
+// PUBLIC ROUTES (No auth required)
+// ==========================================
+// Public receipt view (for QR code scanning)
+router.get("/public/:id", getPublicReceiptById);
+
+// ==========================================
+// RECEIPT ACKNOWLEDGMENT FLOW ROUTES
+// (Clean receipt-only system)
+// ==========================================
+// Customer acknowledges receipt (taps "I received the bill")
+router.post("/acknowledge", protect, requireRole("customer"), acknowledgeReceipt);
+
+// Merchant verification routes
+router.get("/merchant/awaiting-verification", protect, requireRole("merchant"), getMerchantAwaitingVerification);
+router.get("/merchant/verification-summary", protect, requireRole("merchant"), getMerchantVerificationSummary);
+router.post("/:id/verify", protect, requireRole("merchant"), verifyReceiptPayment);
+
+// ==========================================
+// STANDARD RECEIPT ROUTES
+// ==========================================
 router.post("/", protect, requireRole("merchant", "customer"), createReceiptLimiter, validate(createReceiptSchema), createReceipt);
 router.get("/customer", protect, requireRole("customer"), getCustomerReceipts);
 router.get("/merchant", protect, requireRole("merchant"), getMerchantReceipts);

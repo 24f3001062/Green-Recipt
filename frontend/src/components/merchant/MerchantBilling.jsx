@@ -2174,6 +2174,64 @@ const MerchantBilling = ({ inventory, profile }) => {
     }
   };
 
+  // 🆕 GENERATE CLEAN RECEIPT QR (No payment info - just receipt URL)
+  // Flow: Merchant generates receipt → Customer scans QR → Views receipt → Taps "I received bill"
+  // Receipt saved with status "WAITING_FOR_MERCHANT" → Merchant verifies later
+  const handleGenerateCleanReceiptQR = async () => {
+    const finalAmount = Math.max(0, cartTotal - discount);
+    
+    if (cart.length === 0) return;
+
+    try {
+      // Create receipt with status "created" (not pending, not completed)
+      const payload = {
+        items: cart.map((item) => ({
+          name: item.name,
+          unitPrice: item.price,
+          quantity: item.quantity,
+        })),
+        source: "qr",
+        paymentMethod: "other",
+        transactionDate: new Date().toISOString(),
+        total: finalAmount,
+        subtotal: cartTotal,
+        discount: discount,
+        footer: merchantProfile.receiptFooter,
+        status: "created", // New status - receipt created, not yet acknowledged
+      };
+
+      const { data: created } = await createReceipt(payload);
+      const persistedId = created.id || created._id;
+
+      // Track for cleanup
+      pendingReceiptIdRef.current = persistedId;
+      paymentFinalizedRef.current = false;
+
+      // Store bill data
+      setGeneratedBill({
+        id: persistedId,
+        rid: persistedId,
+        merchant: merchantProfile.shopName,
+        total: finalAmount,
+      });
+
+      // 🎯 KEY: QR contains ONLY the receipt URL - no payment info, no JSON data
+      const receiptUrl = `${window.location.origin}/r/${persistedId}`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(receiptUrl)}`;
+      
+      setQrDataUrl(qrUrl);
+      setShowQr(true);
+      
+      toast.success("Receipt QR generated! Customer can scan to save.", {
+        icon: "🧾",
+        duration: 3000,
+      });
+    } catch (err) {
+      console.error("Clean receipt QR generation failed", err);
+      toast.error("Could not generate QR. Please try again.");
+    }
+  };
+
   // 🆕 GENERATE UNIFIED PAYMENT QR
   // Creates a bill and generates QR pointing to /pay/:billId
   // Customer scans → chooses Cash or UPI → merchant confirms

@@ -173,6 +173,9 @@ import MerchantDashboard from "./pages/MerchantDashboard";
 // Customer Payment Page (Public - for QR scan)
 import CustomerPayment from "./pages/CustomerPayment";
 
+// Receipt View Page (Public - for clean receipt QR scan)
+import ReceiptView from "./pages/ReceiptView";
+
 // Success Page
 import SignupSuccess from "./pages/SignupSuccess";
 
@@ -211,6 +214,9 @@ function App() {
           
           {/* Customer Payment Page (Public - QR scan destination) */}
           <Route path="/pay/:billId" element={<CustomerPayment />} />
+          
+          {/* Receipt View Page (Public - Clean receipt QR scan) */}
+          <Route path="/r/:receiptId" element={<ReceiptView />} />
 
           {/* 2. Customer Routes */}
           <Route path="/customer-login" element={<GuestRoute><CustomerLogin /></GuestRoute>} />

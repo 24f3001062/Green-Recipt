@@ -58,7 +58,7 @@ const receiptSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["completed", "pending", "void"],
+      enum: ["completed", "pending", "void", "created", "waiting_for_merchant"],
       default: "completed",
     },
     // Khata (pending dues) fields
@@ -136,6 +136,15 @@ const receiptSchema = new mongoose.Schema(
       default: "general",
     },
     paidAt: {
+      type: Date,
+      default: null,
+    },
+    // Receipt acknowledgment flow timestamps
+    acknowledgedAt: {
+      type: Date,
+      default: null,
+    },
+    verifiedAt: {
       type: Date,
       default: null,
     },

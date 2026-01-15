@@ -15,6 +15,7 @@ import MerchantItems from '../components/merchant/MerchantItems';
 import MerchantInsights from '../components/merchant/MerchantInsights';
 import MerchantProfile from '../components/merchant/MerchantProfile';
 import MerchantOnboardingWizard from '../components/onboarding/MerchantOnboardingWizard';
+import MerchantVerify from '../components/merchant/MerchantVerify';
 
 const MerchantDashboard = () => {
   const location = useLocation();
@@ -167,6 +168,7 @@ const MerchantDashboard = () => {
                   <Route path="items" element={<MerchantItems />} />
                   <Route path="insights" element={<MerchantInsights />} />
                   <Route path="profile" element={<MerchantProfile />} />
+                  <Route path="verify" element={<MerchantVerify />} />
                   
                   {/* Catch-all redirect to overview */}
                   <Route path="*" element={<Navigate to="/merchant/overview" replace />} />
