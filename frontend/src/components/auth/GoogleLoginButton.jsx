@@ -82,47 +82,55 @@ const GoogleLoginButton = ({
   };
 
   return (
-    <div className={`google-login-container ${className}`}>
-      {error && (
-        <div className="text-sm text-red-600 mb-3 text-center">
-          {error}
-        </div>
-      )}
-      
-      {loading ? (
-        <div className="w-full flex items-center justify-center py-3 bg-white border border-slate-200 rounded-xl">
-          <div className="flex items-center gap-2 text-slate-600">
-            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-              <circle 
-                className="opacity-25" 
-                cx="12" cy="12" r="10" 
-                stroke="currentColor" 
-                strokeWidth="4" 
-                fill="none"
-              />
-              <path 
-                className="opacity-75" 
-                fill="currentColor" 
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-              />
-            </svg>
-            <span className="text-sm font-medium">Signing in...</span>
-          </div>
-        </div>
-      ) : (
-        <GoogleLogin
-          onSuccess={handleGoogleSuccess}
-          onError={handleGoogleError}
-          text="continue_with"
-          shape="rectangular"
-          size="large"
-          width="100%"
-          logo_alignment="left"
-          useOneTap={false}
-          theme="outline"
-        />
-      )}
+
+<div className={`google-login-container w-full flex flex-col items-center gap-3 ${className}`}>
+  
+  {/* Error Message */}
+  {error && (
+    <div className="w-full px-4 py-2.5 bg-red-50 border border-red-100 text-red-600 text-sm font-medium rounded-2xl shadow-sm text-center flex items-center justify-center gap-2 animate-fade-in">
+      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      {error}
     </div>
+  )}
+
+  {loading ? (
+    // LOADING STATE: Matches the new short/pill dimensions
+    <div className="w-[230px] h-[40px] flex items-center justify-center gap-3 bg-white border border-slate-200 rounded-full shadow-md cursor-wait transition-all">
+      <div className="relative flex h-4 w-4">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-400 opacity-75"></span>
+        <span className="relative inline-flex rounded-full h-4 w-4 border-2 border-slate-300 border-t-slate-600 animate-spin"></span>
+      </div>
+      <span className="text-xs font-bold tracking-wide text-slate-600 animate-pulse">
+        Signing in...
+      </span>
+    </div>
+  ) : (
+    // GOOGLE BUTTON WRAPPER
+    // 1. w-fit + mx-auto: Centers the button and shrinks it to be "short"
+    // 2. shadow-md: Adds the custom shadow you asked for
+    // 3. rounded-full + overflow-hidden: Enforces the smooth curve
+    <div className="w-fit mx-auto rounded-full shadow-md hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-0.5 relative overflow-hidden bg-white">
+      
+      {/* Optional: Subtle background hover effect */}
+      <div className="absolute inset-0 bg-white hover:bg-slate-50 transition-colors duration-200 -z-10"></div>
+
+      <GoogleLogin
+        onSuccess={handleGoogleSuccess}
+        onError={handleGoogleError}
+        text="continue_with"
+        shape="pill"
+        theme="outline"
+        size="large"
+        width="200"            /* Forces the "short" length (~230px brings logo & text closer) */
+        logo_alignment="center"
+        useOneTap={false}
+        locale="en"            /* Ensures text is consistent */
+      />
+    </div>
+  )}
+</div>
   );
 };
 

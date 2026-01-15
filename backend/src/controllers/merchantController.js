@@ -403,7 +403,7 @@ export const getFullProfile = async (req, res) => {
 export const getUPISettings = async (req, res) => {
 	try {
 		const merchant = await Merchant.findById(req.user.id)
-			.select("upiId upiName isUpiVerified shopName upiType")
+			.select("upiId upiName isUpiVerified shopName upiType personalUpiQrImage")
 			.lean();
 
 		if (!merchant) {
@@ -416,6 +416,7 @@ export const getUPISettings = async (req, res) => {
 			upiType: merchant.upiType || "PERSONAL",
 			isUpiVerified: merchant.isUpiVerified || false,
 			isConfigured: !!merchant.upiId,
+			personalUpiQrImage: merchant.personalUpiQrImage || null,
 		});
 	} catch (error) {
 		console.error("getUPISettings error:", error);
@@ -436,7 +437,7 @@ export const getUPISettings = async (req, res) => {
  */
 export const updateUPISettings = async (req, res) => {
 	try {
-		const { upiId, upiName, upiType } = req.body;
+		const { upiId, upiName, upiType, personalUpiQrImage } = req.body;
 
 		// Validate UPI ID format
 		if (!upiId || typeof upiId !== "string") {
@@ -466,6 +467,21 @@ export const updateUPISettings = async (req, res) => {
 			validUpiType = upiType.toUpperCase();
 		}
 
+		// Validate personalUpiQrImage if provided (must be base64 data URL)
+		if (personalUpiQrImage && typeof personalUpiQrImage === "string") {
+			if (!personalUpiQrImage.startsWith("data:image/")) {
+				return res.status(400).json({ 
+					message: "Invalid QR image format. Must be a base64 data URL" 
+				});
+			}
+			// Check size (limit to ~2MB base64 which is about 1.5MB actual image)
+			if (personalUpiQrImage.length > 2 * 1024 * 1024) {
+				return res.status(400).json({ 
+					message: "QR image is too large. Maximum size is 2MB" 
+				});
+			}
+		}
+
 		const merchant = await Merchant.findById(req.user.id);
 		if (!merchant) {
 			return res.status(404).json({ message: "Merchant not found" });
@@ -474,6 +490,11 @@ export const updateUPISettings = async (req, res) => {
 		merchant.upiId = trimmedUpiId;
 		merchant.upiName = upiName?.trim() || merchant.shopName || null;
 		merchant.upiType = validUpiType;
+		
+		// Store personal UPI QR image (base64) if provided
+		if (personalUpiQrImage !== undefined) {
+			merchant.personalUpiQrImage = personalUpiQrImage || null;
+		}
 		
 		// UPI verification is done manually/out-of-band for now
 		// In production, you'd integrate with a UPI verification service
@@ -487,6 +508,7 @@ export const updateUPISettings = async (req, res) => {
 			upiName: merchant.upiName,
 			upiType: merchant.upiType,
 			isUpiVerified: merchant.isUpiVerified,
+			personalUpiQrImage: merchant.personalUpiQrImage || null,
 		});
 	} catch (error) {
 		console.error("updateUPISettings error:", error);

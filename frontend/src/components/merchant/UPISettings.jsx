@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Smartphone, 
   CheckCircle, 
@@ -8,7 +8,10 @@ import {
   Info,
   CreditCard,
   Shield,
-  QrCode
+  QrCode,
+  Upload,
+  X,
+  Image as ImageIcon
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fetchUPISettings, updateUPISettings, verifyUPISettings } from '../../services/api';
@@ -21,6 +24,7 @@ import { useTheme } from '../../contexts/ThemeContext';
  */
 const UPISettings = () => {
   const { isDark } = useTheme();
+  const fileInputRef = useRef(null);
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -28,6 +32,7 @@ const UPISettings = () => {
   const [upiId, setUpiId] = useState('');
   const [upiName, setUpiName] = useState('');
   const [upiType, setUpiType] = useState('PERSONAL');
+  const [personalUpiQrImage, setPersonalUpiQrImage] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
 
   // Load UPI settings on mount
@@ -42,11 +47,49 @@ const UPISettings = () => {
       setUpiId(data.upiId || '');
       setUpiName(data.upiName || '');
       setUpiType(data.upiType || 'PERSONAL');
+      setPersonalUpiQrImage(data.personalUpiQrImage || null);
     } catch (err) {
       console.error('Failed to load UPI settings:', err);
       toast.error('Failed to load UPI settings');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle QR image upload (converts to base64)
+  const handleQrImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image must be less than 2MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setPersonalUpiQrImage(event.target.result);
+      setIsEditing(true);
+    };
+    reader.onerror = () => {
+      toast.error('Failed to read image file');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Remove QR image
+  const handleRemoveQrImage = () => {
+    setPersonalUpiQrImage(null);
+    setIsEditing(true);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -67,7 +110,8 @@ const UPISettings = () => {
       const { data } = await updateUPISettings({ 
         upiId: upiId.trim(), 
         upiName: upiName.trim() || null,
-        upiType
+        upiType,
+        personalUpiQrImage
       });
       
       setSettings(data);
@@ -253,6 +297,82 @@ const UPISettings = () => {
                </p>
             )}
           </div>
+
+          {/* Personal UPI QR Image Upload - Only show for PERSONAL type */}
+          {upiType === 'PERSONAL' && (
+            <div>
+              <label className={`block text-xs font-bold uppercase mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Personal UPI QR Image
+              </label>
+              <div className={`p-4 rounded-xl border-2 border-dashed ${
+                isDark ? 'border-slate-600 bg-slate-700/30' : 'border-slate-200 bg-slate-50'
+              }`}>
+                {personalUpiQrImage ? (
+                  <div className="relative">
+                    <div className="flex justify-center">
+                      <div className={`relative p-2 rounded-xl ${isDark ? 'bg-white' : 'bg-white shadow-sm'}`}>
+                        <img 
+                          src={personalUpiQrImage} 
+                          alt="Personal UPI QR Code"
+                          className="w-40 h-40 object-contain rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleRemoveQrImage}
+                          className="absolute -top-2 -right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    <p className={`text-center text-[10px] mt-3 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                      ✓ QR image uploaded - Customers will scan this for payment
+                    </p>
+                  </div>
+                ) : (
+                  <div 
+                    className="text-center cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <div className={`w-16 h-16 mx-auto rounded-xl flex items-center justify-center mb-3 ${
+                      isDark ? 'bg-slate-600' : 'bg-slate-200'
+                    }`}>
+                      <Upload size={24} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+                    </div>
+                    <p className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      Upload your Personal UPI QR
+                    </p>
+                    <p className={`text-[10px] mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                      Get it from GPay/PhonePe → Profile → QR Code
+                    </p>
+                    <button
+                      type="button"
+                      className={`mt-3 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        isDark 
+                          ? 'bg-purple-600 text-white hover:bg-purple-700' 
+                          : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                      }`}
+                    >
+                      <ImageIcon size={14} className="inline mr-2" />
+                      Choose Image
+                    </button>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleQrImageUpload}
+                  className="hidden"
+                />
+              </div>
+              <div className={`mt-2 p-3 rounded-lg ${isDark ? 'bg-emerald-900/20 border border-emerald-500/20' : 'bg-emerald-50 border border-emerald-200'}`}>
+                <p className={`text-[10px] ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                  <span className="font-bold">💡 Why upload QR?</span> Using your personal QR ensures P2P payments that never fail with "merchant not verified" errors. Customers simply scan and pay - no UPI intents, no fees.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Save Button */}
@@ -301,12 +421,27 @@ const UPISettings = () => {
           <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} space-y-2`}>
             <p className="font-medium">How it works:</p>
             <ol className="list-decimal list-inside space-y-1">
-              <li>Customer scans the QR code with GPay/PhonePe</li>
-              <li>UPI app opens{settings?.upiType === 'MERCHANT' ? ' with amount pre-filled' : ''}</li>
-              {settings?.upiType === 'PERSONAL' && <li>Customer enters amount manually</li>}
-              <li>Customer enters PIN and pays</li>
-              <li>You see payment in your UPI app</li>
-              <li>Click "I Received" to confirm & generate receipt</li>
+              {settings?.personalUpiQrImage && settings?.upiType === 'PERSONAL' ? (
+                // P2P flow with personal QR
+                <>
+                  <li>Customer sees your personal QR code</li>
+                  <li>Customer opens GPay/PhonePe and scans QR</li>
+                  <li>Customer enters amount (₹) manually</li>
+                  <li>Customer enters PIN and pays (P2P transfer)</li>
+                  <li>You see payment in your UPI app</li>
+                  <li>Click "I Received" to confirm & generate receipt</li>
+                </>
+              ) : (
+                // Standard flow
+                <>
+                  <li>Customer scans the QR code with GPay/PhonePe</li>
+                  <li>UPI app opens{settings?.upiType === 'MERCHANT' ? ' with amount pre-filled' : ''}</li>
+                  {settings?.upiType === 'PERSONAL' && <li>Customer enters amount manually</li>}
+                  <li>Customer enters PIN and pays</li>
+                  <li>You see payment in your UPI app</li>
+                  <li>Click "I Received" to confirm & generate receipt</li>
+                </>
+              )}
             </ol>
           </div>
         </div>
@@ -317,22 +452,35 @@ const UPISettings = () => {
             <div className="flex items-center justify-center gap-2 mb-2">
               <QrCode size={16} className="text-purple-500" />
               <span className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                QR Preview
+                {settings?.personalUpiQrImage ? 'Your Personal QR' : 'QR Preview'}
               </span>
             </div>
             <div className={`inline-block p-3 rounded-xl ${isDark ? 'bg-white' : 'bg-white'} shadow-sm`}>
-              <img 
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
-                  settings.upiType === 'MERCHANT'
-                    ? `upi://pay?pa=${settings.upiId}&pn=${encodeURIComponent(settings.upiName || 'Merchant')}&am=100&cu=INR&tn=Test&mode=02`
-                    : `upi://pay?pa=${settings.upiId}&pn=${encodeURIComponent(settings.upiName || 'Merchant')}&cu=INR`
-                )}`}
-                alt="UPI QR Preview"
-                className="w-24 h-24"
-              />
+              {/* Show uploaded personal QR if available */}
+              {settings?.personalUpiQrImage ? (
+                <img 
+                  src={settings.personalUpiQrImage}
+                  alt="Personal UPI QR"
+                  className="w-24 h-24 object-contain"
+                />
+              ) : (
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
+                    settings.upiType === 'MERCHANT'
+                      ? `upi://pay?pa=${settings.upiId}&pn=${encodeURIComponent(settings.upiName || 'Merchant')}&am=100&cu=INR&tn=Test&mode=02`
+                      : `upi://pay?pa=${settings.upiId}&pn=${encodeURIComponent(settings.upiName || 'Merchant')}&cu=INR`
+                  )}`}
+                  alt="UPI QR Preview"
+                  className="w-24 h-24"
+                />
+              )}
             </div>
             <p className={`text-[10px] mt-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              {settings.upiType === 'MERCHANT' ? 'Sample QR for ₹100 payment' : 'Sample QR (amount manually entered)'}
+              {settings?.personalUpiQrImage 
+                ? '✓ Using your uploaded personal QR (P2P)' 
+                : settings.upiType === 'MERCHANT' 
+                  ? 'Sample QR for ₹100 payment' 
+                  : 'Sample QR (amount manually entered)'}
             </p>
           </div>
         )}

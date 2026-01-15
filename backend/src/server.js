@@ -28,7 +28,11 @@ connectDB();
 // Security & middleware
 const allowedOrigins = process.env.CLIENT_URL
   ? process.env.CLIENT_URL.split(",").map((o) => o.trim()).filter(Boolean)
-  : ["http://localhost:5173", "https://green-recipt.vercel.app"];
+  : [
+      "http://localhost:5173",
+      "https://green-receipt.vercel.app",
+      "https://green-recipt.vercel.app",
+    ];
 
 const corsOptions = {
   origin: (origin, callback) => {

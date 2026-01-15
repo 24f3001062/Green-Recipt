@@ -211,6 +211,14 @@ const merchantSchema = new mongoose.Schema(
 			type: Boolean,
 			default: false,
 		},
+		// Personal UPI QR Image (base64 data URL)
+		// This is a static image of the merchant's personal UPI QR code
+		// Used for P2P payments to avoid merchant verification errors
+		personalUpiQrImage: {
+			type: String,
+			trim: true,
+			default: null,
+		},
 
 		// OTP fields
 		otpCodeHash: {

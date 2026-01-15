@@ -25,7 +25,11 @@ const REFRESH_TOKEN_EXPIRES_IN_MS = REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60
 
 const getAllowedOrigins = () => {
   const raw = process.env.CLIENT_URL;
-  const defaults = ["http://localhost:5173", "https://green-recipt.vercel.app"];
+  const defaults = [
+    "http://localhost:5173",
+    "https://green-receipt.vercel.app",
+    "https://green-recipt.vercel.app",
+  ];
   if (!raw) return defaults;
   const parsed = raw
     .split(",")

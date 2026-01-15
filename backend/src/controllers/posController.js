@@ -575,9 +575,9 @@ export const getPublicBill = async (req, res) => {
       bill.status = "EXPIRED";
     }
 
-    // Get merchant details
+    // Get merchant details (including personal UPI QR image for P2P payments)
     const merchant = await Merchant.findById(bill.merchantId).select(
-      "shopName addressLine upiId upiName merchantCode"
+      "shopName addressLine upiId upiName merchantCode upiType personalUpiQrImage"
     ).lean();
 
     res.json({
@@ -596,7 +596,10 @@ export const getPublicBill = async (req, res) => {
         address: merchant?.addressLine || "",
         upiId: merchant?.upiId || null,
         upiName: merchant?.upiName || merchant?.shopName,
+        upiType: merchant?.upiType || "PERSONAL",
         code: merchant?.merchantCode,
+        // Personal UPI QR image (base64) for P2P payments - customer scans this manually
+        personalUpiQrImage: merchant?.personalUpiQrImage || null,
       },
     });
   } catch (error) {
@@ -802,13 +805,13 @@ export const claimReceipt = async (req, res) => {
 /**
  * Build UPI deep link URL
  * Format: upi://pay?pa=xxx&pn=xxx&am=xxx&cu=INR&tn=xxx
+ * 
+ * For PERSONAL UPI type: Amount is NOT included to avoid "merchant not verified" errors.
+ * Customer will enter amount manually in the UPI app (P2P transfer).
+ * 
+ * For MERCHANT UPI type: Amount is included for faster checkout.
  */
 function buildUPILink({ pa, pn, am, cu = "INR", tn, upiType = "PERSONAL" }) {
-  // Build a UPI intent link.
-  // IMPORTANT: include `tn` wherever possible so the merchant can match the payment to the bill.
-  // For PERSONAL UPI we still include amount/note to make scan-to-pay usable out of the box;
-  // merchants who don't want prefilled amount can omit `am` when calling this helper.
-
   const params = new URLSearchParams({
     pa, // Payee VPA (UPI ID)
     pn, // Payee Name
@@ -819,11 +822,11 @@ function buildUPILink({ pa, pn, am, cu = "INR", tn, upiType = "PERSONAL" }) {
     params.set("tn", tn);
   }
 
-  if (typeof am === "number" && Number.isFinite(am)) {
+  // IMPORTANT: For PERSONAL UPI type, we do NOT include amount.
+  // This ensures P2P transfer and avoids "merchant not verified" errors.
+  // Customer enters amount manually in the UPI app.
+  if (upiType !== "PERSONAL" && typeof am === "number" && Number.isFinite(am)) {
     params.set("am", am.toFixed(2));
-  }
-
-  if (upiType !== "PERSONAL") {
     // Secure QR/Intent mode (commonly used for P2M)
     params.set("mode", "02");
   }

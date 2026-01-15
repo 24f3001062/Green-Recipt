@@ -146,7 +146,7 @@
 
 import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import AppWalkthrough from "./components/onboarding/AppWalkthrough";
+// import AppWalkthrough from "./components/onboarding/AppWalkthrough";
 
 // 1. 👇 Import Splash Screen only
 import ServerAwake from "./components/common/ServerAwake";
@@ -227,7 +227,7 @@ function App() {
           <Route path="/signup-success" element={<GuestRoute><SignupSuccess /></GuestRoute>} />
 
           {/* TEMP: Preview Route (Delete this later) */}
-          <Route path="/test-tour" element={<AppWalkthrough />} />
+          {/* <Route path="/test-tour" element={<AppWalkthrough />} /> */}
 
           <Route
             path="/customer-dashboard"
