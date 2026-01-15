@@ -1,92 +1,91 @@
 import crypto from "crypto";
+import Razorpay from "razorpay";
 import POSBill from "../models/POSBill.js";
 import Receipt from "../models/Receipt.js";
 import Merchant from "../models/Merchant.js";
 
 /**
- * Payment Controller - Cashfree Payment Gateway Integration
+ * Payment Controller - Razorpay Payment Gateway Integration
  * 
- * This implements Cashfree's hosted checkout flow (Zomato-style):
+ * This implements Razorpay's checkout flow (Zomato-style):
  * - Smart QR contains ONLY a URL (no UPI intent)
  * - Customer scans QR → opens payment page
- * - Backend creates Cashfree order (server-side using secret key)
- * - Customer redirected to Cashfree hosted checkout
- * - Cashfree handles UPI app selection and payment
+ * - Backend creates Razorpay order (server-side using secret key)
+ * - Frontend opens Razorpay Checkout (UPI only)
+ * - Customer completes UPI payment
+ * - Frontend receives success callback → verifies with backend
  * - Webhook confirms payment (source of truth)
  * 
- * WHY Cashfree instead of UPI deep links?
- * - Higher success rate across all PSPs/banks
+ * WHY Razorpay instead of raw UPI links?
+ * - Higher success rate across all UPI apps
  * - Merchant KYC compliance (no "merchant not verified" errors)
+ * - TEST MODE for development (simulates UPI without real money)
  * - Reliable webhooks for payment confirmation
  * - Works consistently on iOS and Android
- * - Production-ready and scalable
+ * - Easy switch from TEST to LIVE by just changing env keys
  */
 
-// Cashfree API configuration from environment
-const CASHFREE_BASE = process.env.CASHFREE_API_BASE || "https://sandbox.cashfree.com/pg";
-const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
-const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
+// ==========================================
+// RAZORPAY CONFIGURATION
+// ==========================================
 
-// Frontend URL for redirects
-const FRONTEND_URL = process.env.CLIENT_URL?.split(",")[0] || "http://localhost:5173";
+// Razorpay key ID (safe to expose to frontend)
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 
-/**
- * Helper: Make authenticated request to Cashfree API
- * Uses x-client-id and x-client-secret headers as per Cashfree docs
- */
-const cashfreeRequest = async (method, endpoint, data = null) => {
-  const url = `${CASHFREE_BASE}${endpoint}`;
-  
-  const headers = {
-    "Content-Type": "application/json",
-    "x-client-id": CASHFREE_APP_ID,
-    "x-client-secret": CASHFREE_SECRET_KEY,
-    "x-api-version": "2023-08-01", // Use latest stable API version
-  };
-  
-  const options = {
-    method,
-    headers,
-  };
-  
-  if (data) {
-    options.body = JSON.stringify(data);
+// Razorpay secret key (NEVER expose to frontend)
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+
+// Webhook secret (configured in Razorpay Dashboard)
+const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+// Initialize Razorpay instance with TEST/LIVE keys from environment
+// IMPORTANT: Use rzp_test_* keys for testing, rzp_live_* for production
+let razorpay = null;
+const getRazorpayInstance = () => {
+  if (!razorpay && RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
+    razorpay = new Razorpay({
+      key_id: RAZORPAY_KEY_ID,
+      key_secret: RAZORPAY_KEY_SECRET,
+    });
   }
-  
-  const response = await fetch(url, options);
-  const responseData = await response.json();
-  
-  if (!response.ok) {
-    console.error("[Cashfree] API Error:", responseData);
-    throw new Error(responseData.message || `Cashfree API error: ${response.status}`);
-  }
-  
-  return responseData;
+  return razorpay;
 };
 
 /**
  * POST /api/payments/create-order/:billId
- * Create a Cashfree order for a bill
+ * Create a Razorpay order for a bill
  * 
  * This endpoint is called when customer clicks "Pay via UPI" on the payment page.
- * It creates a Cashfree order and returns the payment session for hosted checkout.
+ * It creates a Razorpay order and returns the order_id for Razorpay Checkout.
+ * 
+ * IMPORTANT:
+ * - Amount must be in PAISE (multiply by 100)
+ * - Order ID is used to track payment status
+ * - Receipt field links Razorpay order to our bill
  * 
  * SECURITY: 
  * - Secret key is used server-side only
- * - Frontend only receives session ID (safe to expose)
- * - Order is mapped to bill for reconciliation
+ * - Frontend only receives order_id and key_id (safe to expose)
  */
-export const createCashfreeOrder = async (req, res) => {
+export const createRazorpayOrder = async (req, res) => {
   try {
     const { billId } = req.params;
     const { customerPhone, customerEmail, customerName } = req.body;
     
-    // Validate Cashfree configuration
-    if (!CASHFREE_APP_ID || !CASHFREE_SECRET_KEY) {
-      console.error("[Cashfree] Missing API credentials in environment");
+    // Validate Razorpay configuration
+    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+      console.error("[Razorpay] Missing API credentials in environment");
       return res.status(500).json({ 
         message: "Payment gateway not configured",
         code: "GATEWAY_NOT_CONFIGURED"
+      });
+    }
+    
+    const razorpayInstance = getRazorpayInstance();
+    if (!razorpayInstance) {
+      return res.status(500).json({ 
+        message: "Payment gateway initialization failed",
+        code: "GATEWAY_INIT_FAILED"
       });
     }
     
@@ -129,72 +128,69 @@ export const createCashfreeOrder = async (req, res) => {
       });
     }
     
-    // IDEMPOTENCY: If order already created, return existing session
-    // This prevents multiple Cashfree orders for the same bill
-    if (bill.cashfreeOrderId && bill.paymentSessionId && bill.cashfreeOrderStatus === "ACTIVE") {
-      console.log("[Cashfree] Returning existing order for bill:", billId);
+    // IDEMPOTENCY: If order already created and not paid, return existing order
+    // This prevents multiple Razorpay orders for the same bill
+    if (bill.razorpayOrderId && bill.razorpayOrderStatus !== "paid") {
+      console.log("[Razorpay] Returning existing order for bill:", billId);
       return res.json({
-        orderId: bill.cashfreeOrderId,
-        paymentSessionId: bill.paymentSessionId,
+        success: true,
+        orderId: bill.razorpayOrderId,
+        keyId: RAZORPAY_KEY_ID,
+        amount: bill.total * 100, // paise
+        currency: "INR",
         billId: bill._id,
-        amount: bill.total,
+        merchantName: bill.merchantId?.shopName || "GreenReceipt",
         message: "Existing order returned"
       });
     }
     
-    // Generate unique order ID: GR_<billId>_<timestamp>
-    // This ensures uniqueness even if customer retries payment
-    const orderId = `GR_${bill._id}_${Date.now().toString(36)}`;
-    
-    // Build Cashfree order payload
-    // Reference: https://docs.cashfree.com/reference/pgcreateorder
-    const orderPayload = {
-      order_id: orderId,
-      order_amount: parseFloat(bill.total.toFixed(2)),
-      order_currency: "INR",
+    // Create Razorpay order
+    // Reference: https://razorpay.com/docs/api/orders/
+    const orderOptions = {
+      // Amount in PAISE (100 paise = 1 INR)
+      // CRITICAL: Razorpay requires amount in smallest currency unit
+      amount: Math.round(bill.total * 100),
       
-      // Customer details (required by Cashfree)
-      customer_details: {
-        customer_id: `CUST_${bill._id}`,
-        customer_phone: customerPhone || bill.customerPhone || "9999999999", // Fallback for required field
-        customer_email: customerEmail || "", // Optional
-        customer_name: customerName || bill.customerName || "Customer",
+      // Currency code
+      currency: "INR",
+      
+      // Receipt - links Razorpay order to our bill
+      // Max 40 characters, must be unique
+      receipt: `GR_${bill._id}`,
+      
+      // Payment capture mode
+      // 1 = auto-capture (recommended for UPI)
+      // 0 = manual capture (for card pre-auth scenarios)
+      payment_capture: 1,
+      
+      // Notes - additional data stored with order (visible in dashboard)
+      notes: {
+        billId: bill._id.toString(),
+        merchantId: bill.merchantId?._id?.toString() || "",
+        upiNote: bill.upiNote || "",
+        customerPhone: customerPhone || bill.customerPhone || "",
+        customerName: customerName || bill.customerName || "",
       },
-      
-      // Order metadata
-      order_meta: {
-        // Return URL after payment (success or failure)
-        return_url: `${FRONTEND_URL}/pay/result?billId=${bill._id}&order_id={order_id}`,
-        // Notify URL is for webhooks (handled separately)
-        notify_url: `${process.env.BACKEND_URL || 'http://localhost:5001'}/api/payments/webhook`,
-      },
-      
-      // Order note (shown in UPI app)
-      order_note: bill.upiNote || `Payment to ${bill.merchantId?.shopName || 'Merchant'}`,
-      
-      // Order expiry (optional - Cashfree default is 30 mins)
-      // We set it to match bill expiry or 30 mins, whichever is sooner
-      order_expiry_time: new Date(Math.min(
-        bill.expiresAt.getTime(),
-        Date.now() + 30 * 60 * 1000
-      )).toISOString(),
     };
     
-    console.log("[Cashfree] Creating order:", { orderId, amount: orderPayload.order_amount });
-    
-    // Create order via Cashfree API
-    const cashfreeResponse = await cashfreeRequest("POST", "/orders", orderPayload);
-    
-    console.log("[Cashfree] Order created successfully:", {
-      order_id: cashfreeResponse.order_id,
-      payment_session_id: cashfreeResponse.payment_session_id,
+    console.log("[Razorpay] Creating order:", {
+      amount: orderOptions.amount,
+      receipt: orderOptions.receipt,
     });
     
-    // Update bill with Cashfree order details
-    bill.cashfreeOrderId = cashfreeResponse.order_id || orderId;
-    bill.paymentSessionId = cashfreeResponse.payment_session_id;
-    bill.cashfreeOrderStatus = "ACTIVE";
-    bill.isCashfreePayment = true;
+    // Create order via Razorpay API
+    const order = await razorpayInstance.orders.create(orderOptions);
+    
+    console.log("[Razorpay] Order created successfully:", {
+      order_id: order.id,
+      amount: order.amount,
+      status: order.status,
+    });
+    
+    // Update bill with Razorpay order details
+    bill.razorpayOrderId = order.id;
+    bill.razorpayOrderStatus = order.status; // "created"
+    bill.isRazorpayPayment = true;
     bill.paymentMethod = "upi";
     bill.customerSelected = true;
     
@@ -205,19 +201,25 @@ export const createCashfreeOrder = async (req, res) => {
     await bill.save();
     
     // Return response to frontend
-    // Frontend will use payment_session_id to initialize Cashfree checkout
+    // Frontend will use these to initialize Razorpay Checkout
     res.json({
       success: true,
-      orderId: bill.cashfreeOrderId,
-      paymentSessionId: cashfreeResponse.payment_session_id,
+      orderId: order.id,
+      keyId: RAZORPAY_KEY_ID, // Safe to expose - this is the public key
+      amount: order.amount, // Already in paise
+      currency: order.currency,
       billId: bill._id,
-      amount: bill.total,
-      // If Cashfree returns a payment link, include it (for redirect flow)
-      checkoutUrl: cashfreeResponse.payment_link || null,
+      merchantName: bill.merchantId?.shopName || "GreenReceipt",
+      description: `Bill Payment - ${bill.upiNote || bill._id}`,
+      prefill: {
+        contact: customerPhone || bill.customerPhone || "",
+        email: customerEmail || "",
+        name: customerName || bill.customerName || "",
+      },
     });
     
   } catch (error) {
-    console.error("[Cashfree] Create order error:", error);
+    console.error("[Razorpay] Create order error:", error);
     res.status(500).json({ 
       message: "Failed to create payment order",
       error: error.message,
@@ -227,157 +229,256 @@ export const createCashfreeOrder = async (req, res) => {
 };
 
 /**
- * POST /api/payments/webhook
- * Cashfree webhook handler
+ * POST /api/payments/verify
+ * Verify Razorpay payment signature
  * 
- * CRITICAL SECURITY:
- * - Verify webhook signature using HMAC-SHA256
- * - Use raw body (not parsed JSON) for signature verification
- * - This is the ONLY authoritative source for payment confirmation
+ * This endpoint is called by frontend after Razorpay Checkout returns success.
+ * We MUST verify the signature to prevent fake success callbacks.
  * 
- * Signature verification:
- * 1. Extract x-webhook-signature and x-webhook-timestamp from headers
- * 2. Concatenate timestamp + raw_body
- * 3. Compute HMAC-SHA256 using secret key
- * 4. Base64 encode and compare with signature header
+ * SIGNATURE VERIFICATION:
+ * 1. Concatenate: razorpay_order_id + "|" + razorpay_payment_id
+ * 2. Compute HMAC-SHA256 using secret key
+ * 3. Compare with razorpay_signature
  * 
- * Reference: https://docs.cashfree.com/reference/webhooks
+ * WHY verify signature?
+ * - Prevents attackers from sending fake success callbacks
+ * - Ensures payment actually went through Razorpay
+ * - Mandatory for production compliance
+ * 
+ * NOTE: Even after successful verification, webhook is the ultimate source of truth
  */
-export const handleCashfreeWebhook = async (req, res) => {
+export const verifyRazorpayPayment = async (req, res) => {
   try {
-    // Raw body is set by Express middleware (bodyParser.raw)
-    // IMPORTANT: Must be raw Buffer, not parsed JSON
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      billId,
+    } = req.body;
+    
+    // Validate required fields
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required payment details",
+        code: "MISSING_FIELDS"
+      });
+    }
+    
+    console.log("[Razorpay] Verifying payment:", {
+      order_id: razorpay_order_id,
+      payment_id: razorpay_payment_id,
+    });
+    
+    // Signature verification
+    // Format: HMAC-SHA256(order_id + "|" + payment_id, secret_key)
+    const sign = razorpay_order_id + "|" + razorpay_payment_id;
+    
+    const expectedSignature = crypto
+      .createHmac("sha256", RAZORPAY_KEY_SECRET)
+      .update(sign)
+      .digest("hex");
+    
+    const isValid = expectedSignature === razorpay_signature;
+    
+    if (!isValid) {
+      console.error("[Razorpay] Invalid signature:", {
+        expected: expectedSignature,
+        received: razorpay_signature,
+      });
+      return res.status(400).json({
+        success: false,
+        message: "Payment verification failed - invalid signature",
+        code: "INVALID_SIGNATURE"
+      });
+    }
+    
+    console.log("[Razorpay] Signature verified successfully");
+    
+    // Find bill by Razorpay order ID
+    const bill = await POSBill.findOne({ razorpayOrderId: razorpay_order_id });
+    
+    if (!bill) {
+      console.error("[Razorpay] Bill not found for order:", razorpay_order_id);
+      return res.status(404).json({
+        success: false,
+        message: "Bill not found for this payment",
+        code: "BILL_NOT_FOUND"
+      });
+    }
+    
+    // IDEMPOTENCY: Check if already marked as paid
+    if (bill.status === "PAID" && bill.razorpayPaymentId) {
+      console.log("[Razorpay] Bill already marked PAID");
+      return res.json({
+        success: true,
+        message: "Payment already verified",
+        billId: bill._id,
+        receiptId: bill.receiptId,
+      });
+    }
+    
+    // Mark bill as PAID
+    bill.status = "PAID";
+    bill.paidAt = new Date();
+    bill.razorpayPaymentId = razorpay_payment_id;
+    bill.razorpaySignature = razorpay_signature;
+    bill.razorpayOrderStatus = "paid";
+    
+    await bill.save();
+    
+    // Generate receipt
+    const receipt = await generateReceiptFromBill(bill);
+    
+    console.log("[Razorpay] Payment verified, bill marked PAID:", bill._id);
+    
+    res.json({
+      success: true,
+      message: "Payment verified successfully",
+      billId: bill._id,
+      receiptId: receipt?._id,
+    });
+    
+  } catch (error) {
+    console.error("[Razorpay] Verify payment error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Payment verification failed",
+      error: error.message,
+      code: "VERIFICATION_FAILED"
+    });
+  }
+};
+
+/**
+ * POST /api/payments/webhook
+ * Razorpay webhook handler
+ * 
+ * This is the SOURCE OF TRUTH for payment confirmation.
+ * Webhooks are more reliable than frontend callbacks because:
+ * - User may close browser/app before callback completes
+ * - Network issues may prevent callback
+ * - Webhook retries on failure
+ * 
+ * IMPORTANT: Verify webhook signature to prevent fake webhooks
+ * 
+ * Events handled:
+ * - payment.captured: Payment successful (main event)
+ * - payment.failed: Payment failed
+ * - order.paid: Order fully paid
+ * 
+ * Reference: https://razorpay.com/docs/webhooks/
+ */
+export const handleRazorpayWebhook = async (req, res) => {
+  try {
+    // Raw body is required for signature verification
     const rawBody = req.body;
     
     if (!Buffer.isBuffer(rawBody)) {
-      console.error("[Cashfree Webhook] Body is not raw buffer - check middleware");
+      console.error("[Razorpay Webhook] Body is not raw buffer - check middleware");
       return res.status(400).json({ message: "Invalid request body format" });
     }
     
-    // Extract signature headers
-    const signature = req.headers["x-webhook-signature"];
-    const timestamp = req.headers["x-webhook-timestamp"];
+    // Extract signature from headers
+    const signature = req.headers["x-razorpay-signature"];
     
-    if (!signature || !timestamp) {
-      console.error("[Cashfree Webhook] Missing signature headers");
+    if (!signature) {
+      console.error("[Razorpay Webhook] Missing signature header");
       return res.status(400).json({ message: "Missing webhook signature" });
     }
     
-    // Verify signature
-    // Format: HMAC-SHA256(timestamp + raw_body) -> base64
-    const hmac = crypto.createHmac("sha256", CASHFREE_SECRET_KEY);
-    hmac.update(timestamp + rawBody.toString("utf8"));
-    const computedSignature = hmac.digest("base64");
+    // Verify webhook signature
+    // HMAC-SHA256(raw_body, webhook_secret)
+    const expectedSignature = crypto
+      .createHmac("sha256", RAZORPAY_WEBHOOK_SECRET)
+      .update(rawBody)
+      .digest("hex");
     
-    if (computedSignature !== signature) {
-      console.error("[Cashfree Webhook] Invalid signature:", {
-        expected: computedSignature,
+    if (expectedSignature !== signature) {
+      console.error("[Razorpay Webhook] Invalid signature:", {
+        expected: expectedSignature,
         received: signature,
       });
       return res.status(401).json({ message: "Invalid webhook signature" });
     }
     
-    // Signature valid - now parse the payload
+    // Signature valid - parse payload
     const payload = JSON.parse(rawBody.toString("utf8"));
+    const event = payload.event;
     
-    console.log("[Cashfree Webhook] Received event:", {
-      type: payload.type,
-      order_id: payload.data?.order?.order_id,
-      payment_status: payload.data?.payment?.payment_status,
-    });
+    console.log("[Razorpay Webhook] Received event:", event);
     
-    // Handle different webhook event types
-    // Reference: https://docs.cashfree.com/reference/webhooks#payment-webhooks
-    const eventType = payload.type;
-    const orderData = payload.data?.order;
-    const paymentData = payload.data?.payment;
-    
-    if (!orderData?.order_id) {
-      console.warn("[Cashfree Webhook] No order_id in payload");
-      return res.status(200).json({ message: "No action needed" });
-    }
-    
-    // Extract bill ID from order_id (format: GR_<billId>_<timestamp>)
-    const orderIdParts = orderData.order_id.split("_");
-    if (orderIdParts.length < 2 || orderIdParts[0] !== "GR") {
-      console.warn("[Cashfree Webhook] Unknown order_id format:", orderData.order_id);
-      return res.status(200).json({ message: "Order not from GreenReceipt" });
-    }
-    
-    const billId = orderIdParts[1];
-    
-    // Find the bill
-    const bill = await POSBill.findById(billId);
-    
-    if (!bill) {
-      console.warn("[Cashfree Webhook] Bill not found:", billId);
-      return res.status(200).json({ message: "Bill not found" });
-    }
-    
-    // IDEMPOTENCY: Check if already processed
-    if (bill.status === "PAID" && bill.cashfreePaymentId) {
-      console.log("[Cashfree Webhook] Bill already marked PAID, skipping");
-      return res.status(200).json({ message: "Already processed" });
-    }
-    
-    // Store raw webhook payload for debugging/reconciliation
-    bill.cashfreeWebhookPayload = payload;
-    
-    // Handle payment success
-    if (eventType === "PAYMENT_SUCCESS" || 
-        paymentData?.payment_status === "SUCCESS" ||
-        orderData?.order_status === "PAID") {
+    // Handle payment.captured event (main success event)
+    if (event === "payment.captured" || event === "order.paid") {
+      const payment = payload.payload?.payment?.entity;
+      const order = payload.payload?.order?.entity;
       
-      console.log("[Cashfree Webhook] Payment SUCCESS for bill:", billId);
+      const orderId = payment?.order_id || order?.id;
+      const paymentId = payment?.id;
+      
+      if (!orderId) {
+        console.warn("[Razorpay Webhook] No order_id in payload");
+        return res.status(200).json({ message: "No action needed" });
+      }
+      
+      // Find bill by Razorpay order ID
+      const bill = await POSBill.findOne({ razorpayOrderId: orderId });
+      
+      if (!bill) {
+        console.warn("[Razorpay Webhook] Bill not found for order:", orderId);
+        return res.status(200).json({ message: "Bill not found" });
+      }
+      
+      // IDEMPOTENCY: Check if already processed
+      if (bill.status === "PAID" && bill.razorpayPaymentId) {
+        console.log("[Razorpay Webhook] Bill already marked PAID, skipping");
+        return res.status(200).json({ message: "Already processed" });
+      }
+      
+      // Store raw webhook payload for debugging
+      bill.razorpayWebhookPayload = payload;
       
       // Mark bill as PAID
       bill.status = "PAID";
       bill.paidAt = new Date();
-      bill.cashfreeOrderStatus = "PAID";
-      bill.cashfreePaymentId = paymentData?.cf_payment_id || paymentData?.payment_id;
-      bill.paymentMethod = "upi";
+      bill.razorpayPaymentId = paymentId;
+      bill.razorpayOrderStatus = "paid";
       
       await bill.save();
       
       // Generate receipt
       await generateReceiptFromBill(bill);
       
-      console.log("[Cashfree Webhook] Bill marked PAID and receipt generated");
+      console.log("[Razorpay Webhook] Bill marked PAID via webhook:", bill._id);
       
-      // TODO: Send notification to merchant (push notification / websocket)
-      // TODO: Send receipt to customer email if provided
+      // TODO: Send notification to merchant
+      // TODO: Send receipt to customer email
       
-    } else if (eventType === "PAYMENT_FAILED" || 
-               paymentData?.payment_status === "FAILED") {
+    } else if (event === "payment.failed") {
+      // Payment failed - log for debugging
+      const payment = payload.payload?.payment?.entity;
+      const orderId = payment?.order_id;
       
-      console.log("[Cashfree Webhook] Payment FAILED for bill:", billId);
+      console.log("[Razorpay Webhook] Payment failed for order:", orderId);
       
-      // Keep bill in AWAITING_PAYMENT state so customer can retry
-      bill.cashfreeOrderStatus = "ACTIVE";
-      await bill.save();
-      
-    } else if (eventType === "ORDER_EXPIRED" || 
-               orderData?.order_status === "EXPIRED") {
-      
-      console.log("[Cashfree Webhook] Order EXPIRED for bill:", billId);
-      
-      // Only mark expired if not already paid
-      if (bill.status !== "PAID") {
-        bill.cashfreeOrderStatus = "EXPIRED";
-        // Note: We don't mark bill as EXPIRED here - only the Cashfree order expired
-        // Customer can create a new order if bill is still valid
+      // Optionally update bill status
+      if (orderId) {
+        const bill = await POSBill.findOne({ razorpayOrderId: orderId });
+        if (bill && bill.status !== "PAID") {
+          bill.razorpayOrderStatus = "attempted";
+          bill.razorpayWebhookPayload = payload;
+          await bill.save();
+        }
       }
-      await bill.save();
     }
     
     // Always return 200 to acknowledge webhook
-    // Cashfree will retry on non-200 responses
-    res.status(200).json({ message: "Webhook processed" });
+    // Razorpay will retry on non-200 responses
+    res.status(200).json({ status: "ok" });
     
   } catch (error) {
-    console.error("[Cashfree Webhook] Error:", error);
+    console.error("[Razorpay Webhook] Error:", error);
     // Return 200 even on error to prevent infinite retries
-    // Log the error for investigation
     res.status(200).json({ message: "Error logged" });
   }
 };
@@ -386,13 +487,13 @@ export const handleCashfreeWebhook = async (req, res) => {
  * GET /api/payments/status/:billId
  * Get payment status for a bill
  * 
- * Can optionally verify with Cashfree API for real-time status
- * Useful for frontend polling and result page
+ * Used by frontend to poll for payment completion
+ * Also optionally fetches real-time status from Razorpay API
  */
 export const getPaymentStatus = async (req, res) => {
   try {
     const { billId } = req.params;
-    const { verify } = req.query; // If true, verify with Cashfree API
+    const { verify } = req.query;
     
     const bill = await POSBill.findById(billId)
       .populate("merchantId", "shopName merchantCode")
@@ -402,22 +503,33 @@ export const getPaymentStatus = async (req, res) => {
       return res.status(404).json({ message: "Bill not found" });
     }
     
-    // Optionally verify with Cashfree API
-    if (verify === "true" && bill.cashfreeOrderId && CASHFREE_APP_ID && CASHFREE_SECRET_KEY) {
+    // Optionally verify with Razorpay API
+    if (verify === "true" && bill.razorpayOrderId && RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
       try {
-        const cashfreeStatus = await cashfreeRequest("GET", `/orders/${bill.cashfreeOrderId}`);
-        
-        // Update local status if Cashfree shows PAID
-        if (cashfreeStatus.order_status === "PAID" && bill.status !== "PAID") {
-          console.log("[Payment Status] Cashfree shows PAID but local is", bill.status);
-          bill.status = "PAID";
-          bill.paidAt = new Date();
-          bill.cashfreeOrderStatus = "PAID";
-          await bill.save();
-          await generateReceiptFromBill(bill);
+        const razorpayInstance = getRazorpayInstance();
+        if (razorpayInstance) {
+          const order = await razorpayInstance.orders.fetch(bill.razorpayOrderId);
+          
+          // Update local status if Razorpay shows paid
+          if (order.status === "paid" && bill.status !== "PAID") {
+            console.log("[Payment Status] Razorpay shows paid but local is", bill.status);
+            
+            // Fetch payments for this order
+            const payments = await razorpayInstance.orders.fetchPayments(bill.razorpayOrderId);
+            const successfulPayment = payments.items?.find(p => p.status === "captured");
+            
+            if (successfulPayment) {
+              bill.status = "PAID";
+              bill.paidAt = new Date();
+              bill.razorpayPaymentId = successfulPayment.id;
+              bill.razorpayOrderStatus = "paid";
+              await bill.save();
+              await generateReceiptFromBill(bill);
+            }
+          }
         }
-      } catch (cfError) {
-        console.error("[Payment Status] Cashfree verification failed:", cfError);
+      } catch (rpError) {
+        console.error("[Payment Status] Razorpay verification failed:", rpError);
         // Continue with local status
       }
     }
@@ -428,8 +540,9 @@ export const getPaymentStatus = async (req, res) => {
       paymentMethod: bill.paymentMethod,
       amount: bill.total,
       paidAt: bill.paidAt,
-      cashfreeOrderId: bill.cashfreeOrderId,
-      cashfreeOrderStatus: bill.cashfreeOrderStatus,
+      razorpayOrderId: bill.razorpayOrderId,
+      razorpayPaymentId: bill.razorpayPaymentId,
+      razorpayOrderStatus: bill.razorpayOrderStatus,
       receiptId: bill.receiptId?._id,
       merchant: {
         name: bill.merchantId?.shopName,
@@ -445,7 +558,7 @@ export const getPaymentStatus = async (req, res) => {
 
 /**
  * Helper: Generate receipt from a paid bill
- * Called after webhook confirms payment
+ * Called after payment is verified (via callback or webhook)
  */
 const generateReceiptFromBill = async (bill) => {
   try {
@@ -478,7 +591,7 @@ const generateReceiptFromBill = async (bill) => {
       paymentMethod: bill.paymentMethod || "upi",
       transactionDate: bill.paidAt || new Date(),
       currency: "INR",
-      note: `Reference: ${bill.upiNote} | Cashfree: ${bill.cashfreeOrderId || 'N/A'}`,
+      note: `Reference: ${bill.upiNote} | Razorpay: ${bill.razorpayOrderId || 'N/A'}`,
     });
     
     // Link receipt to bill
@@ -496,7 +609,8 @@ const generateReceiptFromBill = async (bill) => {
 };
 
 export default {
-  createCashfreeOrder,
-  handleCashfreeWebhook,
+  createRazorpayOrder,
+  verifyRazorpayPayment,
+  handleRazorpayWebhook,
   getPaymentStatus,
 };

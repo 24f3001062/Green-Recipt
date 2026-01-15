@@ -153,48 +153,48 @@ const posBillSchema = new mongoose.Schema(
     },
     
     // ==========================================
-    // CASHFREE PAYMENT GATEWAY FIELDS
-    // Used for Cashfree-based UPI payments (Zomato-style flow)
+    // RAZORPAY PAYMENT GATEWAY FIELDS
+    // Used for Razorpay-based UPI payments (Zomato-style flow)
     // ==========================================
     
-    // Cashfree order ID (returned by Cashfree API when order is created)
-    // Format: order_XXXXXXX - unique identifier in Cashfree system
-    cashfreeOrderId: {
+    // Razorpay order ID (returned by Razorpay API when order is created)
+    // Format: order_XXXXXXX - unique identifier in Razorpay system
+    razorpayOrderId: {
       type: String,
       sparse: true,
       index: true,
     },
     
-    // Payment session ID for Cashfree hosted checkout
-    // Used to initialize Cashfree SDK or redirect to checkout page
-    paymentSessionId: {
+    // Razorpay payment ID (received after successful payment)
+    // Format: pay_XXXXXXX - the actual payment transaction ID
+    razorpayPaymentId: {
       type: String,
       sparse: true,
     },
     
-    // Cashfree payment ID (received via webhook after successful payment)
-    // This is the actual payment transaction ID
-    cashfreePaymentId: {
+    // Razorpay signature (used for payment verification)
+    // Verified using HMAC-SHA256 with secret key
+    razorpaySignature: {
       type: String,
       sparse: true,
     },
     
-    // Order status from Cashfree (tracked for reconciliation)
-    // ACTIVE, PAID, EXPIRED (Cashfree's order states)
-    cashfreeOrderStatus: {
+    // Order status from Razorpay (tracked for reconciliation)
+    // created, attempted, paid (Razorpay's order states)
+    razorpayOrderStatus: {
       type: String,
-      enum: ["ACTIVE", "PAID", "EXPIRED", null],
+      enum: ["created", "attempted", "paid", null],
       default: null,
     },
     
     // Raw webhook payload (stored for debugging/reconciliation)
-    cashfreeWebhookPayload: {
+    razorpayWebhookPayload: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
     },
     
-    // Whether payment was via Cashfree gateway (vs direct UPI deep link)
-    isCashfreePayment: {
+    // Whether payment was via Razorpay gateway (vs direct UPI deep link)
+    isRazorpayPayment: {
       type: Boolean,
       default: false,
     },

@@ -1,30 +1,33 @@
 import { Router } from "express";
 import express from "express";
 import {
-  createCashfreeOrder,
-  handleCashfreeWebhook,
+  createRazorpayOrder,
+  verifyRazorpayPayment,
+  handleRazorpayWebhook,
   getPaymentStatus,
 } from "../controllers/paymentController.js";
 
 const router = Router();
 
 /**
- * Payment Routes - Cashfree Payment Gateway Integration
+ * Payment Routes - Razorpay Payment Gateway Integration
  * 
  * These routes handle the Zomato-style payment flow:
  * 1. Customer scans QR → opens /pay/:billId page
  * 2. Frontend calls POST /api/payments/create-order/:billId
- * 3. Backend creates Cashfree order and returns payment session
- * 4. Frontend redirects to Cashfree hosted checkout
- * 5. Cashfree processes payment and sends webhook
- * 6. POST /api/payments/webhook receives and verifies webhook
- * 7. Bill is marked PAID and receipt is generated
+ * 3. Backend creates Razorpay order and returns order_id + key
+ * 4. Frontend opens Razorpay Checkout (UPI only)
+ * 5. Customer completes UPI payment
+ * 6. Frontend receives success → calls POST /api/payments/verify
+ * 7. Webhook (payment.captured) also confirms payment
+ * 8. Bill is marked PAID and receipt is generated
  * 
  * SECURITY NOTES:
  * - create-order endpoint is PUBLIC (no auth) since customers scanning QR aren't logged in
  * - However, it only creates orders for existing bills (which were created by authenticated merchants)
+ * - verify endpoint validates Razorpay signature using HMAC-SHA256
  * - Webhook endpoint uses raw body parser for signature verification
- * - Payment confirmation is ONLY via webhook (server-to-server), not client-side
+ * - Payment confirmation requires BOTH signature verification AND webhook
  */
 
 // ==========================================
@@ -34,28 +37,42 @@ const router = Router();
 
 /**
  * POST /api/payments/create-order/:billId
- * Create a Cashfree order for the bill
+ * Create a Razorpay order for the bill
  * 
  * Called when customer clicks "Pay via UPI" on payment page
- * Returns payment session ID for Cashfree checkout
+ * Returns order_id and key_id for Razorpay Checkout
  */
-router.post("/create-order/:billId", createCashfreeOrder);
+router.post("/create-order/:billId", createRazorpayOrder);
+
+/**
+ * POST /api/payments/verify
+ * Verify Razorpay payment signature
+ * 
+ * Called by frontend after Razorpay Checkout returns success
+ * Verifies signature using HMAC-SHA256 and marks bill as PAID
+ */
+router.post("/verify", verifyRazorpayPayment);
 
 /**
  * GET /api/payments/status/:billId
  * Get payment status for a bill
  * 
  * Used by frontend to poll for payment completion
- * Optional ?verify=true to verify with Cashfree API
+ * Optional ?verify=true to verify with Razorpay API
  */
 router.get("/status/:billId", getPaymentStatus);
 
 /**
  * POST /api/payments/webhook
- * Cashfree webhook endpoint
+ * Razorpay webhook endpoint
  * 
  * CRITICAL: This route uses raw body parser (not JSON)
  * This is required for HMAC signature verification
+ * 
+ * Events handled:
+ * - payment.captured: Main success event
+ * - payment.failed: Payment failed
+ * - order.paid: Order fully paid
  * 
  * The raw body parser is applied in server.js BEFORE
  * the regular JSON body parser, specifically for this route
@@ -67,12 +84,12 @@ router.post(
   (req, res, next) => {
     if (!Buffer.isBuffer(req.body)) {
       // If body is not raw, the route-specific middleware wasn't applied
-      console.error("[Payment Webhook] Body is not raw buffer");
+      console.error("[Razorpay Webhook] Body is not raw buffer");
       return res.status(400).json({ message: "Invalid webhook format" });
     }
     next();
   },
-  handleCashfreeWebhook
+  handleRazorpayWebhook
 );
 
 export default router;

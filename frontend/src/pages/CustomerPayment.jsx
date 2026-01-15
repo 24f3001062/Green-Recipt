@@ -26,7 +26,8 @@ import {
   claimPOSReceipt, 
   getStoredRole, 
   hasSession,
-  createCashfreeOrder,
+  createRazorpayOrder,
+  verifyRazorpayPayment,
   getPaymentStatus
 } from '../services/api';
 import toast from 'react-hot-toast';
@@ -52,15 +53,31 @@ const CustomerPayment = () => {
   const [showIOSOptions, setShowIOSOptions] = useState(false);
   const [copied, setCopied] = useState({ upiId: false, amount: false });
   
-  // Cashfree payment states
-  const [cashfreeLoading, setCashfreeLoading] = useState(false);
-  const [useCashfree, setUseCashfree] = useState(true); // Default to Cashfree for reliability
+  // Razorpay payment states
+  const [razorpayLoading, setRazorpayLoading] = useState(false);
+  const [useRazorpay, setUseRazorpay] = useState(true); // Default to Razorpay for reliability
   
   // Platform detection
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   
   // Check if customer is logged in
   const isLoggedIn = hasSession() && getStoredRole() === 'customer';
+
+  // Load Razorpay SDK
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+    
+    return () => {
+      // Cleanup script if component unmounts
+      const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+      if (existingScript) {
+        existingScript.remove();
+      }
+    };
+  }, []);
 
   // Fetch bill data
   const loadBill = useCallback(async () => {
@@ -182,7 +199,7 @@ const CustomerPayment = () => {
   // Check if device is iOS
   const isPersonalUPI = bill?.merchant?.upiType === 'PERSONAL';
 
-  // Handle payment method selection
+  // Handle payment method selection (for direct UPI / cash)
   const handleSelectMethod = async (method) => {
     if (processing) return;
     
@@ -226,89 +243,160 @@ const CustomerPayment = () => {
   };
 
   /**
-   * Handle Cashfree UPI Payment (Zomato-style flow)
+   * Handle Razorpay UPI Payment (Zomato-style flow)
    * 
    * This is the recommended payment method because:
    * 1. Higher success rate across all UPI apps
    * 2. Merchant KYC compliance (no "merchant not verified" errors)
    * 3. Automatic payment confirmation via webhook
    * 4. Works reliably on both iOS and Android
+   * 5. TEST MODE available for development (rzp_test_* keys)
    * 
    * Flow:
-   * 1. Call backend to create Cashfree order
-   * 2. Redirect to Cashfree hosted checkout
+   * 1. Call backend to create Razorpay order
+   * 2. Open Razorpay Checkout (UPI only mode)
    * 3. Customer selects UPI app and completes payment
-   * 4. Cashfree redirects back with status
-   * 5. Webhook confirms payment on backend
+   * 4. Razorpay calls success handler with payment details
+   * 5. Frontend verifies signature with backend
+   * 6. Webhook confirms payment (backup)
    */
-  const handleCashfreePayment = async () => {
-    if (cashfreeLoading) return;
+  const handleRazorpayPayment = async () => {
+    if (razorpayLoading) return;
     
-    console.log('[CustomerPayment] Starting Cashfree payment flow');
-    setCashfreeLoading(true);
+    console.log('[CustomerPayment] Starting Razorpay payment flow');
+    setRazorpayLoading(true);
     setSelectedMethod('upi');
     
     try {
-      // Create Cashfree order on backend
-      // Backend uses secret key to create order (secure server-side)
-      const { data } = await createCashfreeOrder(billId, {
+      // Create Razorpay order on backend
+      const { data } = await createRazorpayOrder(billId, {
         customerPhone: bill.customerPhone || '',
         customerName: bill.customerName || '',
+        customerEmail: bill.customerEmail || '',
       });
       
-      console.log('[CustomerPayment] Cashfree order created:', {
+      console.log('[CustomerPayment] Razorpay order created:', {
         orderId: data.orderId,
-        hasCheckoutUrl: !!data.checkoutUrl,
-        hasSessionId: !!data.paymentSessionId,
+        keyId: data.keyId,
+        amount: data.amount,
       });
       
-      // Option 1: Use checkout URL (redirect flow)
-      if (data.checkoutUrl) {
-        // Redirect to Cashfree hosted checkout
-        // Customer will complete payment there and be redirected back
-        window.location.href = data.checkoutUrl;
-        return;
+      // Check if Razorpay is loaded
+      if (typeof window.Razorpay === 'undefined') {
+        throw new Error('Razorpay SDK not loaded. Please refresh the page.');
       }
       
-      // Option 2: Use payment session ID with Cashfree SDK
-      // This requires loading Cashfree SDK on frontend
-      if (data.paymentSessionId) {
-        // For now, we'll construct the checkout URL manually
-        // In production, you'd load Cashfree SDK and call:
-        // Cashfree.checkout({ paymentSessionId: data.paymentSessionId })
+      // Razorpay Checkout options
+      const options = {
+        key: data.keyId, // Razorpay Key ID from backend
+        amount: data.amount, // Amount in paise
+        currency: data.currency || 'INR',
+        name: data.merchantName || bill.merchant?.shopName || 'GreenReceipt',
+        description: `Bill #${billId.slice(-8).toUpperCase()}`,
+        order_id: data.orderId,
         
-        // Cashfree checkout URL format
-        const cashfreeBase = import.meta.env.VITE_CASHFREE_BASE || 'https://sandbox.cashfree.com';
-        const checkoutUrl = `${cashfreeBase}/pg/pay/${data.orderId}?payment_session_id=${data.paymentSessionId}`;
+        // Allow fallback methods during testing
+        method: {
+          upi: true,
+          card: true,
+          netbanking: true,
+          wallet: true,
+        },
         
-        window.location.href = checkoutUrl;
-        return;
-      }
+        // Prefill customer details
+        prefill: {
+          name: data.prefill?.name || bill.customerName || 'Test Customer',
+          email: data.prefill?.email || bill.customerEmail || 'test@example.com',
+          contact: data.prefill?.contact || bill.customerPhone || '9999999999',
+        },
+        
+        // Notes for reference
+        notes: {
+          billId: billId,
+          merchantId: bill.merchant?._id || '',
+        },
+        
+        // Theme customization
+        theme: {
+          color: '#10b981', // Emerald-500 (GreenReceipt brand)
+          backdrop_color: 'rgba(0,0,0,0.8)',
+        },
+        
+        // Success callback
+        handler: async function(response) {
+          console.log('[CustomerPayment] Razorpay payment successful:', response);
+          
+          try {
+            // Verify payment signature with backend
+            const verifyResponse = await verifyRazorpayPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              billId: billId,
+            });
+            
+            console.log('[CustomerPayment] Payment verified:', verifyResponse.data);
+            
+            // Payment successful
+            setPaymentComplete(true);
+            setBill(prev => ({ ...prev, status: 'PAID' }));
+            toast.success('Payment successful! 🎉', { duration: 3000 });
+            
+          } catch (verifyErr) {
+            console.error('[CustomerPayment] Payment verification failed:', verifyErr);
+            // Even if verification fails, the webhook will handle it
+            // Show success but with a note
+            setPaymentComplete(true);
+            toast.success('Payment received! Verifying...', { duration: 3000 });
+          }
+          
+          setRazorpayLoading(false);
+        },
+        
+        // Modal closed callback
+        modal: {
+          ondismiss: function() {
+            console.log('[CustomerPayment] Razorpay checkout closed');
+            setRazorpayLoading(false);
+            setSelectedMethod(null);
+            toast('Payment cancelled', { icon: '❌' });
+          }
+        }
+      };
       
-      // Fallback: Show error
-      throw new Error('No checkout URL or session ID received');
+      // Open Razorpay Checkout
+      const rzp = new window.Razorpay(options);
+      
+      // Handle payment failures
+      rzp.on('payment.failed', function(response) {
+        console.error('[CustomerPayment] Razorpay payment failed:', response.error);
+        toast.error(response.error.description || 'Payment failed. Please try again.');
+        setRazorpayLoading(false);
+        setSelectedMethod(null);
+      });
+      
+      rzp.open();
       
     } catch (err) {
-      console.error('[CustomerPayment] Cashfree payment error:', err);
+      console.error('[CustomerPayment] Razorpay payment error:', err);
       
-      // If Cashfree fails, offer fallback to direct UPI
       const errorMessage = err.response?.data?.message || err.message || 'Payment gateway error';
       
       if (err.response?.data?.code === 'GATEWAY_NOT_CONFIGURED') {
-        // Cashfree not configured - fall back to direct UPI
+        // Razorpay not configured - fall back to direct UPI
         toast.error('Payment gateway not available. Using direct UPI.');
-        setUseCashfree(false);
+        setUseRazorpay(false);
         handleSelectMethod('upi');
       } else {
         toast.error(errorMessage);
         setSelectedMethod(null);
       }
-    } finally {
-      setCashfreeLoading(false);
+      
+      setRazorpayLoading(false);
     }
   };
   
-  // Handle iOS app-specific payment
+  // Handle iOS app-specific payment (fallback for direct UPI)
   const handleIOSAppPayment = (appType) => {
     if (!bill?.merchant?.upiId) return;
     
@@ -490,7 +578,7 @@ const CustomerPayment = () => {
           
           <h1 className="text-2xl font-bold text-white mb-2">Payment Complete!</h1>
           <p className="text-emerald-400 text-sm mb-6">
-            Your payment has been confirmed by the merchant.
+            Your payment has been confirmed.
           </p>
           
           {/* Receipt Summary */}
@@ -575,7 +663,7 @@ const CustomerPayment = () => {
     );
   }
 
-  // UPI selected - redirect screen with polling
+  // UPI selected (direct UPI fallback) - redirect screen with polling
   if (selectedMethod === 'upi' && upiLink) {
     // Check if this is a personal UPI (needs manual amount entry)
     const isPersonalUPI = bill.merchant?.upiType === 'PERSONAL';
@@ -845,11 +933,11 @@ const CustomerPayment = () => {
           <div className="space-y-3">
             <p className="text-center text-slate-400 text-xs mb-4">Choose Payment Method</p>
             
-            {/* Pay by UPI (Cashfree) - RECOMMENDED */}
-            {useCashfree && (
+            {/* Pay by UPI (Razorpay) - RECOMMENDED */}
+            {useRazorpay && (
               <button
-                onClick={handleCashfreePayment}
-                disabled={cashfreeLoading || processing}
+                onClick={handleRazorpayPayment}
+                disabled={razorpayLoading || processing}
                 className="w-full p-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-emerald-500/20 relative overflow-hidden"
               >
                 <div className="flex items-center gap-3">
@@ -863,11 +951,11 @@ const CustomerPayment = () => {
                     </div>
                     <div className="text-emerald-200 text-xs flex items-center gap-1">
                       <Shield size={10} />
-                      Secure payment gateway
+                      Secure Razorpay checkout
                     </div>
                   </div>
                 </div>
-                {cashfreeLoading ? (
+                {razorpayLoading ? (
                   <Loader2 size={18} className="text-white animate-spin" />
                 ) : (
                   <ArrowRight size={18} className="text-white/60" />
@@ -878,7 +966,7 @@ const CustomerPayment = () => {
             {/* Pay by Cash */}
             <button
               onClick={() => handleSelectMethod('cash')}
-              disabled={processing || cashfreeLoading}
+              disabled={processing || razorpayLoading}
               className="w-full p-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-blue-500/20"
             >
               <div className="flex items-center gap-3">
@@ -893,11 +981,11 @@ const CustomerPayment = () => {
               <ArrowRight size={18} className="text-white/60" />
             </button>
 
-            {/* Direct UPI (fallback) - Only shown if Cashfree is disabled or merchant prefers it */}
-            {(!useCashfree || bill.merchant?.preferDirectUPI) && bill.merchant?.upiId && (
+            {/* Direct UPI (fallback) - Only shown if Razorpay is disabled or merchant prefers it */}
+            {(!useRazorpay || bill.merchant?.preferDirectUPI) && bill.merchant?.upiId && (
               <button
                 onClick={() => handleSelectMethod('upi')}
-                disabled={processing || cashfreeLoading}
+                disabled={processing || razorpayLoading}
                 className="w-full p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-purple-500/20"
               >
                 <div className="flex items-center gap-3">
@@ -913,7 +1001,7 @@ const CustomerPayment = () => {
               </button>
             )}
             
-            {!useCashfree && !bill.merchant?.upiId && (
+            {!useRazorpay && !bill.merchant?.upiId && (
               <p className="text-center text-amber-400/70 text-[10px]">
                 <AlertCircle size={10} className="inline mr-1" />
                 UPI not available for this merchant
@@ -922,10 +1010,10 @@ const CustomerPayment = () => {
           </div>
 
           {/* Processing indicator */}
-          {(processing || cashfreeLoading) && (
+          {(processing || razorpayLoading) && (
             <div className="mt-4 flex items-center justify-center gap-2 text-slate-400 text-sm">
               <Loader2 size={14} className="animate-spin" />
-              {cashfreeLoading ? 'Preparing secure checkout...' : 'Processing...'}
+              {razorpayLoading ? 'Preparing secure checkout...' : 'Processing...'}
             </div>
           )}
         </div>

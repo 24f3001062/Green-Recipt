@@ -723,31 +723,45 @@ export const claimPOSReceipt = (billId) =>
   api.post(`/pos/bills/${billId}/claim`);
 
 // ==========================================
-// CASHFREE PAYMENT GATEWAY APIs
-// Used for Zomato-style payment flow (hosted checkout)
+// RAZORPAY PAYMENT GATEWAY APIs
+// Used for Zomato-style payment flow (Razorpay Checkout)
 // ==========================================
 
 /**
- * Create a Cashfree order for a bill (PUBLIC - No auth)
- * This initiates the Cashfree payment flow
+ * Create a Razorpay order for a bill (PUBLIC - No auth)
+ * This initiates the Razorpay payment flow
  * 
  * @param {string} billId - Bill ID to create order for
  * @param {Object} customerInfo - Optional customer details
  * @param {string} customerInfo.customerPhone - Customer phone (optional)
  * @param {string} customerInfo.customerEmail - Customer email (optional)
  * @param {string} customerInfo.customerName - Customer name (optional)
- * @returns {Promise<{orderId, paymentSessionId, checkoutUrl, amount}>}
+ * @returns {Promise<{orderId, keyId, amount, currency, billId, merchantName}>}
  */
-export const createCashfreeOrder = (billId, customerInfo = {}) =>
+export const createRazorpayOrder = (billId, customerInfo = {}) =>
   api.post(`/payments/create-order/${billId}`, customerInfo);
 
 /**
+ * Verify Razorpay payment signature (PUBLIC - No auth)
+ * Called after Razorpay Checkout returns success
+ * 
+ * @param {Object} paymentDetails - Razorpay payment details
+ * @param {string} paymentDetails.razorpay_order_id - Razorpay order ID
+ * @param {string} paymentDetails.razorpay_payment_id - Razorpay payment ID
+ * @param {string} paymentDetails.razorpay_signature - Razorpay signature
+ * @param {string} paymentDetails.billId - Our bill ID
+ * @returns {Promise<{success, billId, receiptId}>}
+ */
+export const verifyRazorpayPayment = (paymentDetails) =>
+  api.post('/payments/verify', paymentDetails);
+
+/**
  * Get payment status for a bill (PUBLIC - No auth)
- * Used for polling payment completion after Cashfree checkout
+ * Used for polling payment completion after Razorpay checkout
  * 
  * @param {string} billId - Bill ID to check status for
- * @param {boolean} verify - If true, verifies status with Cashfree API
- * @returns {Promise<{billId, status, paymentMethod, amount, paidAt, cashfreeOrderId}>}
+ * @param {boolean} verify - If true, verifies status with Razorpay API
+ * @returns {Promise<{billId, status, paymentMethod, amount, paidAt, razorpayOrderId}>}
  */
 export const getPaymentStatus = (billId, verify = false) =>
   api.get(`/payments/status/${billId}${verify ? '?verify=true' : ''}`);

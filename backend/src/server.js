@@ -54,7 +54,7 @@ app.use(helmet());
 app.use(cookieParser());
 
 // ==========================================
-// CASHFREE WEBHOOK - RAW BODY PARSER
+// RAZORPAY WEBHOOK - RAW BODY PARSER
 // CRITICAL: Must be BEFORE express.json() middleware
 // Webhooks require raw body for HMAC signature verification
 // ==========================================

@@ -19,17 +19,17 @@ import toast from 'react-hot-toast';
 /**
  * PaymentResult Page
  * 
- * This page handles the redirect from Cashfree hosted checkout.
- * After a customer completes (or abandons) payment, Cashfree redirects
- * to this page with query params.
+ * This page handles the result after Razorpay checkout.
+ * After a customer completes (or abandons) payment, we verify
+ * the payment status with our backend.
  * 
  * IMPORTANT: We do NOT trust the URL params for payment status.
  * The authoritative status comes from our backend, which is updated
- * via Cashfree webhook. We poll the backend to get the true status.
+ * via Razorpay webhook. We poll the backend to get the true status.
  * 
  * Flow:
- * 1. Customer redirected here from Cashfree checkout
- * 2. We extract billId from URL params
+ * 1. Customer completes payment in Razorpay checkout
+ * 2. Razorpay handler verifies payment with backend
  * 3. We poll backend for payment status (backend gets truth from webhook)
  * 4. Display appropriate UI based on status
  * 5. Offer receipt claiming for logged-in users
@@ -67,12 +67,12 @@ const PaymentResult = () => {
     
     try {
       // Call backend to get payment status
-      // Pass verify=true to also check with Cashfree API
+      // Pass verify=true to also check with Razorpay API
       const { data } = await getPaymentStatus(billId, true);
       
       console.log('[PaymentResult] Status check:', {
         status: data.status,
-        cashfreeStatus: data.cashfreeOrderStatus,
+        razorpayStatus: data.razorpayOrderStatus,
         pollCount,
       });
       
@@ -247,9 +247,9 @@ const PaymentResult = () => {
               <Store size={12} />
               {bill?.merchant?.name || 'Merchant'}
             </div>
-            {bill?.cashfreeOrderId && (
+            {bill?.razorpayOrderId && (
               <div className="text-[10px] text-slate-600 mt-2 font-mono">
-                Ref: {bill.cashfreeOrderId}
+                Ref: {bill.razorpayOrderId}
               </div>
             )}
           </div>
