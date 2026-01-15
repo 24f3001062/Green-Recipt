@@ -257,10 +257,20 @@ api.interceptors.response.use(
 
     // Handle 401 errors
     if (status === 401) {
-      // If token expired, try to refresh
-      if ((errorCode === "TOKEN_EXPIRED" || !errorCode) && hasSession() && !config.__isRetry) {
+      const isAuthEndpoint = config.url?.includes("/auth/refresh") ||
+                            config.url?.includes("/auth/login") ||
+                            config.url?.includes("/auth/logout");
+
+      const isTokenError =
+        errorCode === "TOKEN_EXPIRED" ||
+        errorCode === "TOKEN_MISSING" ||
+        errorCode === "TOKEN_INVALID" ||
+        !errorCode;
+
+      // Attempt refresh once for token-related 401s (even if local storage is empty)
+      if (!isAuthEndpoint && isTokenError && !config.__isRetry) {
         config.__isRetry = true;
-        
+
         try {
           // If already refreshing, wait for it
           if (isRefreshing) {
@@ -273,31 +283,47 @@ api.interceptors.response.use(
             config.headers.Authorization = `Bearer ${newToken}`;
             return api(config);
           }
-          
+
           // Start refreshing
           isRefreshing = true;
           const newToken = await refreshAccessToken();
           onTokenRefreshed(newToken);
           isRefreshing = false;
-          
+
           // Retry the original request with new token
           config.headers.Authorization = `Bearer ${newToken}`;
           return api(config);
         } catch (refreshError) {
           isRefreshing = false;
           onRefreshFailed(refreshError);
-          
-          // Refresh failed, redirect to login
-          const role = getStoredRole() || localStorage.getItem(ROLE_KEY);
-          clearSession();
-          const redirect = role === "merchant" ? "/merchant-login" : "/customer-login";
-          if (typeof window !== "undefined") {
-            window.location.replace(redirect);
+
+          const refreshStatus = refreshError.response?.status;
+          const refreshCode = refreshError.response?.data?.code;
+          const isDefinitiveRefreshFailure =
+            refreshStatus === 401 &&
+            [
+              "NO_REFRESH_TOKEN",
+              "REFRESH_TOKEN_EXPIRED",
+              "INVALID_REFRESH_TOKEN",
+              "SESSION_EXPIRED",
+              "SESSION_INVALIDATED",
+              "INVALID_SESSION",
+              "ACCOUNT_NOT_FOUND",
+            ].includes(refreshCode);
+
+          if (isDefinitiveRefreshFailure) {
+            const role = getStoredRole() || localStorage.getItem(ROLE_KEY);
+            clearSession();
+            const redirect = role === "merchant" ? "/merchant-login" : "/customer-login";
+            if (typeof window !== "undefined") {
+              window.location.replace(redirect);
+            }
           }
+
           return Promise.reject(refreshError);
         }
       }
-      
+
       // Other 401 errors (invalid token, etc.) - clear session and redirect
       if (errorCode !== "TOKEN_EXPIRED") {
         const role = error.response?.data?.role || getStoredRole() || localStorage.getItem(ROLE_KEY);
@@ -307,7 +333,7 @@ api.interceptors.response.use(
           window.location.replace(redirect);
         }
       }
-      
+
       return Promise.reject(error);
     }
 
