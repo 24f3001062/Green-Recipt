@@ -2251,7 +2251,9 @@ const MerchantBilling = ({ inventory, profile }) => {
         expiryMinutes: 10, // Bill expires in 10 minutes
       };
 
+      console.log('[MerchantBilling] Creating POS bill with payload:', payload);
       const { data } = await createPOSBill(payload);
+      console.log('[MerchantBilling] POS bill created:', data);
       
       // Store bill data
       setPosBill(data);
@@ -2261,9 +2263,15 @@ const MerchantBilling = ({ inventory, profile }) => {
       
       // Generate QR pointing to payment page URL
       const paymentPageUrl = `${window.location.origin}/pay/${data.bill.id}`;
+      console.log('[MerchantBilling] QR Payment URL:', paymentPageUrl);
+      console.log('[MerchantBilling] NOTE: Customer must scan this URL on their phone to make payment');
+      
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(paymentPageUrl)}`;
       setPaymentQrUrl(qrUrl);
       setShowPaymentQr(true);
+      
+      // Show helpful toast
+      toast.success(`QR Ready! URL: ${paymentPageUrl.slice(0, 40)}...`, { duration: 4000 });
       
     } catch (err) {
       console.error("Payment QR generation failed", err);
@@ -3339,7 +3347,7 @@ const MerchantBilling = ({ inventory, profile }) => {
           <div
             className={`${
               isDark ? "bg-dark-card" : "bg-white"
-            } rounded-3xl p-6 max-w-sm w-full text-center animate-[popIn_0.2s_ease-out] shadow-2xl`}
+            } rounded-3xl p-6 max-w-sm w-full text-center animate-[popIn_0.2s_ease-out] shadow-2xl max-h-[90vh] overflow-y-auto`}
           >
             {/* Header with close button */}
             <div className="flex justify-between items-start mb-4">
@@ -3396,6 +3404,18 @@ const MerchantBilling = ({ inventory, profile }) => {
                 SCAN TO PAY
               </div>
             </div>
+
+            {/* Copy Payment Link Button - For testing/debugging */}
+            <button
+              onClick={() => {
+                const paymentUrl = `${window.location.origin}/pay/${posBill.bill.id}`;
+                navigator.clipboard.writeText(paymentUrl);
+                toast.success('Payment link copied! Share with customer or test in browser.', { duration: 3000 });
+              }}
+              className={`mb-4 text-xs ${isDark ? 'text-emerald-400 hover:text-emerald-300' : 'text-emerald-600 hover:text-emerald-500'} underline`}
+            >
+              📋 Copy Payment Link (for testing)
+            </button>
 
             {/* Amount Display */}
             <div className="mb-4">

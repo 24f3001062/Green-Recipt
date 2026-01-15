@@ -51,7 +51,11 @@ const CustomerPayment = () => {
   // Fetch bill data
   const loadBill = useCallback(async () => {
     try {
+      console.log('[CustomerPayment] Loading bill:', billId);
+      console.log('[CustomerPayment] API Base URL:', import.meta.env.VITE_API_URL || 'http://localhost:5001/api');
+      
       const { data } = await fetchPublicBill(billId);
+      console.log('[CustomerPayment] Bill loaded successfully:', data);
       setBill(data);
       
       // Check if payment is complete
@@ -67,8 +71,23 @@ const CustomerPayment = () => {
       
       return data;
     } catch (err) {
-      console.error('Failed to load bill:', err);
-      const message = err.response?.data?.message || 'Bill not found or expired';
+      console.error('[CustomerPayment] Failed to load bill:', err);
+      console.error('[CustomerPayment] Error details:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message,
+      });
+      
+      // More descriptive error messages
+      let message = 'Bill not found or expired';
+      if (err.code === 'ERR_NETWORK') {
+        message = 'Cannot connect to server. Please check your internet connection.';
+      } else if (err.response?.status === 404) {
+        message = 'Bill not found. It may have expired or been cancelled.';
+      } else if (err.response?.data?.message) {
+        message = err.response.data.message;
+      }
+      
       setError(message);
       return null;
     }
@@ -146,15 +165,20 @@ const CustomerPayment = () => {
     return () => clearInterval(timer);
   }, [bill?.expiresAt, bill?.status]);
 
+  // Check if device is iOS
+  const isPersonalUPI = bill?.merchant?.upiType === 'PERSONAL';
+
   // Handle payment method selection
   const handleSelectMethod = async (method) => {
     if (processing) return;
     
+    console.log('[CustomerPayment] Selecting payment method:', method);
     setSelectedMethod(method);
     setProcessing(true);
 
     try {
       const { data } = await selectPaymentMethod(billId, method);
+      console.log('[CustomerPayment] Payment method response:', data);
       
       if (method === 'upi') {
         // Always use UPI deep links to open payment apps directly
@@ -317,10 +341,23 @@ const CustomerPayment = () => {
             <XCircle size={32} className="text-red-400" />
           </div>
           <h1 className="text-xl font-bold text-white mb-2">Oops!</h1>
-          <p className="text-slate-400 text-sm mb-6">{error || 'Bill not found'}</p>
+          <p className="text-slate-400 text-sm mb-4">{error || 'Bill not found'}</p>
+          
+          {/* Debug Info */}
+          <div className="text-xs text-slate-600 bg-slate-900/50 rounded-lg p-2 mb-4 text-left">
+            <div>Bill ID: {billId}</div>
+            <div className="truncate">API: {import.meta.env.VITE_API_URL || 'localhost:5001'}</div>
+          </div>
+          
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-500 transition-colors mb-2 w-full"
+          >
+            Retry
+          </button>
           <button 
             onClick={() => navigate('/')}
-            className="px-6 py-3 bg-slate-700 text-white rounded-xl font-medium hover:bg-slate-600 transition-colors"
+            className="px-6 py-3 bg-slate-700 text-white rounded-xl font-medium hover:bg-slate-600 transition-colors w-full"
           >
             Go Home
           </button>
