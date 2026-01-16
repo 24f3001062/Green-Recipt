@@ -19,6 +19,7 @@ import paymentRoutes from "./routes/paymentRoutes.js";
 import { startScheduler, stopScheduler } from "./services/reminderScheduler.js";
 
 const app = express();
+app.disable("x-powered-by");
 
 // Trust proxy headers (needed for rate limiting behind Render/Cloudflare)
 app.set("trust proxy", 1);
@@ -96,8 +97,12 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/pos", posRoutes);
 app.use("/api/payments", paymentRoutes); // Cashfree payment gateway routes
 
-// Start reminder scheduler after routes are set up
-startScheduler();
+// Start reminder scheduler after routes are set up (opt-in for production)
+if (String(process.env.RUN_SCHEDULER || "").toLowerCase() === "true") {
+  startScheduler();
+} else {
+  console.log("[Scheduler] RUN_SCHEDULER is disabled. Scheduler will not start.");
+}
 
 // Error handlers
 app.use((req, res) => {

@@ -16,11 +16,11 @@ import {
 } from "../utils/otp.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || JWT_SECRET + "_refresh";
+let REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 
 // Token config
-const ACCESS_TOKEN_EXPIRES_IN = "15m";
-const REFRESH_TOKEN_EXPIRES_IN_DAYS = 30;
+const ACCESS_TOKEN_EXPIRES_IN = "24h";
+const REFRESH_TOKEN_EXPIRES_IN_DAYS = 90;
 const REFRESH_TOKEN_EXPIRES_IN_MS = REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000;
 
 const getAllowedOrigins = () => {
@@ -44,9 +44,25 @@ const isAllowedOrigin = (origin) => {
   return allowed.includes(origin);
 };
 
+const isStrictOriginCheckEnabled = () => {
+  const raw = String(process.env.STRICT_ORIGIN_CHECK || "").toLowerCase();
+  if (raw) return raw === "true";
+  return process.env.NODE_ENV === "production";
+};
+
+const isOriginlessAllowed = () => {
+  return String(process.env.ALLOW_ORIGINLESS_REQUESTS || "").toLowerCase() === "true";
+};
+
 const enforceAllowedOrigin = (req, res) => {
   const origin = req.headers.origin;
-  if (!origin) return true;
+  if (!origin) {
+    if (isStrictOriginCheckEnabled() && !isOriginlessAllowed()) {
+      res.status(403).json({ message: "Forbidden origin", code: "FORBIDDEN_ORIGIN" });
+      return false;
+    }
+    return true;
+  }
   if (!isAllowedOrigin(origin)) {
     res.status(403).json({ message: "Forbidden origin", code: "FORBIDDEN_ORIGIN" });
     return false;
@@ -85,7 +101,7 @@ const getRefreshCookieOptions = (req) => {
     secure,
     sameSite,
     maxAge: REFRESH_TOKEN_EXPIRES_IN_MS,
-    path: "/",
+    path: "/api/auth/refresh",
   };
 };
 
@@ -96,7 +112,7 @@ const getClearRefreshCookieOptions = (req) => {
     httpOnly: true,
     secure,
     sameSite,
-    path: "/",
+    path: "/api/auth/refresh",
   };
 };
 
@@ -110,6 +126,14 @@ const OTP_RESEND_WINDOW_MS = 60 * 1000; // 1 min cooldown
 
 if (!JWT_SECRET) {
   throw new Error("JWT_SECRET is not set. Define it in your environment before starting the server.");
+}
+
+if (!REFRESH_TOKEN_SECRET) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("REFRESH_TOKEN_SECRET is not set. Define it in your environment before starting the server.");
+  }
+  console.warn("[Auth] REFRESH_TOKEN_SECRET not set. Falling back to JWT_SECRET + '_refresh' (non-production only).");
+  REFRESH_TOKEN_SECRET = `${JWT_SECRET}_refresh`;
 }
 
 // ==========================================
@@ -701,8 +725,8 @@ export const login = async (req, res) => {
 
     res.json({
       accessToken,
-      expiresIn: 15 * 60, // 15 minutes in seconds
-      refreshExpiresIn: REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60, // 30 days in seconds
+      expiresIn: 24 * 60 * 60, // 24 hours in seconds
+      refreshExpiresIn: REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60, // 90 days in seconds
       role: account.role,
       user:
         account.role === "customer"
@@ -1058,7 +1082,7 @@ export const refreshAccessToken = async (req, res) => {
 
     res.json({
       accessToken: newAccessToken,
-      expiresIn: 15 * 60, // 15 minutes in seconds
+      expiresIn: 24 * 60 * 60, // 24 hours in seconds
       refreshExpiresIn: REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60,
       role: account.role,
     });
@@ -1083,7 +1107,23 @@ export const logout = async (req, res) => {
     res.clearCookie("refreshToken", getClearRefreshCookieOptions(req));
 
     if (!refreshToken) {
-      // No token but still succeed (idempotent)
+      const authHeader = req.headers.authorization || "";
+      const accessToken = authHeader.startsWith("Bearer ") ? authHeader.replace("Bearer ", "") : null;
+
+      if (accessToken) {
+        try {
+          const accessDecoded = jwt.verify(accessToken, JWT_SECRET);
+          const Model = accessDecoded.role === "merchant" ? Merchant : User;
+          const account = await Model.findById(accessDecoded.id).select("+refreshToken");
+          if (account && account.refreshToken) {
+            await clearRefreshToken(account);
+          }
+        } catch (error) {
+          // Ignore errors - logout is idempotent
+        }
+      }
+
+      // No refresh token but still succeed (idempotent)
       return res.json({ message: "Logged out successfully" });
     }
 
