@@ -342,38 +342,44 @@ const CustomerPayment = () => {
   };
 
   // Open UPI app - just launch the app, customer will scan shop QR themselves
-  const handleOpenUPIApp = () => {
+  const handleOpenUPIApp = (specificApp = null) => {
     // Detect platform
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isAndroid = /Android/.test(navigator.userAgent);
     
     if (isAndroid) {
-      // Android: Use intent to open any installed UPI app
-      // Try multiple approaches for maximum compatibility
-      const tryOpenApp = () => {
-        // First try: Generic UPI intent (works on most Android devices)
-        window.location.href = 'upi://pay';
-      };
-      
-      toast('Opening UPI app...', { duration: 2000, icon: '📱' });
-      tryOpenApp();
+      // Android: Use Android Intent to show app chooser for UPI apps
+      // This opens the "Complete action with" dialog showing all UPI apps
+      const intentUrl = 'intent://pay#Intent;scheme=upi;action=android.intent.action.VIEW;end';
+      window.location.href = intentUrl;
       
     } else if (isIOS) {
-      // iOS: Try to open common UPI apps
-      // Unfortunately iOS doesn't have a universal UPI scheme
-      toast('Opening UPI app...', { duration: 2000, icon: '📱' });
-      
-      // Try PhonePe first (most common in India)
-      window.location.href = 'phonepe://';
+      // iOS: Must use specific app deep links
+      // Safari blocks generic scheme redirects, so we need app-specific URLs
+      if (specificApp === 'gpay') {
+        // Google Pay iOS - uses tez:// scheme
+        window.location.href = 'tez://upi/';
+      } else if (specificApp === 'phonepe') {
+        // PhonePe iOS
+        window.location.href = 'phonepe://';
+      } else if (specificApp === 'paytm') {
+        // Paytm iOS
+        window.location.href = 'paytm://';
+      }
+      // Note: If app is not installed, iOS will show "Safari cannot open" 
+      // but user can then try another app
       
     } else {
-      // Desktop - user is likely viewing on computer
+      // Desktop - show message
       toast('Open your UPI app on your phone and scan the shop\'s QR', {
         duration: 4000,
         icon: '📱',
       });
     }
   };
+
+  // Check if device is iOS for showing individual app buttons
+  const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   // Handle claiming receipt to customer account
   const handleClaimReceipt = async () => {
@@ -619,14 +625,54 @@ const CustomerPayment = () => {
             </div>
           </div>
 
-          {/* Open UPI App Button */}
-          <button
-            onClick={handleOpenUPIApp}
-            className="w-full p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] mb-4"
-          >
-            <Smartphone size={20} className="text-white" />
-            <span className="font-bold text-white">Open UPI App</span>
-          </button>
+          {/* Open UPI App Button(s) */}
+          {isIOSDevice ? (
+            // iOS: Show individual app buttons since Safari blocks generic schemes
+            <div className="space-y-3 mb-4">
+              <p className="text-slate-400 text-xs text-center mb-2">Tap to open your UPI app:</p>
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  onClick={() => handleOpenUPIApp('gpay')}
+                  className="p-3 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95"
+                >
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-xl flex items-center justify-center">
+                    <span className="text-white font-bold text-xs">G</span>
+                  </div>
+                  <span className="text-white text-xs font-medium">GPay</span>
+                </button>
+                <button
+                  onClick={() => handleOpenUPIApp('phonepe')}
+                  className="p-3 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95"
+                >
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center">
+                    <span className="text-white font-bold text-xs">Pe</span>
+                  </div>
+                  <span className="text-white text-xs font-medium">PhonePe</span>
+                </button>
+                <button
+                  onClick={() => handleOpenUPIApp('paytm')}
+                  className="p-3 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95"
+                >
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-xl flex items-center justify-center">
+                    <span className="text-white font-bold text-xs">P</span>
+                  </div>
+                  <span className="text-white text-xs font-medium">Paytm</span>
+                </button>
+              </div>
+              <p className="text-slate-500 text-[10px] text-center">
+                If app doesn't open, please open it manually from your home screen
+              </p>
+            </div>
+          ) : (
+            // Android: Single button that opens app chooser
+            <button
+              onClick={() => handleOpenUPIApp()}
+              className="w-full p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] mb-4"
+            >
+              <Smartphone size={20} className="text-white" />
+              <span className="font-bold text-white">Open UPI App</span>
+            </button>
+          )}
 
           {/* Payment Info */}
           <div className="bg-slate-900/50 rounded-xl p-4 mb-4">
