@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bell, Clock, AlertTriangle, Leaf, Tag, CheckCircle, Sparkles, Shield, RotateCcw, X, Check, Filter, ChevronDown } from 'lucide-react';
+import { Bell, Clock, AlertTriangle, Leaf, Tag, CheckCircle, Sparkles, Shield, RotateCcw, X, Check, Filter, ChevronDown, Wallet } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '../../services/api'; // Assuming you have these API functions
 import toast from 'react-hot-toast';
@@ -64,6 +64,11 @@ const CustomerNotifications = () => {
   // Get style based on type
   const getStyle = (type) => {
     switch(type) {
+      case 'bill_due_today': return { icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', gradient: 'from-amber-500 to-orange-500' };
+      case 'bill_overdue': return { icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', gradient: 'from-red-500 to-rose-500' };
+      case 'bill_reminder': return { icon: Bell, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', gradient: 'from-blue-500 to-indigo-500' };
+      case 'pending_created': return { icon: Wallet, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', gradient: 'from-amber-500 to-orange-500' };
+      case 'pending_paid': return { icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', gradient: 'from-emerald-500 to-teal-500' };
       case 'warranty': return { icon: Shield, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', gradient: 'from-amber-500 to-orange-500' };
       case 'budget': return { icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', gradient: 'from-red-500 to-rose-500' };
       case 'eco': return { icon: Leaf, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', gradient: 'from-emerald-500 to-teal-500' };
@@ -74,11 +79,19 @@ const CustomerNotifications = () => {
   };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
+  const billTypes = ['bill_reminder', 'bill_due_today', 'bill_overdue'];
+  const khataTypes = ['pending_created', 'payment_reminder', 'pending_paid'];
+  const billCount = notifications.filter(n => billTypes.includes(n.type)).length;
+  const khataCount = notifications.filter(n => khataTypes.includes(n.type)).length;
   const filteredNotifications = filter === 'all' 
     ? notifications 
     : filter === 'unread' 
       ? notifications.filter(n => !n.isRead)
-      : notifications.filter(n => n.type === filter);
+      : filter === 'bills'
+        ? notifications.filter(n => billTypes.includes(n.type))
+        : filter === 'khata'
+          ? notifications.filter(n => khataTypes.includes(n.type))
+          : notifications.filter(n => n.type === filter);
 
   if (isLoading) {
     return (
@@ -117,7 +130,8 @@ const CustomerNotifications = () => {
         {[
           { id: 'all', label: t('notifications.filters.all') },
           { id: 'unread', label: t('notifications.filters.unread'), count: unreadCount },
-          { id: 'payment_reminder', label: 'Payment Reminders' },
+          { id: 'bills', label: 'Bills', count: billCount },
+          { id: 'khata', label: 'Khata', count: khataCount },
         ].map(f => (
           <button
             key={f.id}

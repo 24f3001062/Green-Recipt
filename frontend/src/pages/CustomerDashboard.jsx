@@ -415,7 +415,6 @@ import CustomerInsights from '../components/customer/CustomerInsights';
 import CustomerProfile from '../components/customer/CustomerProfile';
 import CustomerNotifications from '../components/customer/CustomerNotifications';
 import CustomerRecurringBills from '../components/customer/CustomerRecurringBills';
-import CustomerPending from '../components/customer/CustomerPending';
 import { useTheme } from '../contexts/ThemeContext';
 import { ScanLine, Bell, X, CheckCircle, AlertCircle, Smartphone, Banknote, Clock, ShoppingBag, Calendar } from 'lucide-react'; // Ensure Calendar is imported
 import { createReceipt, claimReceipt, fetchCustomerReceipts } from '../services/api';
@@ -431,7 +430,6 @@ const CustomerDashboard = () => {
         'home',
         'receipts',
         'bills',
-        'pending',
         'calendar',
         'insights',
         'profile',
@@ -766,7 +764,6 @@ const CustomerDashboard = () => {
             )}
             {activeTab === "receipts" && <CustomerReceipts />}
             {activeTab === "bills" && <CustomerRecurringBills />}
-            {activeTab === "pending" && <CustomerPending />}
             {activeTab === "calendar" && <CustomerCalendar />}
             {activeTab === "insights" && <CustomerInsights />}
             {activeTab === "profile" && <CustomerProfile />}
