@@ -341,67 +341,66 @@ const CustomerPayment = () => {
     }
   };
 
-  // Open UPI app - just launch the app, customer will scan shop QR themselves
+  // Open UPI app - just launch the app so customer can scan shop QR themselves
+  // We're NOT pre-filling any payment data - customer will scan merchant's physical QR
   const handleOpenUPIApp = (specificApp = null) => {
-    // Detect platform
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isAndroid = /Android/.test(navigator.userAgent);
     
+    // Android package names for UPI apps
+    const UPI_PACKAGES = {
+      gpay: 'com.google.android.apps.nbu.paisa.user',
+      phonepe: 'com.phonepe.app',
+      paytm: 'net.one97.paytm',
+      bhim: 'in.org.npci.upiapp',
+    };
+    
     if (isAndroid) {
-      // Android: Use a hidden anchor tag to trigger intent without page navigation
-      // This prevents the browser from reloading after opening the UPI app
-      const intentUrl = 'intent://pay#Intent;scheme=upi;action=android.intent.action.VIEW;end';
-      
-      // Create a temporary anchor element
-      const link = document.createElement('a');
-      link.href = intentUrl;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      
-      // Trigger click programmatically
-      link.click();
-      
-      // Clean up
-      setTimeout(() => {
-        document.body.removeChild(link);
-      }, 100);
-      
-    } else if (isIOS) {
-      // iOS: Must use specific app deep links
-      // Safari blocks generic scheme redirects, so we need app-specific URLs
-      let appUrl = '';
-      
-      if (specificApp === 'gpay') {
-        appUrl = 'tez://upi/';
-      } else if (specificApp === 'phonepe') {
-        appUrl = 'phonepe://';
-      } else if (specificApp === 'paytm') {
-        appUrl = 'paytm://';
+      if (specificApp && UPI_PACKAGES[specificApp]) {
+        // Open specific app using its package name
+        // This opens the app's main activity (home screen with scanner)
+        const pkg = UPI_PACKAGES[specificApp];
+        const intentUrl = `intent://#Intent;scheme=upi;package=${pkg};end`;
+        window.location.href = intentUrl;
+      } else {
+        // Show individual app buttons for Android too (more reliable than generic intent)
+        // For now, try to open GPay as default (most common)
+        const intentUrl = `intent://#Intent;scheme=upi;package=${UPI_PACKAGES.gpay};end`;
+        window.location.href = intentUrl;
       }
-      
-      if (appUrl) {
-        // Use same anchor technique for iOS
-        const link = document.createElement('a');
-        link.href = appUrl;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => {
-          document.body.removeChild(link);
-        }, 100);
-      }
-      
-    } else {
-      // Desktop - show message
-      toast('Open your UPI app on your phone and scan the shop\'s QR', {
-        duration: 4000,
-        icon: '📱',
-      });
+      return;
     }
+    
+    if (isIOS) {
+      // iOS: Use app-specific URL schemes to open the app's home screen
+      const iosSchemes = {
+        gpay: 'gpay://',        // Opens GPay home
+        phonepe: 'phonepe://',  // Opens PhonePe home  
+        paytm: 'paytm://',      // Opens Paytm home
+        bhim: 'bhim://',        // Opens BHIM home
+      };
+      
+      if (specificApp && iosSchemes[specificApp]) {
+        window.location.href = iosSchemes[specificApp];
+      }
+      return;
+    }
+    
+    // Desktop fallback
+    toast('Open your UPI app on your phone and scan the shop\'s QR code', {
+      duration: 4000,
+      icon: '📱',
+    });
   };
-
+  
+  // Check if device is Android for showing individual app buttons
+  const isAndroidDevice = /Android/.test(navigator.userAgent);
+  
   // Check if device is iOS for showing individual app buttons
   const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  
+  // Check if mobile device (show app buttons)
+  const isMobileDevice = isIOSDevice || isAndroidDevice;
 
   // Handle claiming receipt to customer account
   const handleClaimReceipt = async () => {
@@ -648,11 +647,11 @@ const CustomerPayment = () => {
           </div>
 
           {/* Open UPI App Button(s) */}
-          {isIOSDevice ? (
-            // iOS: Show individual app buttons since Safari blocks generic schemes
+          {isMobileDevice ? (
+            // Mobile: Show individual app buttons (works better than generic intent)
             <div className="space-y-3 mb-4">
               <p className="text-slate-400 text-xs text-center mb-2">Tap to open your UPI app:</p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-2">
                 <button
                   onClick={() => handleOpenUPIApp('gpay')}
                   className="p-3 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95"
@@ -660,7 +659,7 @@ const CustomerPayment = () => {
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-xl flex items-center justify-center">
                     <span className="text-white font-bold text-xs">G</span>
                   </div>
-                  <span className="text-white text-xs font-medium">GPay</span>
+                  <span className="text-white text-[10px] font-medium">GPay</span>
                 </button>
                 <button
                   onClick={() => handleOpenUPIApp('phonepe')}
@@ -669,7 +668,7 @@ const CustomerPayment = () => {
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center">
                     <span className="text-white font-bold text-xs">Pe</span>
                   </div>
-                  <span className="text-white text-xs font-medium">PhonePe</span>
+                  <span className="text-white text-[10px] font-medium">PhonePe</span>
                 </button>
                 <button
                   onClick={() => handleOpenUPIApp('paytm')}
@@ -678,22 +677,29 @@ const CustomerPayment = () => {
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-xl flex items-center justify-center">
                     <span className="text-white font-bold text-xs">P</span>
                   </div>
-                  <span className="text-white text-xs font-medium">Paytm</span>
+                  <span className="text-white text-[10px] font-medium">Paytm</span>
+                </button>
+                <button
+                  onClick={() => handleOpenUPIApp('bhim')}
+                  className="p-3 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95"
+                >
+                  <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-green-600 rounded-xl flex items-center justify-center">
+                    <span className="text-white font-bold text-xs">B</span>
+                  </div>
+                  <span className="text-white text-[10px] font-medium">BHIM</span>
                 </button>
               </div>
-              <p className="text-slate-500 text-[10px] text-center">
-                If app doesn't open, please open it manually from your home screen
+              <p className="text-slate-500 text-[10px] text-center mt-2">
+                Tap your app → it will open → scan shop's QR code at counter
               </p>
             </div>
           ) : (
-            // Android: Single button that opens app chooser
-            <button
-              onClick={() => handleOpenUPIApp()}
-              className="w-full p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] mb-4"
-            >
-              <Smartphone size={20} className="text-white" />
-              <span className="font-bold text-white">Open UPI App</span>
-            </button>
+            // Desktop: Show message
+            <div className="bg-slate-900/50 rounded-xl p-4 mb-4 text-center">
+              <Smartphone size={32} className="text-purple-400 mx-auto mb-2" />
+              <p className="text-slate-300 text-sm">Open your UPI app on your phone</p>
+              <p className="text-slate-500 text-xs mt-1">and scan the shop's QR code</p>
+            </div>
           )}
 
           {/* Payment Info */}
