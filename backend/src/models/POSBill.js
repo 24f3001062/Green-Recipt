@@ -80,9 +80,10 @@ const posBillSchema = new mongoose.Schema(
     // PAID: Merchant confirmed payment received
     // EXPIRED: Bill timed out (10 min default)
     // CANCELLED: Merchant cancelled the bill
+    // PENDING: Customer selected Khata (pay later)
     status: {
       type: String,
-      enum: ["AWAITING_PAYMENT", "PAID", "EXPIRED", "CANCELLED"],
+      enum: ["AWAITING_PAYMENT", "PAID", "EXPIRED", "CANCELLED", "PENDING"],
       default: "AWAITING_PAYMENT",
       index: true,
     },
@@ -137,7 +138,8 @@ const posBillSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       // 'other' is used for Razorpay checkout options like card/netbanking/wallet
-      enum: ["cash", "upi", "other", null],
+      // 'pending' is used for Khata (pay later)
+      enum: ["cash", "upi", "other", "pending", null],
       default: null,
     },
     

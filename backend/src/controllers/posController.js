@@ -625,9 +625,9 @@ export const selectPaymentMethod = async (req, res) => {
     const { billId } = req.params;
     const { method, customerName, customerPhone } = req.body;
 
-    // Validate method - now includes 'other' option
-    if (!method || !["cash", "upi", "other"].includes(method)) {
-      return res.status(400).json({ message: "Invalid payment method. Use 'cash', 'upi', or 'other'" });
+    // Validate method - now includes 'other' and 'khata' options
+    if (!method || !["cash", "upi", "other", "khata"].includes(method)) {
+      return res.status(400).json({ message: "Invalid payment method. Use 'cash', 'upi', 'other', or 'khata'" });
     }
 
     const bill = await POSBill.findById(billId);
@@ -654,7 +654,72 @@ export const selectPaymentMethod = async (req, res) => {
       });
     }
 
-    // Update bill with customer's choice
+    // Handle Khata (Pay Later) - mark as pending
+    if (method === 'khata') {
+      bill.paymentMethod = 'pending';
+      bill.customerSelected = true;
+      bill.status = 'PENDING'; // Mark as pending for khata
+      if (customerName) bill.customerName = customerName.trim();
+      if (customerPhone) bill.customerPhone = customerPhone.trim();
+      await bill.save();
+
+      // Also create a pending receipt for the merchant to track
+      const merchant = await Merchant.findById(bill.merchantId);
+      
+      const receipt = await Receipt.create({
+        merchantId: bill.merchantId,
+        merchantCode: merchant?.merchantCode,
+        items: bill.items.map(item => ({
+          name: item.name,
+          unitPrice: item.price,
+          quantity: item.quantity,
+        })),
+        total: bill.total,
+        subtotal: bill.total,
+        pendingAmount: bill.total,
+        source: "qr",
+        status: "pending",
+        paymentMethod: "pending",
+        transactionDate: new Date(),
+        note: `Khata/Credit - POS Bill: ${bill.upiNote}`,
+        merchantSnapshot: {
+          shopName: merchant?.shopName,
+          merchantCode: merchant?.merchantCode,
+          address: merchant?.addressLine,
+          phone: merchant?.phone,
+          logoUrl: merchant?.logoUrl,
+          receiptHeader: merchant?.receiptHeader,
+          receiptFooter: merchant?.receiptFooter || "Thank you! Visit again.",
+          brandColor: merchant?.brandColor || "#10b981",
+          businessCategory: merchant?.businessCategory,
+        },
+        customerSnapshot: {
+          name: bill.customerName,
+          phone: bill.customerPhone,
+        },
+      });
+
+      // Link to customer if logged in (customerId will be added when they claim)
+      bill.receiptId = receipt._id;
+      await bill.save();
+
+      return res.json({
+        message: "Added to Khata (pending dues)",
+        bill: {
+          id: bill._id,
+          upiNote: bill.upiNote,
+          total: bill.total,
+          status: bill.status,
+          paymentMethod: 'pending',
+        },
+        receipt: {
+          id: receipt._id,
+          status: 'pending',
+        }
+      });
+    }
+
+    // Update bill with customer's choice (for cash, upi, other)
     bill.paymentMethod = method;
     bill.customerSelected = true;
     if (customerName) bill.customerName = customerName.trim();

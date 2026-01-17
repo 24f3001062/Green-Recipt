@@ -14,7 +14,8 @@ import {
   LogIn,
   UserPlus,
   Receipt,
-  CreditCard
+  CreditCard,
+  Wallet
 } from 'lucide-react';
 import { 
   fetchPublicBill, 
@@ -203,6 +204,10 @@ const CustomerPayment = () => {
       } else if (method === 'cash') {
         // Cash selected - show waiting for merchant confirmation
         setBill(prev => ({ ...prev, paymentMethod: 'cash', customerSelected: true }));
+      } else if (method === 'khata') {
+        // Khata (Pay Later) selected - show pending screen
+        setBill(prev => ({ ...prev, paymentMethod: 'pending', customerSelected: true, status: 'PENDING' }));
+        toast.success('Added to your pending dues! 📒', { duration: 3000 });
       }
     } catch (err) {
       console.error('Failed to select payment method:', err);
@@ -878,6 +883,59 @@ const CustomerPayment = () => {
     );
   }
 
+  // Khata (Pay Later) selected - show confirmation screen
+  if (selectedMethod === 'khata') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-900 via-slate-900 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl p-8 max-w-sm w-full text-center border border-amber-500/30">
+          <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Wallet size={32} className="text-amber-400" />
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2">Added to Khata</h1>
+          <p className="text-slate-400 text-sm mb-6">
+            <span className="text-white font-bold">₹{bill.total}</span> has been added to your pending dues.
+          </p>
+          
+          <div className="bg-slate-900/50 rounded-xl p-4 mb-4">
+            <div className="text-4xl font-black text-amber-400 mb-2">₹{bill.total}</div>
+            <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
+              <Store size={12} />
+              {bill.merchant?.shopName || 'Merchant'}
+            </div>
+          </div>
+
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 mb-4">
+            <p className="text-amber-400 text-sm font-medium">📒 Pending Payment</p>
+            <p className="text-slate-400 text-xs mt-1">
+              You can pay this later from your Pending Dues section
+            </p>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 text-emerald-400 text-sm mb-4">
+            <CheckCircle size={14} />
+            Added to your account
+          </div>
+
+          {/* View Pending Dues button */}
+          <button
+            onClick={() => navigate('/customer-dashboard?tab=pending')}
+            className="w-full py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-500 transition-colors mb-2"
+          >
+            View Pending Dues
+          </button>
+
+          {/* Back button */}
+          <button
+            onClick={() => setSelectedMethod(null)}
+            className="w-full py-2 text-slate-400 hover:text-white text-sm transition-colors"
+          >
+            ← Back to payment options
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Main payment choice screen
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
@@ -1007,6 +1065,26 @@ const CustomerPayment = () => {
                 <ArrowRight size={18} className="text-white/60" />
               )}
             </button>
+
+            {/* Pay Later (Khata) - Only for logged in customers */}
+            {isLoggedIn && (
+              <button
+                onClick={() => handleSelectMethod('khata')}
+                disabled={processing}
+                className="w-full p-4 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-amber-500/20"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                    <Wallet size={20} className="text-white" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-bold text-white">Pay Later (Khata)</div>
+                    <div className="text-amber-200 text-xs">Add to pending dues</div>
+                  </div>
+                </div>
+                <ArrowRight size={18} className="text-white/60" />
+              </button>
+            )}
           </div>
 
           {/* Processing indicator */}

@@ -44,6 +44,7 @@ const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
     { id: 'home', icon: Home, label: t('nav.home') },
     { id: 'receipts', icon: FileText, label: t('nav.receipts') },
     { id: 'bills', icon: CreditCard, label: t('nav.bills', 'Bills') },
+    { id: 'pending', icon: Wallet, label: 'Pending Dues' },
     { id: 'calendar', icon: Calendar, label: t('nav.history') },
     { id: 'insights', icon: PieChart, label: t('nav.insights') },
     { id: 'notifications', icon: Bell, label: t('nav.alerts'), hasBadge: true },
@@ -55,7 +56,7 @@ const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
     { id: 'home', icon: Home, label: t('nav.home') },
     { id: 'receipts', icon: FileText, label: t('nav.receipts') },
     // { id: 'calendar', icon: Calendar, label: t('nav.history') },
-    { id: 'bills', icon: CreditCard, label: t('nav.bills', 'Bills') },
+    { id: 'pending', icon: Wallet, label: 'Pending' },
     { id: 'insights', icon: PieChart, label: t('nav.insights') },
     { id: 'profile', icon: User, label: t('nav.profile') },
   ];
