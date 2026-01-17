@@ -341,16 +341,38 @@ const CustomerPayment = () => {
     }
   };
 
-  // Open UPI app (redirect to any UPI app)
+  // Open UPI app - just launch the app, customer will scan shop QR themselves
   const handleOpenUPIApp = () => {
-    // Try to open UPI intent - this will let user choose their UPI app
-    const upiIntent = 'upi://';
-    window.location.href = upiIntent;
+    // Detect platform
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
     
-    toast('Opening UPI app... Scan the shop\'s QR code to pay', {
-      duration: 4000,
-      icon: '📱',
-    });
+    if (isAndroid) {
+      // Android: Use intent to open any installed UPI app
+      // Try multiple approaches for maximum compatibility
+      const tryOpenApp = () => {
+        // First try: Generic UPI intent (works on most Android devices)
+        window.location.href = 'upi://pay';
+      };
+      
+      toast('Opening UPI app...', { duration: 2000, icon: '📱' });
+      tryOpenApp();
+      
+    } else if (isIOS) {
+      // iOS: Try to open common UPI apps
+      // Unfortunately iOS doesn't have a universal UPI scheme
+      toast('Opening UPI app...', { duration: 2000, icon: '📱' });
+      
+      // Try PhonePe first (most common in India)
+      window.location.href = 'phonepe://';
+      
+    } else {
+      // Desktop - user is likely viewing on computer
+      toast('Open your UPI app on your phone and scan the shop\'s QR', {
+        duration: 4000,
+        icon: '📱',
+      });
+    }
   };
 
   // Handle claiming receipt to customer account
