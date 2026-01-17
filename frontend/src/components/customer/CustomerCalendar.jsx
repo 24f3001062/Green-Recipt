@@ -1195,7 +1195,9 @@ const CustomerCalendar = () => {
                      {(() => {
                        const method = (viewingReceipt.paymentMethod || '').toLowerCase();
                        const pendingAmount = Number(viewingReceipt.pendingAmount ?? 0);
-                      const isPendingReceipt = viewingReceipt.status === 'pending' || method === 'pending' || method === 'khata' || pendingAmount > 0;
+                       const isPendingReceipt = viewingReceipt.status === 'pending'
+                         || pendingAmount > 0
+                         || ((method === 'pending' || method === 'khata') && viewingReceipt.status !== 'completed');
                        const amount = isPendingReceipt
                          ? (viewingReceipt.pendingAmount ?? viewingReceipt.total ?? viewingReceipt.amount)
                          : (viewingReceipt.total ?? viewingReceipt.amount);
@@ -1217,7 +1219,9 @@ const CustomerCalendar = () => {
                    {(() => {
                      const method = (viewingReceipt.paymentMethod || '').toLowerCase();
                      const pendingAmount = Number(viewingReceipt.pendingAmount ?? 0);
-                    const isPendingReceipt = viewingReceipt.status === 'pending' || method === 'pending' || method === 'khata' || pendingAmount > 0;
+                     const isPendingReceipt = viewingReceipt.status === 'pending'
+                       || pendingAmount > 0
+                       || ((method === 'pending' || method === 'khata') && viewingReceipt.status !== 'completed');
 
                      const badgeClass = isPendingReceipt
                        ? (isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-100')

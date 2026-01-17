@@ -491,6 +491,10 @@ export const markReceiptPaid = async (req, res) => {
        newPaymentMethod = paymentMethod;
     }
 
+    if (!paymentMethod && (currentMethod === 'khata' || currentMethod === 'pending')) {
+      newPaymentMethod = 'other';
+    }
+
     const receipt = await Receipt.findByIdAndUpdate(
       id,
       {
@@ -1338,11 +1342,14 @@ export const verifyReceiptPayment = async (req, res) => {
       updateData.pendingAmount = 0;
       if (paymentMethod && ["upi", "cash", "card", "other"].includes(paymentMethod)) {
         updateData.paymentMethod = paymentMethod;
+      } else if (receipt.paymentMethod === 'khata' || receipt.paymentMethod === 'pending') {
+        updateData.paymentMethod = 'other';
       }
     } else {
       // Mark as unpaid/pending - customer didn't actually pay
       updateData.status = "pending";
       updateData.pendingAmount = receipt.total;
+      updateData.paymentMethod = "khata";
     }
 
     const updatedReceipt = await Receipt.findByIdAndUpdate(

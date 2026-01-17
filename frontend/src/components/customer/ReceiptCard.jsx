@@ -364,7 +364,12 @@ const ReceiptCard = ({ data, onDelete, isDark: propIsDark }) => {
   const [isMerchantLogoBroken, setIsMerchantLogoBroken] = useState(false);
 
   const isQR = data.type === 'qr';
-  const isPaid = data.status === 'completed';
+  const pendingAmount = Number(data.pendingAmount ?? 0);
+  const method = data.paymentMethod?.toLowerCase();
+  const isPending = data.status === 'pending'
+    || pendingAmount > 0
+    || ((method === 'pending' || method === 'khata') && data.status !== 'completed');
+  const isPaid = data.status === 'completed' && !isPending;
   const branding = data.merchantSnapshot || {};
   const brandColor = branding.brandColor || '#10b981';
   const merchantLogoUrl = branding.logoUrl || branding.logoURL || branding.logo || null;
@@ -396,10 +401,6 @@ const ReceiptCard = ({ data, onDelete, isDark: propIsDark }) => {
   };
 
   const getPaymentInfo = () => {
-    const method = data.paymentMethod?.toLowerCase();
-    const pendingAmount = Number(data.pendingAmount ?? 0);
-    const isPending = data.status === 'pending' || method === 'pending' || method === 'khata' || pendingAmount > 0;
-
     if (isPending) {
       return { label: 'Payment Pending', icon: Clock, color: 'text-slate-600', bg: 'bg-slate-100' };
     }
