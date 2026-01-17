@@ -348,26 +348,48 @@ const CustomerPayment = () => {
     const isAndroid = /Android/.test(navigator.userAgent);
     
     if (isAndroid) {
-      // Android: Use Android Intent to show app chooser for UPI apps
-      // This opens the "Complete action with" dialog showing all UPI apps
+      // Android: Use a hidden anchor tag to trigger intent without page navigation
+      // This prevents the browser from reloading after opening the UPI app
       const intentUrl = 'intent://pay#Intent;scheme=upi;action=android.intent.action.VIEW;end';
-      window.location.href = intentUrl;
+      
+      // Create a temporary anchor element
+      const link = document.createElement('a');
+      link.href = intentUrl;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      
+      // Trigger click programmatically
+      link.click();
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link);
+      }, 100);
       
     } else if (isIOS) {
       // iOS: Must use specific app deep links
       // Safari blocks generic scheme redirects, so we need app-specific URLs
+      let appUrl = '';
+      
       if (specificApp === 'gpay') {
-        // Google Pay iOS - uses tez:// scheme
-        window.location.href = 'tez://upi/';
+        appUrl = 'tez://upi/';
       } else if (specificApp === 'phonepe') {
-        // PhonePe iOS
-        window.location.href = 'phonepe://';
+        appUrl = 'phonepe://';
       } else if (specificApp === 'paytm') {
-        // Paytm iOS
-        window.location.href = 'paytm://';
+        appUrl = 'paytm://';
       }
-      // Note: If app is not installed, iOS will show "Safari cannot open" 
-      // but user can then try another app
+      
+      if (appUrl) {
+        // Use same anchor technique for iOS
+        const link = document.createElement('a');
+        link.href = appUrl;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          document.body.removeChild(link);
+        }, 100);
+      }
       
     } else {
       // Desktop - show message
