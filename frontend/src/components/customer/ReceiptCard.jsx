@@ -398,7 +398,7 @@ const ReceiptCard = ({ data, onDelete, isDark: propIsDark }) => {
   const getPaymentInfo = () => {
     const method = data.paymentMethod?.toLowerCase();
     const pendingAmount = Number(data.pendingAmount ?? 0);
-    const isPending = data.status === 'pending' || method === 'pending' || pendingAmount > 0;
+    const isPending = data.status === 'pending' || method === 'pending' || method === 'khata' || pendingAmount > 0;
 
     if (isPending) {
       return { label: 'Payment Pending', icon: Clock, color: 'text-slate-600', bg: 'bg-slate-100' };

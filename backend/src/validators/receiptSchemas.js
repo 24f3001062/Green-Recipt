@@ -51,7 +51,7 @@ export const createReceiptSchema = {
       )
       .default([]),
     source: z.enum(["qr", "upload", "manual"]).default("qr"),
-    paymentMethod: z.enum(["upi", "card", "cash", "other"]).default("upi"),
+    paymentMethod: z.enum(["upi", "card", "cash", "other", "khata"]).default("upi"),
     status: z.enum(["completed", "pending", "void"]).optional().nullable(),
     transactionDate: z
       .union([z.string(), z.date()])
@@ -82,14 +82,14 @@ export const receiptIdParamSchema = { params: z.object({ id: objectId }) };
 export const markPaidSchema = {
   params: z.object({ id: objectId }),
   body: z.object({
-    paymentMethod: z.enum(["upi", "cash", "card", "other", "pending"]).optional(),
+    paymentMethod: z.enum(["upi", "cash", "card", "other", "pending", "khata"]).optional(),
   }),
 };
 
 export const updateReceiptSchema = {
   params: z.object({ id: objectId }),
   body: z.object({
-    paymentMethod: z.enum(["upi", "card", "cash", "other"]).optional(),
+    paymentMethod: z.enum(["upi", "card", "cash", "other", "khata"]).optional(),
     status: z.enum(["completed", "pending", "void"]).optional(),
     note: z.string().trim().max(500).optional(),
     excludeFromStats: z.boolean().optional(),

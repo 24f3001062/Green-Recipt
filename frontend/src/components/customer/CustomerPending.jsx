@@ -147,7 +147,7 @@ const CustomerPending = () => {
                   </div>
                   <div>
                     <p className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                      {receipt.merchantName || "Merchant"}
+                      {receipt.merchant || receipt.merchantSnapshot?.shopName || "Merchant"}
                     </p>
                     <p className={`text-xs flex items-center gap-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                       <Calendar size={12} />
@@ -211,7 +211,7 @@ const CustomerPending = () => {
                 Pay ₹{selectedReceipt.pendingAmount || selectedReceipt.amount}
               </h3>
               <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                to {selectedReceipt.merchantName || "Merchant"}
+                to {selectedReceipt.merchant || selectedReceipt.merchantSnapshot?.shopName || "Merchant"}
               </p>
             </div>
 

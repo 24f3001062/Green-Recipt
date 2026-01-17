@@ -169,9 +169,9 @@ const MerchantDashboard = () => {
                   <Route path="items" element={<MerchantItems />} />
                   <Route path="insights" element={<MerchantInsights />} />
                   <Route path="profile" element={<MerchantProfile />} />
-                  {/* Verify and Khata routes commented out - functionality moved to billing flow */}
+                  {/* Verify route still disabled */}
                   {/* <Route path="verify" element={<MerchantVerify />} /> */}
-                  {/* <Route path="khata" element={<MerchantKhata />} /> */}
+                  <Route path="khata" element={<MerchantKhata />} />
                   
                   {/* Catch-all redirect to overview */}
                   <Route path="*" element={<Navigate to="/merchant/overview" replace />} />

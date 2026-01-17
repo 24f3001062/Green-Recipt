@@ -69,6 +69,10 @@ const CustomerPayment = () => {
   
   // Check if customer is logged in
   const isLoggedIn = hasSession() && getStoredRole() === 'customer';
+
+  const isKhataIntent = selectedMethod === 'khata' || bill?.paymentMethod === 'pending';
+  const isKhataConfirmed = (bill?.status === 'PAID' || paymentComplete) && bill?.paymentMethod === 'khata';
+  const shouldShowKhataConfirmation = isKhataConfirmed || selectedMethod === 'khata' || bill?.paymentMethod === 'pending';
   
   // Check for khata redirect from login
   useEffect(() => {
@@ -104,6 +108,11 @@ const CustomerPayment = () => {
       const { data } = await fetchPublicBill(billId);
       console.log('[CustomerPayment] Bill loaded successfully:', data);
       setBill(data);
+
+      // If customer already chose Khata, show Khata confirmation view
+      if (data.paymentMethod === 'pending' && data.customerSelected) {
+        setSelectedMethod('khata');
+      }
       
       // Check if payment is complete
       if (data.status === 'PAID') {
@@ -156,6 +165,7 @@ const CustomerPayment = () => {
   // Poll for payment status updates (when waiting for merchant confirmation)
   useEffect(() => {
     if (!bill || paymentComplete) return;
+    if (isKhataIntent) return;
     if (bill.status !== 'AWAITING_PAYMENT') return;
     if (!selectedMethod && !bill.customerSelected) return;
     
@@ -335,7 +345,7 @@ const CustomerPayment = () => {
       // Move to khata confirmation screen
       setSelectedMethod('khata');
       setShowKhataApproval(false);
-      setBill(prev => ({ ...prev, paymentMethod: 'pending', customerSelected: true, status: 'PENDING' }));
+      setBill(prev => ({ ...prev, paymentMethod: 'pending', customerSelected: true, status: 'AWAITING_PAYMENT' }));
       toast.success('Added to Khata! 📒', { duration: 3000 });
     } catch (err) {
       console.error('Failed to add to khata:', err);
@@ -761,7 +771,7 @@ const CustomerPayment = () => {
   }
 
   // Bill already paid - show success with claim option
-  if (bill.status === 'PAID' || paymentComplete) {
+  if ((bill.status === 'PAID' || paymentComplete) && !shouldShowKhataConfirmation) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-900 via-slate-900 to-slate-900 flex items-center justify-center p-4">
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl p-8 max-w-sm w-full text-center border border-emerald-500/30">
@@ -1299,7 +1309,7 @@ const CustomerPayment = () => {
   }
 
   // Khata (Pay Later) selected - show confirmation screen
-  if (selectedMethod === 'khata') {
+  if (shouldShowKhataConfirmation) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-900 via-slate-900 to-slate-900 flex items-center justify-center p-4">
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl p-8 max-w-sm w-full text-center border border-amber-500/30">

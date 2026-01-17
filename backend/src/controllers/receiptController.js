@@ -423,13 +423,13 @@ export const markReceiptPaid = async (req, res) => {
     let newPaymentMethod = currentMethod;
 
     // Check if this is a "pending" (khata) action
-    const isPendingAction = paymentMethod === 'pending';
+    const isPendingAction = paymentMethod === 'pending' || paymentMethod === 'khata';
 
     if (isPendingAction) {
       // Mark as pending (khata) - keep status as "pending", store customer info
       const updateData = {
         status: "pending",
-        paymentMethod: "pending", // Explicitly mark as khata/pending
+        paymentMethod: "khata", // Explicitly mark as khata
         pendingAmount: receiptCheck.total,
         paidAt: null,
       };

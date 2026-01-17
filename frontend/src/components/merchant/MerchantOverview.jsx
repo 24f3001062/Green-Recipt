@@ -954,7 +954,7 @@ const MerchantOverview = () => {
               todaysBills.slice(0, 5).map((bill, index) => {
                 const method = (bill.paymentMethod || '').toLowerCase();
                 const pendingAmount = Number(bill.pendingAmount ?? 0);
-                const isPendingBill = bill.status === 'pending' || method === 'pending' || pendingAmount > 0;
+                const isPendingBill = bill.status === 'pending' || method === 'pending' || method === 'khata' || pendingAmount > 0;
                 const methodLabel = isPendingBill ? 'pending' : (bill.paymentMethod || 'cash');
 
                 return (
@@ -1162,7 +1162,7 @@ const MerchantOverview = () => {
                         {(() => {
                           const method = (viewingReceipt.paymentMethod || '').toLowerCase();
                           const pendingAmount = Number(viewingReceipt.pendingAmount ?? 0);
-                          const isPendingReceipt = viewingReceipt.status === 'pending' || method === 'pending' || pendingAmount > 0;
+                          const isPendingReceipt = viewingReceipt.status === 'pending' || method === 'pending' || method === 'khata' || pendingAmount > 0;
                           return (
                             <span className={`text-sm font-bold uppercase ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                               {isPendingReceipt ? 'Total Due' : 'Total Paid'}
@@ -1173,7 +1173,7 @@ const MerchantOverview = () => {
                                 {(() => {
                                   const method = (viewingReceipt.paymentMethod || '').toLowerCase();
                                   const pendingAmount = Number(viewingReceipt.pendingAmount ?? 0);
-                                  const isPendingReceipt = viewingReceipt.status === 'pending' || method === 'pending' || pendingAmount > 0;
+                                  const isPendingReceipt = viewingReceipt.status === 'pending' || method === 'pending' || method === 'khata' || pendingAmount > 0;
                                   return isPendingReceipt
                                     ? (viewingReceipt.pendingAmount ?? viewingReceipt.total ?? viewingReceipt.amount)
                                     : (viewingReceipt.total ?? viewingReceipt.amount);
@@ -1188,7 +1188,7 @@ const MerchantOverview = () => {
               {(() => {
                 const method = (viewingReceipt.paymentMethod || '').toLowerCase();
                 const pendingAmount = Number(viewingReceipt.pendingAmount ?? 0);
-                const isPendingReceipt = viewingReceipt.status === 'pending' || method === 'pending' || pendingAmount > 0;
+                const isPendingReceipt = viewingReceipt.status === 'pending' || method === 'pending' || method === 'khata' || pendingAmount > 0;
                 const isCompletedReceipt = viewingReceipt.status === 'completed';
 
                 const badgeClass = isPendingReceipt
