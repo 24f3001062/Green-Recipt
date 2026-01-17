@@ -23,10 +23,7 @@ const receiptSchema = new mongoose.Schema(
     billId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "POSBill",
-      unique: true,
-      sparse: true,
-      index: true,
-      default: null,
+      default: undefined, // Use undefined instead of null for sparse index to work
     },
     merchantCode: {
       type: String,
@@ -171,6 +168,7 @@ receiptSchema.index({ userId: 1, status: 1 }); // For customer pending receipts
 receiptSchema.index({ userId: 1, transactionDate: -1 });
 receiptSchema.index({ source: 1 });
 receiptSchema.index({ excludeFromStats: 1 });
+// billId index is defined here only (unique + sparse allows multiple documents without billId)
 receiptSchema.index({ billId: 1 }, { unique: true, sparse: true });
 
 const Receipt = mongoose.model("Receipt", receiptSchema);
