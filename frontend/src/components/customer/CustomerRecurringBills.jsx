@@ -32,6 +32,7 @@ const CYCLE_OPTIONS = [
   { value: 'monthly', label: 'Monthly' },
   { value: 'quarterly', label: 'Quarterly' },
   { value: 'yearly', label: 'Yearly' },
+  { value: 'custom', label: 'Custom (Days)' },
 ];
 
 const REMINDER_OFFSET_OPTIONS = [
@@ -231,6 +232,7 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
     category: 'other',
     billCycle: 'monthly',
     dueDay: 1,
+    customIntervalDays: 30,
     reminderOffsets: [3, 1],
     notes: '',
     isAutoPay: false,
@@ -245,6 +247,7 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
         category: bill.category || 'other',
         billCycle: bill.billCycle || 'monthly',
         dueDay: bill.dueDay || 1,
+        customIntervalDays: bill.customIntervalDays || 30,
         reminderOffsets: bill.reminderOffsets || [3, 1],
         notes: bill.notes || '',
         isAutoPay: bill.isAutoPay || false,
@@ -256,6 +259,7 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
         category: 'other',
         billCycle: 'monthly',
         dueDay: new Date().getDate(),
+        customIntervalDays: 30,
         reminderOffsets: [3, 1],
         notes: '',
         isAutoPay: false,
@@ -269,6 +273,11 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
       toast.error('Please enter a bill name');
       return;
     }
+
+    if (formData.billCycle === 'custom' && (!formData.customIntervalDays || formData.customIntervalDays < 1)) {
+      toast.error('Please enter a valid interval in days');
+      return;
+    }
     
     setLoading(true);
     try {
@@ -276,6 +285,7 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
         ...formData,
         amount: formData.amount ? parseFloat(formData.amount) : null,
         dueDay: parseInt(formData.dueDay),
+        customIntervalDays: formData.billCycle === 'custom' ? parseInt(formData.customIntervalDays) : null,
         startDate: new Date().toISOString(),
       };
       
@@ -434,6 +444,35 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
               </select>
             </div>
           </div>
+
+          {/* Custom Interval Configuration */}
+          {formData.billCycle === 'custom' && (
+            <div className="animate-fade-in">
+              <label className={`block text-sm font-medium mb-1.5 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                Repeat Interval
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.customIntervalDays}
+                  onChange={(e) => setFormData({ ...formData, customIntervalDays: e.target.value })}
+                  placeholder="e.g. 28"
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-colors ${
+                    isDark 
+                      ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500 focus:border-emerald-500' 
+                      : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'
+                  } focus:outline-none focus:ring-2 focus:ring-emerald-500/20`}
+                />
+                <span className={`absolute right-4 top-1/2 -translate-y-1/2 text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                  days
+                </span>
+              </div>
+              <p className={`text-xs mt-1.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                Next bill will be due {formData.customIntervalDays || '...'} days after the previous one.
+              </p>
+            </div>
+          )}
           
           {/* Reminder Offsets */}
           <div>
