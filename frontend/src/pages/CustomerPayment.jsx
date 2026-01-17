@@ -347,12 +347,44 @@ const CustomerPayment = () => {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isAndroid = /Android/.test(navigator.userAgent);
     
-    // Android deep links for UPI apps (these open the app directly if installed)
-    const ANDROID_DEEP_LINKS = {
-      gpay: 'gpay://upi/',                    // Google Pay deep link
-      phonepe: 'phonepe://pay',               // PhonePe deep link
-      paytm: 'paytm://upi',                   // Paytm deep link
-      bhim: 'upi://pay',                      // BHIM uses standard UPI scheme
+    // Android deep links and Play Store URLs
+    const ANDROID_APPS = {
+      gpay: {
+        deepLink: 'gpay://upi/',
+        playStore: 'https://play.google.com/store/apps/details?id=com.google.android.apps.nbu.paisa.user',
+      },
+      phonepe: {
+        deepLink: 'phonepe://pay',
+        playStore: 'https://play.google.com/store/apps/details?id=com.phonepe.app',
+      },
+      paytm: {
+        deepLink: 'paytm://upi',
+        playStore: 'https://play.google.com/store/apps/details?id=net.one97.paytm',
+      },
+      bhim: {
+        deepLink: 'upi://pay',
+        playStore: 'https://play.google.com/store/apps/details?id=in.org.npci.upiapp',
+      },
+    };
+    
+    // iOS app schemes and App Store URLs
+    const IOS_APPS = {
+      gpay: {
+        scheme: 'gpay://',
+        appStore: 'https://apps.apple.com/app/google-pay/id1193357041',
+      },
+      phonepe: {
+        scheme: 'phonepe://',
+        appStore: 'https://apps.apple.com/app/phonepe-upi-payments-recharge/id1170055821',
+      },
+      paytm: {
+        scheme: 'paytm://',
+        appStore: 'https://apps.apple.com/app/paytm-payments-bank/id473941634',
+      },
+      bhim: {
+        scheme: 'bhim://',
+        appStore: 'https://apps.apple.com/app/bhim-making-india-cashless/id1200315258',
+      },
     };
     
     if (isAndroid) {
@@ -363,25 +395,76 @@ const CustomerPayment = () => {
         return;
       }
       
-      if (specificApp && ANDROID_DEEP_LINKS[specificApp]) {
-        // Use the app's native deep link scheme - opens directly if installed
-        window.location.href = ANDROID_DEEP_LINKS[specificApp];
+      if (specificApp && ANDROID_APPS[specificApp]) {
+        const app = ANDROID_APPS[specificApp];
+        
+        // Track if we're leaving the page (app opened successfully)
+        let appOpened = false;
+        
+        // Listen for visibility change - if page becomes hidden, app opened
+        const handleVisibilityChange = () => {
+          if (document.hidden) {
+            appOpened = true;
+          }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        // Try to open the app
+        window.location.href = app.deepLink;
+        
+        // If app doesn't open within 1.5 seconds, redirect to Play Store
+        setTimeout(() => {
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+          
+          if (!appOpened && !document.hidden) {
+            // App didn't open - redirect to Play Store
+            toast(`${specificApp === 'gpay' ? 'Google Pay' : specificApp === 'phonepe' ? 'PhonePe' : specificApp === 'paytm' ? 'Paytm' : 'BHIM'} not installed. Opening Play Store...`, {
+              duration: 2000,
+              icon: '📲',
+            });
+            window.location.href = app.playStore;
+          }
+        }, 1500);
       }
       return;
     }
     
     if (isIOS) {
-      // iOS: Use app-specific URL schemes
-      const iosSchemes = {
-        default: 'upi://',      // Try generic UPI scheme first
-        gpay: 'gpay://',        // Opens GPay home
-        phonepe: 'phonepe://',  // Opens PhonePe home  
-        paytm: 'paytm://',      // Opens Paytm home
-        bhim: 'bhim://',        // Opens BHIM home
-      };
+      if (specificApp === 'default') {
+        // Try generic UPI scheme
+        window.location.href = 'upi://';
+        return;
+      }
       
-      if (specificApp && iosSchemes[specificApp]) {
-        window.location.href = iosSchemes[specificApp];
+      if (specificApp && IOS_APPS[specificApp]) {
+        const app = IOS_APPS[specificApp];
+        
+        // Track if we're leaving the page (app opened successfully)
+        let appOpened = false;
+        
+        const handleVisibilityChange = () => {
+          if (document.hidden) {
+            appOpened = true;
+          }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        // Try to open the app
+        window.location.href = app.scheme;
+        
+        // If app doesn't open within 1.5 seconds, redirect to App Store
+        setTimeout(() => {
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+          
+          if (!appOpened && !document.hidden) {
+            // App didn't open - redirect to App Store
+            toast(`${specificApp === 'gpay' ? 'Google Pay' : specificApp === 'phonepe' ? 'PhonePe' : specificApp === 'paytm' ? 'Paytm' : 'BHIM'} not installed. Opening App Store...`, {
+              duration: 2000,
+              icon: '📲',
+            });
+            window.location.href = app.appStore;
+          }
+        }, 1500);
       }
       return;
     }
