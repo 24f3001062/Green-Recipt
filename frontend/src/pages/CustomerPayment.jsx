@@ -347,33 +347,33 @@ const CustomerPayment = () => {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isAndroid = /Android/.test(navigator.userAgent);
     
-    // Android package names for UPI apps
-    const UPI_PACKAGES = {
-      gpay: 'com.google.android.apps.nbu.paisa.user',
-      phonepe: 'com.phonepe.app',
-      paytm: 'net.one97.paytm',
-      bhim: 'in.org.npci.upiapp',
+    // Android deep links for UPI apps (these open the app directly if installed)
+    const ANDROID_DEEP_LINKS = {
+      gpay: 'gpay://upi/',                    // Google Pay deep link
+      phonepe: 'phonepe://pay',               // PhonePe deep link
+      paytm: 'paytm://upi',                   // Paytm deep link
+      bhim: 'upi://pay',                      // BHIM uses standard UPI scheme
     };
     
     if (isAndroid) {
-      if (specificApp && UPI_PACKAGES[specificApp]) {
-        // Open specific app using its package name
-        // This opens the app's main activity (home screen with scanner)
-        const pkg = UPI_PACKAGES[specificApp];
-        const intentUrl = `intent://#Intent;scheme=upi;package=${pkg};end`;
-        window.location.href = intentUrl;
-      } else {
-        // Show individual app buttons for Android too (more reliable than generic intent)
-        // For now, try to open GPay as default (most common)
-        const intentUrl = `intent://#Intent;scheme=upi;package=${UPI_PACKAGES.gpay};end`;
-        window.location.href = intentUrl;
+      if (specificApp === 'default') {
+        // Open system's default UPI app using generic upi:// scheme
+        // This shows Android's app chooser if multiple UPI apps are installed
+        window.location.href = 'upi://pay';
+        return;
+      }
+      
+      if (specificApp && ANDROID_DEEP_LINKS[specificApp]) {
+        // Use the app's native deep link scheme - opens directly if installed
+        window.location.href = ANDROID_DEEP_LINKS[specificApp];
       }
       return;
     }
     
     if (isIOS) {
-      // iOS: Use app-specific URL schemes to open the app's home screen
+      // iOS: Use app-specific URL schemes
       const iosSchemes = {
+        default: 'upi://',      // Try generic UPI scheme first
         gpay: 'gpay://',        // Opens GPay home
         phonepe: 'phonepe://',  // Opens PhonePe home  
         paytm: 'paytm://',      // Opens Paytm home
@@ -648,49 +648,66 @@ const CustomerPayment = () => {
 
           {/* Open UPI App Button(s) */}
           {isMobileDevice ? (
-            // Mobile: Show individual app buttons (works better than generic intent)
+            // Mobile: Show default UPI button + individual app buttons as fallback
             <div className="space-y-3 mb-4">
-              <p className="text-slate-400 text-xs text-center mb-2">Tap to open your UPI app:</p>
+              {/* Primary: Open Default UPI App */}
+              <button
+                onClick={() => handleOpenUPIApp('default')}
+                className="w-full p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
+              >
+                <Smartphone size={20} className="text-white" />
+                <span className="font-bold text-white">Open UPI App</span>
+              </button>
+              
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-slate-700"></div>
+                <span className="text-slate-500 text-xs">or choose app</span>
+                <div className="flex-1 h-px bg-slate-700"></div>
+              </div>
+              
+              {/* Secondary: Individual app buttons */}
               <div className="grid grid-cols-4 gap-2">
                 <button
                   onClick={() => handleOpenUPIApp('gpay')}
-                  className="p-3 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95"
+                  className="p-2 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"
                 >
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-xl flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">G</span>
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-green-500 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-[10px]">G</span>
                   </div>
-                  <span className="text-white text-[10px] font-medium">GPay</span>
+                  <span className="text-white text-[9px]">GPay</span>
                 </button>
                 <button
                   onClick={() => handleOpenUPIApp('phonepe')}
-                  className="p-3 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95"
+                  className="p-2 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"
                 >
-                  <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">Pe</span>
+                  <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-[10px]">Pe</span>
                   </div>
-                  <span className="text-white text-[10px] font-medium">PhonePe</span>
+                  <span className="text-white text-[9px]">PhonePe</span>
                 </button>
                 <button
                   onClick={() => handleOpenUPIApp('paytm')}
-                  className="p-3 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95"
+                  className="p-2 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"
                 >
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-xl flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">P</span>
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-[10px]">P</span>
                   </div>
-                  <span className="text-white text-[10px] font-medium">Paytm</span>
+                  <span className="text-white text-[9px]">Paytm</span>
                 </button>
                 <button
                   onClick={() => handleOpenUPIApp('bhim')}
-                  className="p-3 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95"
+                  className="p-2 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"
                 >
-                  <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-green-600 rounded-xl flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">B</span>
+                  <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-green-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-[10px]">B</span>
                   </div>
-                  <span className="text-white text-[10px] font-medium">BHIM</span>
+                  <span className="text-white text-[9px]">BHIM</span>
                 </button>
               </div>
-              <p className="text-slate-500 text-[10px] text-center mt-2">
-                Tap your app → it will open → scan shop's QR code at counter
+              
+              <p className="text-slate-500 text-[10px] text-center">
+                Tap to open → scan shop's QR code at counter
               </p>
             </div>
           ) : (
