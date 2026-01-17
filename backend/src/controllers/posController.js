@@ -2,6 +2,7 @@ import POSBill from "../models/POSBill.js";
 import Receipt from "../models/Receipt.js";
 import Merchant from "../models/Merchant.js";
 import { finalizeBillAndCreateReceipt } from "../services/receiptFinalizer.js";
+import { assertTransitionAllowed } from "../utils/billStateMachine.js";
 
 /**
  * POS Controller - Merchant-Confirmed UPI Payment System
@@ -139,69 +140,54 @@ export const confirmPayment = async (req, res) => {
     const { billId } = req.params;
     const { customerPhone, customerName, paymentMethod } = req.body;
 
-    // Find the bill
+    // Validate payment method upfront
+    if (paymentMethod && !['cash', 'upi', 'other', 'khata'].includes(paymentMethod)) {
+      return res.status(400).json({
+        message: "Invalid payment method. Use 'cash', 'upi', 'other', or 'khata'",
+        code: "INVALID_PAYMENT_METHOD",
+      });
+    }
+
+    // Phase 3: Fetch bill first to check status & transitions
     const bill = await POSBill.findOne({ _id: billId, merchantId });
-    
+
     if (!bill) {
       return res.status(404).json({ message: "Bill not found" });
     }
 
-    // Check if bill is already processed
-    if (bill.status === "PAID") {
-      return res.status(400).json({ 
-        message: "Bill is already paid",
-        code: "ALREADY_PAID"
-      });
-    }
-
-    if (bill.status === "CANCELLED") {
-      return res.status(400).json({ 
-        message: "Bill was cancelled",
-        code: "BILL_CANCELLED"
-      });
-    }
-
-    if (bill.status === "EXPIRED") {
-      return res.status(400).json({ 
-        message: "Bill has expired",
-        code: "BILL_EXPIRED"
-      });
-    }
-
-    // Check expiry for AWAITING_PAYMENT bills
+    // Check expiry for AWAITING_PAYMENT bills first
     if (bill.status === "AWAITING_PAYMENT") {
       const isExpired = await bill.checkAndExpire();
       if (isExpired) {
         return res.status(400).json({ 
           message: "Bill has expired",
-          code: "BILL_EXPIRED"
+          code: "BILL_EXPIRED" 
         });
       }
     }
 
-    // Mark as PAID
+    // Enforce strict transitions (Phase 3.2)
+    try {
+      assertTransitionAllowed(bill.status, "PAID");
+    } catch (error) {
+      return res.status(400).json({ 
+        message: error.message,
+        code: "INVALID_STATE_TRANSITION"
+      });
+    }
+
+    // Update bill
     bill.status = "PAID";
     bill.paidAt = new Date();
 
-    // Allow merchant to explicitly set payment method (optional).
-    // If not provided, prefer the customer's selected method; default to 'upi'.
     if (paymentMethod) {
-      if (!['cash', 'upi', 'other', 'khata'].includes(paymentMethod)) {
-        return res.status(400).json({
-          message: "Invalid payment method. Use 'cash', 'upi', 'other', or 'khata'",
-          code: "INVALID_PAYMENT_METHOD",
-        });
-      }
       bill.paymentMethod = paymentMethod;
       bill.customerSelected = true;
-    } else {
-      // If customer selected 'khata' (stored as 'pending' on bill), treat it as 'khata' now that merchant is confirming
-      if (bill.paymentMethod === 'pending') {
-        bill.paymentMethod = 'khata';
-      }
+    } else if (bill.paymentMethod === 'pending') {
+      // Legacy fallback
+      bill.paymentMethod = 'khata';
     }
-    
-    // Update customer info if provided
+
     if (customerPhone) bill.customerPhone = customerPhone.trim();
     if (customerName) bill.customerName = customerName.trim();
 
@@ -250,10 +236,12 @@ export const cancelBill = async (req, res) => {
       return res.status(404).json({ message: "Bill not found" });
     }
 
-    if (bill.status !== "AWAITING_PAYMENT") {
+    try {
+      assertTransitionAllowed(bill.status, "CANCELLED");
+    } catch (error) {
       return res.status(400).json({ 
-        message: `Cannot cancel bill with status: ${bill.status}`,
-        code: "INVALID_STATUS"
+        message: error.message,
+        code: "INVALID_STATE_TRANSITION"
       });
     }
 
@@ -647,7 +635,18 @@ export const selectPaymentMethod = async (req, res) => {
       // This endpoint is public and should only capture customer's intent.
       // The merchant must confirm Khata separately.
 
-      bill.paymentMethod = 'pending'; // customer intent (bill-level)
+      // Phase 3: Enforce strict transition
+      try {
+        assertTransitionAllowed(bill.status, "PENDING_KHATA");
+      } catch (err) {
+        return res.status(400).json({ 
+          message: err.message, 
+          code: "INVALID_STATE_TRANSITION" 
+        });
+      }
+
+      bill.status = 'PENDING_KHATA'; // Explicit status for Khata
+      bill.paymentMethod = 'khata'; // Explicit method
       bill.customerSelected = true;
       bill.customerId = customerId; // Link customer to bill for later confirmation & reminders
       if (customerName) bill.customerName = customerName.trim();
@@ -660,7 +659,7 @@ export const selectPaymentMethod = async (req, res) => {
           id: bill._id,
           upiNote: bill.upiNote,
           total: bill.total,
-          status: bill.status, // should remain AWAITING_PAYMENT until merchant confirms
+          status: bill.status,
           paymentMethod: bill.paymentMethod,
           customerName: bill.customerName,
           customerPhone: bill.customerPhone,

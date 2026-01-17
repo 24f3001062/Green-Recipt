@@ -80,10 +80,10 @@ const posBillSchema = new mongoose.Schema(
     // PAID: Merchant confirmed payment received
     // EXPIRED: Bill timed out (10 min default)
     // CANCELLED: Merchant cancelled the bill
-    // PENDING: Customer selected Khata (pay later)
+    // PENDING_KHATA: Customer selected Khata, waiting for merchant confirmation
     status: {
       type: String,
-      enum: ["AWAITING_PAYMENT", "PAID", "EXPIRED", "CANCELLED", "PENDING"],
+      enum: ["AWAITING_PAYMENT", "PAID", "EXPIRED", "CANCELLED", "PENDING", "PENDING_KHATA"],
       default: "AWAITING_PAYMENT",
       index: true,
     },
