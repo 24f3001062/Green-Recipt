@@ -71,8 +71,14 @@ const CustomerPayment = () => {
   const isLoggedIn = hasSession() && getStoredRole() === 'customer';
 
   const isKhataIntent = selectedMethod === 'khata' || bill?.paymentMethod === 'pending';
-  const isKhataConfirmed = (bill?.status === 'PAID' || paymentComplete) && bill?.paymentMethod === 'khata';
-  const shouldShowKhataConfirmation = isKhataConfirmed || selectedMethod === 'khata' || bill?.paymentMethod === 'pending';
+  // Check if Khata is fully confirmed (PAID) or if legacy logic applies (paymentComplete + khata)
+  const isKhataConfirmed = (bill?.status === 'PAID' || paymentComplete) && (bill?.paymentMethod === 'khata' || bill?.paymentMethod === 'pending');
+  
+  // Only show "Added to Khata" screen if confirmed by merchant
+  const shouldShowKhataConfirmation = isKhataConfirmed;
+  
+  // Show "Waiting for Merchant" if user selected Khata but merchant hasn't confirmed yet
+  const shouldShowKhataWaiting = isKhataIntent && !isKhataConfirmed && !showKhataApproval && !showLoginPrompt && !showPhonePrompt;
   
   // Check for khata redirect from login
   useEffect(() => {
@@ -1303,6 +1309,40 @@ const CustomerPayment = () => {
               ← Back to payment options
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Khata Waiting Screen (Merchant Confirmation)
+  if (shouldShowKhataWaiting) {
+     return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-900 via-slate-900 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl p-8 max-w-sm w-full text-center border border-amber-500/30">
+          <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Clock size={32} className="text-amber-400" />
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2">Waiting for Merchant</h1>
+          <p className="text-slate-400 text-sm mb-6">
+            Please ask the merchant to confirm your Khata request.
+          </p>
+          
+          <div className="bg-slate-900/50 rounded-xl p-4 mb-4">
+            <div className="text-4xl font-black text-amber-400 mb-2">₹{bill.total}</div>
+            <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
+              <Store size={12} />
+              {bill.merchant?.shopName || 'Merchant'}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 text-amber-400 text-sm mb-6">
+            <Loader2 size={16} className="animate-spin" />
+            Waiting for confirmation...
+          </div>
+
+          <p className="text-[10px] text-slate-500 mb-4">
+            Do not close this window. It will update automatically.
+          </p>
         </div>
       </div>
     );
