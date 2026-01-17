@@ -2,14 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
-  Plus, X, Calendar, Clock, DollarSign, Bell, Pause, Play,
-  Trash2, Edit3, Check, AlertTriangle, ChevronDown, ChevronRight,
+  Plus, X, Calendar, DollarSign, Bell, Pause, Play,
+  Trash2, Edit3, Check, AlertTriangle, ChevronRight,
   Zap, CreditCard, Wifi, Shield, Home, Smartphone, FileText,
   MoreHorizontal, CheckCircle, AlertCircle, Loader2, RefreshCw
 } from 'lucide-react';
 import {
   fetchBills, createBill, updateBill, deleteBill,
-  toggleBillStatus, markBillPaid, fetchUpcomingBills
+  toggleBillStatus, markBillPaid
 } from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -83,16 +83,16 @@ const BillCard = ({ bill, isDark, onEdit, onDelete, onToggleStatus, onMarkPaid }
     <div 
       className={`p-4 rounded-2xl border transition-all group relative ${
         isPaused ? 'opacity-60' : ''
-      } ${isDark ? 'bg-slate-800 border-slate-700 hover:border-slate-600' : 'bg-white border-slate-100 hover:border-slate-200'}`}
+      } ${isDark ? 'bg-slate-800 border-slate-700 hover:border-slate-600' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md'}`}
     >
       {/* Status indicators */}
       {bill.isOverdue && !isPaid && (
-        <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center animate-pulse">
+        <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center animate-pulse shadow-lg">
           <AlertTriangle size={12} className="text-white" />
         </div>
       )}
       {bill.isDueSoon && !bill.isOverdue && !isPaid && (
-        <div className="absolute -top-2 -right-2 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center">
+        <div className="absolute -top-2 -right-2 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center shadow-lg">
           <Bell size={12} className="text-white" />
         </div>
       )}
@@ -126,7 +126,7 @@ const BillCard = ({ bill, isDark, onEdit, onDelete, onToggleStatus, onMarkPaid }
           </div>
           
           {/* Due date and status */}
-          <div className="flex items-center gap-3 mt-2">
+          <div className="flex items-center gap-3 mt-2 flex-wrap">
             <span className={`text-xs font-medium flex items-center gap-1 px-2 py-1 rounded-full ${
               bill.isOverdue && !isPaid
                 ? isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-600'
@@ -236,9 +236,35 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
     reminderOffsets: [3, 1],
     notes: '',
     isAutoPay: false,
+    paymentMethod: '',
   });
   const [loading, setLoading] = useState(false);
   const [customIntervalUnit, setCustomIntervalUnit] = useState('days');
+  const [step, setStep] = useState(1);
+  const [errors, setErrors] = useState({});
+  
+  // Popular bill presets
+  const POPULAR_BILLS = {
+    utilities: [
+      { name: 'Electricity Bill', amount: 1500 },
+      { name: 'Water Bill', amount: 500 },
+      { name: 'Gas Bill', amount: 800 },
+    ],
+    subscriptions: [
+      { name: 'Netflix', amount: 649 },
+      { name: 'Amazon Prime', amount: 1499 },
+      { name: 'Spotify', amount: 119 },
+      { name: 'YouTube Premium', amount: 129 },
+    ],
+    insurance: [
+      { name: 'Health Insurance', amount: 5000 },
+      { name: 'Car Insurance', amount: 3000 },
+      { name: 'Life Insurance', amount: 2500 },
+    ],
+  };
+  
+  // Quick amount templates
+  const AMOUNT_TEMPLATES = [500, 1000, 1500, 2000, 5000];
   
   useEffect(() => {
     if (bill) {
@@ -255,7 +281,9 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
         reminderOffsets: bill.reminderOffsets || [3, 1],
         notes: bill.notes || '',
         isAutoPay: bill.isAutoPay || false,
+        paymentMethod: bill.paymentMethod || '',
       });
+      setStep(1);
     } else {
       setCustomIntervalUnit('days');
       setFormData({
@@ -268,19 +296,48 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
         reminderOffsets: [3, 1],
         notes: '',
         isAutoPay: false,
+        paymentMethod: '',
       });
+      setStep(1);
     }
+    setErrors({});
   }, [bill, isOpen]);
+  
+  // Validation
+  const validateStep = (stepNum) => {
+    const newErrors = {};
+    
+    if (stepNum === 1) {
+      if (!formData.name.trim()) newErrors.name = 'Bill name is required';
+      if (!formData.category) newErrors.category = 'Please select a category';
+    }
+    
+    if (stepNum === 2) {
+      if (!formData.billCycle) newErrors.billCycle = 'Please select billing cycle';
+      if (formData.billCycle === 'custom' && (!formData.customIntervalDays || formData.customIntervalDays < 1)) {
+        newErrors.customIntervalDays = 'Please enter valid interval';
+      }
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+  
+  const handleNext = () => {
+    if (validateStep(step)) {
+      setStep(prev => Math.min(prev + 1, 3));
+    }
+  };
+  
+  const handleBack = () => {
+    setStep(prev => Math.max(prev - 1, 1));
+    setErrors({});
+  };
   
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
-      toast.error('Please enter a bill name');
-      return;
-    }
-
-    if (formData.billCycle === 'custom' && (!formData.customIntervalDays || formData.customIntervalDays < 1)) {
-      toast.error('Please enter a valid interval');
+    if (!validateStep(1) || !validateStep(2)) {
+      setStep(1);
       return;
     }
     
@@ -296,6 +353,7 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
       
       await onSave(payload, bill?._id);
       onClose();
+      setStep(1);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to save bill');
     } finally {
@@ -311,335 +369,492 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
       return { ...prev, reminderOffsets: offsets.length > 0 ? offsets : [1] };
     });
   };
+  
+  const selectPreset = (preset) => {
+    setFormData(prev => ({ ...prev, name: preset.name, amount: preset.amount }));
+  };
 
-  const cycleLabel = CYCLE_OPTIONS.find(opt => opt.value === formData.billCycle)?.label || 'Custom';
-  const amountDisplay = formData.amount ? `₹${Number(formData.amount).toLocaleString('en-IN')}` : 'Variable';
-  const dueDayDisplay = Number(formData.dueDay) === 31 ? 'Last day' : `Day ${formData.dueDay}`;
   const customIntervalValue = customIntervalUnit === 'weeks'
     ? Math.max(1, Math.round(Number(formData.customIntervalDays || 0) / 7))
     : Math.max(1, Number(formData.customIntervalDays || 0) || 1);
-  const customFrequencyLabel = formData.billCycle === 'custom'
-    ? `Every ${customIntervalValue} ${customIntervalUnit}`
-    : cycleLabel;
-  const remindersDisplay = (formData.reminderOffsets || []).length
-    ? formData.reminderOffsets.map(offset => {
-        const option = REMINDER_OFFSET_OPTIONS.find(opt => opt.value === offset);
-        return option?.label || `${offset} days before`;
-      }).join(', ')
-    : 'None';
   
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn">
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
-      <div className={`relative w-full max-w-2xl max-h-[90vh] mx-auto overflow-hidden rounded-3xl shadow-2xl ${
+      <div className={`relative w-full max-w-4xl max-h-[90vh] mx-auto overflow-hidden rounded-3xl shadow-2xl transform transition-all ${
         isDark ? 'bg-slate-900' : 'bg-white'
       }`}>
-        {/* Header */}
-        <div className={`px-6 py-5 border-b ${isDark ? 'border-slate-800' : 'border-slate-100'} bg-gradient-to-br ${
-          isDark ? 'from-slate-900 to-slate-800' : 'from-emerald-50 to-white'
-        }`}>
-          <div className="flex items-start justify-between gap-4">
-            <div>
+        {/* Header with Progress */}
+        <div className={`relative px-6 py-5 border-b ${isDark ? 'border-slate-800 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900' : 'border-slate-100 bg-gradient-to-br from-emerald-50 via-white to-teal-50'}`}>
+          <button
+            onClick={onClose}
+            className={`absolute top-4 right-4 p-2 rounded-xl transition-all hover:rotate-90 ${isDark ? 'hover:bg-slate-800' : 'hover:bg-white/80'}`}
+          >
+            <X size={20} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+          </button>
+          
+          <div className="pr-12">
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-500'}`}>
+                {step === 1 && <FileText size={16} className={isDark ? 'text-emerald-400' : 'text-white'} />}
+                {step === 2 && <Calendar size={16} className={isDark ? 'text-emerald-400' : 'text-white'} />}
+                {step === 3 && <Bell size={16} className={isDark ? 'text-emerald-400' : 'text-white'} />}
+              </div>
               <p className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                {bill ? 'Edit Bill' : 'Create Bill'}
-              </p>
-              <h2 className={`text-xl md:text-2xl font-black mt-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                {bill ? 'Update your recurring bill' : 'Add a recurring bill'}
-              </h2>
-              <p className={`text-xs md:text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                Get reminders before the due date and never miss a payment.
+                Step {step} of 3
               </p>
             </div>
-            <button
-              onClick={onClose}
-              className={`p-2 rounded-xl transition-colors ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}
-            >
-              <X size={20} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
-            </button>
+            <h2 className={`text-2xl md:text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              {step === 1 && (bill ? 'Edit Bill Details' : 'Add New Bill')}
+              {step === 2 && 'Set Billing Schedule'}
+              {step === 3 && 'Configure Preferences'}
+            </h2>
+            <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+              {step === 1 && 'Enter the basic information about your bill'}
+              {step === 2 && 'Choose when and how often you want to be billed'}
+              {step === 3 && 'Set reminders and additional options'}
+            </p>
+          </div>
+          
+          {/* Progress bar */}
+          <div className="flex gap-2 mt-4">
+            {[1, 2, 3].map(s => (
+              <div key={s} className={`h-1 rounded-full flex-1 transition-all duration-500 ${
+                s <= step 
+                  ? isDark ? 'bg-emerald-500' : 'bg-emerald-600'
+                  : isDark ? 'bg-slate-700' : 'bg-slate-200'
+              }`} />
+            ))}
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="max-h-[calc(90vh-120px)] overflow-y-auto">
-          <div className="p-6 space-y-6">
-            {/* Quick Preview */}
-            <div className={`rounded-2xl border p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 ${
-              isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'
-            }`}>
-              <div>
-                <p className={`text-xs font-bold uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Summary</p>
-                <p className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                  {formData.name?.trim() || 'Untitled bill'}
-                </p>
-                <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  {customFrequencyLabel} • {formData.billCycle === 'custom' ? 'Flexible schedule' : dueDayDisplay}
-                </p>
-              </div>
-              <div className="text-left md:text-right">
-                <p className={`text-xs font-bold uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Amount</p>
-                <p className={`text-2xl font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                  {amountDisplay}
-                </p>
-                <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  Reminders: {remindersDisplay}
-                </p>
-              </div>
-            </div>
+        <form onSubmit={handleSubmit} className="max-h-[calc(90vh-180px)] overflow-y-auto">
+          <div className="p-6">
+            
+            {/* ====== STEP 1: BASIC DETAILS ====== */}
+            {step === 1 && (
+              <div className="space-y-6 animate-slideIn">
+                
+                {/* Category Selection */}
+                <div>
+                  <label className={`block text-sm font-bold mb-3 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                    Select Category *
+                  </label>
+                  <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                    {Object.entries(CATEGORY_CONFIG).map(([key, { icon: CatIcon, label }]) => {
+                      const isSelected = formData.category === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, category: key });
+                            setErrors(prev => ({ ...prev, category: '' }));
+                          }}
+                          className={`relative p-4 rounded-2xl border-2 text-sm font-bold flex flex-col items-center gap-2 transition-all transform hover:scale-105 ${
+                            isSelected
+                              ? isDark
+                                ? 'bg-emerald-500/20 border-emerald-500 shadow-lg shadow-emerald-500/20'
+                                : 'bg-emerald-50 border-emerald-500 shadow-lg shadow-emerald-500/20'
+                              : isDark
+                                ? 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
+                                : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          {isSelected && (
+                            <div className="absolute -top-2 -right-2 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg">
+                              <Check size={14} className="text-white" />
+                            </div>
+                          )}
+                          <CatIcon size={24} className={isSelected ? isDark ? 'text-emerald-400' : 'text-emerald-600' : isDark ? 'text-slate-400' : 'text-slate-600'} />
+                          <span className={`text-center ${isSelected ? isDark ? 'text-emerald-300' : 'text-emerald-700' : isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                            {label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {errors.category && <p className="text-red-500 text-xs mt-2 flex items-center gap-1"><AlertCircle size={12} /> {errors.category}</p>}
+                </div>
 
-            {/* Basic Details */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                  Bill Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Netflix Subscription"
-                  className={`w-full px-4 py-3 rounded-xl border text-sm transition-colors ${
-                    isDark
-                      ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500'
-                      : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'
-                  } focus:outline-none focus:ring-2 focus:ring-emerald-500/20`}
-                />
-              </div>
-              <div>
-                <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                  Amount (optional)
-                </label>
-                <div className="relative">
-                  <span className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>₹</span>
+                {/* Popular Presets */}
+                {POPULAR_BILLS[formData.category] && (
+                  <div className={`rounded-2xl border p-4 ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-blue-50/50 border-blue-100'}`}>
+                    <p className={`text-xs font-bold uppercase mb-3 flex items-center gap-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                      <Zap size={14} />
+                      Quick Fill - Popular {CATEGORY_CONFIG[formData.category].label} Bills
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {POPULAR_BILLS[formData.category].map((preset, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => selectPreset(preset)}
+                          className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105 ${
+                            isDark 
+                              ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' 
+                              : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+                          }`}
+                        >
+                          {preset.name} • ₹{preset.amount}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Bill Name */}
+                <div>
+                  <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                    Bill Name *
+                  </label>
                   <input
-                    type="number"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    placeholder="0"
-                    min="0"
-                    step="0.01"
-                    className={`w-full pl-8 pr-4 py-3 rounded-xl border text-sm transition-colors ${
-                      isDark
-                        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500'
-                        : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'
-                    } focus:outline-none focus:ring-2 focus:ring-emerald-500/20`}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Category */}
-            <div>
-              <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                Category
-              </label>
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
-                {Object.entries(CATEGORY_CONFIG).map(([key, { icon: CatIcon, label }]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, category: key })}
-                    className={`p-2.5 rounded-xl border text-xs font-semibold flex flex-col items-center gap-1 transition-all ${
-                      formData.category === key
-                        ? isDark
-                          ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300'
-                          : 'bg-emerald-50 border-emerald-500 text-emerald-700'
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => {
+                      setFormData({ ...formData, name: e.target.value });
+                      setErrors(prev => ({ ...prev, name: '' }));
+                    }}
+                    placeholder="e.g., Netflix Premium, Electricity Bill"
+                    className={`w-full px-4 py-3.5 rounded-xl border-2 text-base transition-all ${
+                      errors.name
+                        ? 'border-red-500 focus:border-red-500'
                         : isDark
-                          ? 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
-                          : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                    }`}
-                  >
-                    <CatIcon size={16} />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
+                          ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500'
+                          : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-emerald-500'
+                    } focus:outline-none focus:ring-4 focus:ring-emerald-500/10`}
+                  />
+                  {errors.name && <p className="text-red-500 text-xs mt-2 flex items-center gap-1"><AlertCircle size={12} /> {errors.name}</p>}
+                </div>
 
-            {/* Schedule */}
-            <div className={`rounded-2xl border p-4 ${isDark ? 'border-slate-800 bg-slate-900/40' : 'border-slate-100 bg-slate-50/70'}`}>
-              <p className={`text-xs font-bold uppercase mb-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                Schedule
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Amount with Templates */}
                 <div>
-                  <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                    Billing Cycle
+                  <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                    Amount (Optional)
                   </label>
-                  <select
-                    value={formData.billCycle}
-                    onChange={(e) => setFormData({ ...formData, billCycle: e.target.value })}
-                    className={`w-full px-4 py-3 rounded-xl border text-sm transition-colors ${
-                      isDark
-                        ? 'bg-slate-800 border-slate-700 text-white focus:border-emerald-500'
-                        : 'bg-white border-slate-200 text-slate-800 focus:border-emerald-500'
-                    } focus:outline-none focus:ring-2 focus:ring-emerald-500/20`}
-                  >
+                  <div className="relative">
+                    <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>₹</span>
+                    <input
+                      type="number"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      placeholder="Leave blank for variable amounts"
+                      min="0"
+                      step="0.01"
+                      className={`w-full pl-10 pr-4 py-3.5 rounded-xl border-2 text-base transition-all ${
+                        isDark
+                          ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500'
+                          : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-emerald-500'
+                      } focus:outline-none focus:ring-4 focus:ring-emerald-500/10`}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Quick:</span>
+                    {AMOUNT_TEMPLATES.map(amt => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, amount: amt })}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                          Number(formData.amount) === amt
+                            ? isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700'
+                            : isDark ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        ₹{amt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Payment Method */}
+                <div>
+                  <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                    Payment Method (Optional)
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {['Credit Card', 'Debit Card', 'UPI', 'Net Banking', 'Auto-debit', 'Cash'].map(method => (
+                      <button
+                        key={method}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, paymentMethod: method })}
+                        className={`px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                          formData.paymentMethod === method
+                            ? isDark
+                              ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400'
+                              : 'bg-emerald-50 border-emerald-500 text-emerald-700'
+                            : isDark
+                              ? 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        {method}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ====== STEP 2: BILLING SCHEDULE ====== */}
+            {step === 2 && (
+              <div className="space-y-6 animate-slideIn">
+                {/* Billing Cycle */}
+                <div>
+                  <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                    Billing Cycle *
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {CYCLE_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          setFormData({ ...formData, billCycle: opt.value });
+                          setErrors(prev => ({ ...prev, billCycle: '' }));
+                        }}
+                        className={`px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                          formData.billCycle === opt.value
+                            ? isDark
+                              ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                              : 'bg-emerald-50 border-emerald-500 text-emerald-700'
+                            : isDark
+                              ? 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
                     ))}
-                  </select>
+                  </div>
+                  {errors.billCycle && <p className="text-red-500 text-xs mt-2 flex items-center gap-1"><AlertCircle size={12} /> {errors.billCycle}</p>}
                 </div>
-                <div>
-                  <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                    Due Day
-                  </label>
-                  <select
-                    value={formData.dueDay}
-                    onChange={(e) => setFormData({ ...formData, dueDay: e.target.value })}
-                    disabled={formData.billCycle === 'custom'}
-                    className={`w-full px-4 py-3 rounded-xl border text-sm transition-colors ${
-                      isDark
-                        ? 'bg-slate-800 border-slate-700 text-white focus:border-emerald-500'
-                        : 'bg-white border-slate-200 text-slate-800 focus:border-emerald-500'
-                    } ${formData.billCycle === 'custom' ? 'opacity-60 cursor-not-allowed' : ''} focus:outline-none focus:ring-2 focus:ring-emerald-500/20`}
-                  >
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
-                      <option key={day} value={day}>
-                        {day === 31 ? 'Last day' : day}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
 
-              {formData.billCycle === 'custom' && (
-                <div className="mt-4 animate-fade-in">
-                  <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                    Custom frequency
-                  </label>
-                  <div className="grid grid-cols-[1fr_auto] gap-3">
+                {/* Custom Interval */}
+                {formData.billCycle === 'custom' && (
+                  <div className="animate-slideIn">
+                    <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                      Custom Frequency
+                    </label>
+                    <div className="grid grid-cols-[1fr_auto] gap-3">
+                      <input
+                        type="number"
+                        min="1"
+                        value={customIntervalValue}
+                        onChange={(e) => {
+                          const value = Math.max(1, Number(e.target.value || 1));
+                          const days = customIntervalUnit === 'weeks' ? value * 7 : value;
+                          setFormData({ ...formData, customIntervalDays: days });
+                          setErrors(prev => ({ ...prev, customIntervalDays: '' }));
+                        }}
+                        placeholder="e.g., 2"
+                        className={`w-full px-4 py-3 rounded-xl border-2 text-base transition-all ${
+                          errors.customIntervalDays
+                            ? 'border-red-500 focus:border-red-500'
+                            : isDark
+                              ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500'
+                              : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-emerald-500'
+                        } focus:outline-none focus:ring-4 focus:ring-emerald-500/10`}
+                      />
+                      <select
+                        value={customIntervalUnit}
+                        onChange={(e) => {
+                          const nextUnit = e.target.value;
+                          const value = Math.max(1, Number(customIntervalValue || 1));
+                          const days = nextUnit === 'weeks' ? value * 7 : value;
+                          setCustomIntervalUnit(nextUnit);
+                          setFormData({ ...formData, customIntervalDays: days });
+                        }}
+                        className={`px-4 py-3 rounded-xl border-2 text-base transition-all ${
+                          isDark
+                            ? 'bg-slate-800 border-slate-700 text-white focus:border-emerald-500'
+                            : 'bg-white border-slate-200 text-slate-900 focus:border-emerald-500'
+                        } focus:outline-none focus:ring-4 focus:ring-emerald-500/10`}
+                      >
+                        <option value="days">Days</option>
+                        <option value="weeks">Weeks</option>
+                      </select>
+                    </div>
+                    {errors.customIntervalDays && <p className="text-red-500 text-xs mt-2 flex items-center gap-1"><AlertCircle size={12} /> {errors.customIntervalDays}</p>}
+                    <p className={`text-xs mt-1.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                      We'll remind you every {customIntervalValue} {customIntervalUnit}.
+                    </p>
+                  </div>
+                )}
+
+                {/* Due Day */}
+                {(formData.billCycle === 'monthly' || formData.billCycle === 'quarterly') && (
+                  <div>
+                    <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                      Due Day of Month
+                    </label>
                     <input
                       type="number"
                       min="1"
-                      value={customIntervalValue}
-                      onChange={(e) => {
-                        const value = Math.max(1, Number(e.target.value || 1));
-                        const days = customIntervalUnit === 'weeks' ? value * 7 : value;
-                        setFormData({ ...formData, customIntervalDays: days });
-                      }}
-                      placeholder="e.g. 2"
-                      className={`w-full px-4 py-3 rounded-xl border text-sm transition-colors ${
-                        isDark
-                          ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500'
-                          : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'
-                      } focus:outline-none focus:ring-2 focus:ring-emerald-500/20`}
-                    />
-                    <select
-                      value={customIntervalUnit}
-                      onChange={(e) => {
-                        const nextUnit = e.target.value;
-                        const value = Math.max(1, Number(customIntervalValue || 1));
-                        const days = nextUnit === 'weeks' ? value * 7 : value;
-                        setCustomIntervalUnit(nextUnit);
-                        setFormData({ ...formData, customIntervalDays: days });
-                      }}
-                      className={`px-4 py-3 rounded-xl border text-sm transition-colors ${
+                      max="31"
+                      value={formData.dueDay}
+                      onChange={(e) => setFormData({ ...formData, dueDay: Math.min(31, Math.max(1, Number(e.target.value))) })}
+                      className={`w-full px-4 py-3 rounded-xl border-2 text-base transition-all ${
                         isDark
                           ? 'bg-slate-800 border-slate-700 text-white focus:border-emerald-500'
-                          : 'bg-white border-slate-200 text-slate-800 focus:border-emerald-500'
-                      } focus:outline-none focus:ring-2 focus:ring-emerald-500/20`}
-                    >
-                      <option value="days">Days</option>
-                      <option value="weeks">Weeks</option>
-                    </select>
+                          : 'bg-white border-slate-200 text-slate-900 focus:border-emerald-500'
+                      } focus:outline-none focus:ring-4 focus:ring-emerald-500/10`}
+                    />
+                    <p className={`text-xs mt-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Enter day of month (1-31). Use 31 for last day of month.
+                    </p>
                   </div>
-                  <p className={`text-xs mt-1.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                    We’ll remind you every {customIntervalValue} {customIntervalUnit}.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Reminders */}
-            <div>
-              <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                Remind me
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {REMINDER_OFFSET_OPTIONS.map(opt => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => toggleReminderOffset(opt.value)}
-                    className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                      formData.reminderOffsets.includes(opt.value)
-                        ? isDark
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500'
-                          : 'bg-emerald-50 text-emerald-700 border border-emerald-500'
-                        : isDark
-                          ? 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
-                          : 'bg-slate-100 text-slate-600 border border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+                )}
               </div>
-            </div>
+            )}
 
-            {/* Notes & Auto-pay */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                  Notes (optional)
-                </label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Payment link, account number, etc."
-                  rows={3}
-                  className={`w-full px-4 py-3 rounded-xl border text-sm resize-none transition-colors ${
-                    isDark
-                      ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500'
-                      : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'
-                  } focus:outline-none focus:ring-2 focus:ring-emerald-500/20`}
-                />
-              </div>
-              <label className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${
-                isDark ? 'border-slate-800 hover:bg-slate-800/60' : 'border-slate-200 hover:bg-slate-50'
-              }`}>
-                <input
-                  type="checkbox"
-                  checked={formData.isAutoPay}
-                  onChange={(e) => setFormData({ ...formData, isAutoPay: e.target.checked })}
-                  className="w-4 h-4 text-emerald-500 rounded border-slate-300 focus:ring-emerald-500"
-                />
+            {/* ====== STEP 3: PREFERENCES ====== */}
+            {step === 3 && (
+              <div className="space-y-6 animate-slideIn">
+                {/* Reminders */}
                 <div>
-                  <p className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                    Auto-pay enabled
-                  </p>
-                  <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                    We’ll mark it as paid automatically.
+                  <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                    Remind Me
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {REMINDER_OFFSET_OPTIONS.map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => toggleReminderOffset(opt.value)}
+                        className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                          formData.reminderOffsets.includes(opt.value)
+                            ? isDark
+                              ? 'bg-emerald-500/20 text-emerald-300 border-2 border-emerald-500'
+                              : 'bg-emerald-50 text-emerald-700 border-2 border-emerald-500'
+                            : isDark
+                              ? 'bg-slate-800 text-slate-400 border-2 border-slate-700 hover:border-slate-600'
+                              : 'bg-slate-100 text-slate-600 border-2 border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        {formData.reminderOffsets.includes(opt.value) && <Check size={12} className="inline mr-1" />}
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className={`text-xs mt-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Select one or more reminder times before the due date.
                   </p>
                 </div>
-              </label>
-            </div>
+
+                {/* Notes */}
+                <div>
+                  <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                    Notes (Optional)
+                  </label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Payment link, account number, etc."
+                    rows={4}
+                    className={`w-full px-4 py-3 rounded-xl border-2 text-base resize-none transition-all ${
+                      isDark
+                        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500'
+                        : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-emerald-500'
+                    } focus:outline-none focus:ring-4 focus:ring-emerald-500/10`}
+                  />
+                </div>
+
+                {/* Auto-pay Toggle */}
+                <label className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  isDark ? 'border-slate-700 hover:bg-slate-800/60' : 'border-slate-200 hover:bg-slate-50'
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={formData.isAutoPay}
+                    onChange={(e) => setFormData({ ...formData, isAutoPay: e.target.checked })}
+                    className="w-5 h-5 text-emerald-500 rounded border-slate-300 focus:ring-emerald-500"
+                  />
+                  <div>
+                    <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                      Auto-pay enabled
+                    </p>
+                    <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                      Automatically mark this bill as paid on the due date.
+                    </p>
+                  </div>
+                </label>
+              </div>
+            )}
+
           </div>
 
-          {/* Footer */}
+          {/* Footer Navigation */}
           <div className={`sticky bottom-0 px-6 py-4 border-t ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-white'}`}>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Check size={18} />
-                  {bill ? 'Update Bill' : 'Add Bill'}
-                </>
+            <div className="flex gap-3">
+              {step > 1 && (
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className={`px-6 py-3.5 rounded-xl font-bold transition-all flex items-center gap-2 ${
+                    isDark 
+                      ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <ChevronRight size={18} className="rotate-180" />
+                  Back
+                </button>
               )}
-            </button>
+              
+              {step < 3 ? (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="flex-1 py-3.5 px-6 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                >
+                  Continue
+                  <ChevronRight size={18} />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-3.5 px-6 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 size={20} className="animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={20} />
+                      {bill ? 'Update Bill' : 'Create Bill'}
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </form>
       </div>
+      
+      {/* Animation styles */}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out;
+        }
+        .animate-slideIn {
+          animation: slideIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };
@@ -658,7 +873,8 @@ const CustomerRecurringBills = () => {
   // Load bills
   const loadBills = async () => {
     try {
-      const { data } = await fetchBills({ status: filter === 'all' ? 'all' : filter });
+      setLoading(true);
+      const { data } = await fetchBills({ status: filter === 'all' ? undefined : filter });
       setBills(data.bills || []);
     } catch (error) {
       console.error('Failed to load bills:', error);
