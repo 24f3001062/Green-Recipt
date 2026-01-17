@@ -8,17 +8,13 @@ import {
   CheckCircle, 
   XCircle,
   Loader2,
-  AlertCircle,
   ShoppingBag,
   ArrowRight,
   Leaf,
   LogIn,
   UserPlus,
   Receipt,
-  Copy,
-  Check,
-  CreditCard,
-  Shield
+  CreditCard
 } from 'lucide-react';
 import { 
   fetchPublicBill, 
@@ -27,8 +23,7 @@ import {
   getStoredRole, 
   hasSession,
   createRazorpayOrder,
-  verifyRazorpayPayment,
-  getPaymentStatus
+  verifyRazorpayPayment
 } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -41,7 +36,6 @@ const CustomerPayment = () => {
   const [error, setError] = useState(null);
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [processing, setProcessing] = useState(false);
-  const [upiLink, setUpiLink] = useState(null);
   const [expiryCountdown, setExpiryCountdown] = useState(0);
   
   // Payment completion states
@@ -49,16 +43,11 @@ const CustomerPayment = () => {
   const [claimingReceipt, setClaimingReceipt] = useState(false);
   const [receiptClaimed, setReceiptClaimed] = useState(false);
   
-  // iOS-specific states
-  const [showIOSOptions, setShowIOSOptions] = useState(false);
-  const [copied, setCopied] = useState({ upiId: false, amount: false });
+  // UPI states - for showing UPI ID to copy
+  const [showUPIDetails, setShowUPIDetails] = useState(false);
   
-  // Razorpay payment states
+  // Razorpay state for "Other" payment option
   const [razorpayLoading, setRazorpayLoading] = useState(false);
-  const [useRazorpay, setUseRazorpay] = useState(true); // Default to Razorpay for reliability
-  
-  // Platform detection
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   
   // Check if customer is logged in
   const isLoggedIn = hasSession() && getStoredRole() === 'customer';
@@ -71,7 +60,6 @@ const CustomerPayment = () => {
     document.body.appendChild(script);
     
     return () => {
-      // Cleanup script if component unmounts
       const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
       if (existingScript) {
         existingScript.remove();
@@ -196,10 +184,7 @@ const CustomerPayment = () => {
     return () => clearInterval(timer);
   }, [bill?.expiresAt, bill?.status]);
 
-  // Check if device is iOS
-  const isPersonalUPI = bill?.merchant?.upiType === 'PERSONAL';
-
-  // Handle payment method selection (for direct UPI / cash)
+  // Handle payment method selection
   const handleSelectMethod = async (method) => {
     if (processing) return;
     
@@ -212,23 +197,9 @@ const CustomerPayment = () => {
       console.log('[CustomerPayment] Payment method response:', data);
       
       if (method === 'upi') {
-        // Always use UPI deep links to open payment apps directly
-        // For PERSONAL UPI type, we'll omit amount to avoid merchant verification errors
-        if (data.upiLink) {
-          setUpiLink(data.upiLink);
-          
-          // iOS: Show app selection screen instead of auto-redirect
-          if (isIOS) {
-            setShowIOSOptions(true);
-            setProcessing(false);
-            return;
-          }
-          
-          // Android: Auto-redirect to UPI app
-          setTimeout(() => {
-            window.location.href = data.upiLink;
-          }, 500);
-        }
+        // Show UPI details screen - customer will open their UPI app and scan shop QR
+        setShowUPIDetails(true);
+        setBill(prev => ({ ...prev, paymentMethod: 'upi', customerSelected: true }));
       } else if (method === 'cash') {
         // Cash selected - show waiting for merchant confirmation
         setBill(prev => ({ ...prev, paymentMethod: 'cash', customerSelected: true }));
@@ -242,32 +213,18 @@ const CustomerPayment = () => {
     }
   };
 
-  /**
-   * Handle Razorpay UPI Payment (Zomato-style flow)
-   * 
-   * This is the recommended payment method because:
-   * 1. Higher success rate across all UPI apps
-   * 2. Merchant KYC compliance (no "merchant not verified" errors)
-   * 3. Automatic payment confirmation via webhook
-   * 4. Works reliably on both iOS and Android
-   * 5. TEST MODE available for development (rzp_test_* keys)
-   * 
-   * Flow:
-   * 1. Call backend to create Razorpay order
-   * 2. Open Razorpay Checkout (UPI only mode)
-   * 3. Customer selects UPI app and completes payment
-   * 4. Razorpay calls success handler with payment details
-   * 5. Frontend verifies signature with backend
-   * 6. Webhook confirms payment (backup)
-   */
+  // Handle Razorpay payment for "Other" option (Card, Netbanking, Wallet)
   const handleRazorpayPayment = async () => {
     if (razorpayLoading) return;
     
     console.log('[CustomerPayment] Starting Razorpay payment flow');
     setRazorpayLoading(true);
-    setSelectedMethod('upi');
+    setSelectedMethod('other');
     
     try {
+      // First, select the payment method on backend
+      await selectPaymentMethod(billId, 'other');
+      
       // Create Razorpay order on backend
       const { data } = await createRazorpayOrder(billId, {
         customerPhone: bill.customerPhone || '',
@@ -283,31 +240,33 @@ const CustomerPayment = () => {
       
       // Check if Razorpay is loaded
       if (typeof window.Razorpay === 'undefined') {
-        throw new Error('Razorpay SDK not loaded. Please refresh the page.');
+        throw new Error('Payment gateway not loaded. Please refresh the page.');
       }
       
       // Razorpay Checkout options
       const options = {
-        key: data.keyId, // Razorpay Key ID from backend
-        amount: data.amount, // Amount in paise
+        key: data.keyId,
+        amount: data.amount,
         currency: data.currency || 'INR',
         name: data.merchantName || bill.merchant?.shopName || 'GreenReceipt',
         description: `Bill #${billId.slice(-8).toUpperCase()}`,
         order_id: data.orderId,
         
-        // Allow fallback methods during testing
+        // Payment methods - Card, Netbanking, Wallet (excluding UPI as we have separate option)
         method: {
-          upi: true,
+          upi: false,
           card: true,
           netbanking: true,
           wallet: true,
+          emi: true,
+          paylater: true,
         },
         
         // Prefill customer details
         prefill: {
-          name: data.prefill?.name || bill.customerName || 'Test Customer',
-          email: data.prefill?.email || bill.customerEmail || 'test@example.com',
-          contact: data.prefill?.contact || bill.customerPhone || '9999999999',
+          name: data.prefill?.name || bill.customerName || '',
+          email: data.prefill?.email || bill.customerEmail || '',
+          contact: data.prefill?.contact || bill.customerPhone || '',
         },
         
         // Notes for reference
@@ -318,7 +277,7 @@ const CustomerPayment = () => {
         
         // Theme customization
         theme: {
-          color: '#10b981', // Emerald-500 (GreenReceipt brand)
+          color: '#10b981',
           backdrop_color: 'rgba(0,0,0,0.8)',
         },
         
@@ -328,14 +287,12 @@ const CustomerPayment = () => {
           
           try {
             // Verify payment signature with backend
-            const verifyResponse = await verifyRazorpayPayment({
+            await verifyRazorpayPayment({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
               billId: billId,
             });
-            
-            console.log('[CustomerPayment] Payment verified:', verifyResponse.data);
             
             // Payment successful
             setPaymentComplete(true);
@@ -345,7 +302,6 @@ const CustomerPayment = () => {
           } catch (verifyErr) {
             console.error('[CustomerPayment] Payment verification failed:', verifyErr);
             // Even if verification fails, the webhook will handle it
-            // Show success but with a note
             setPaymentComplete(true);
             toast.success('Payment received! Verifying...', { duration: 3000 });
           }
@@ -379,83 +335,22 @@ const CustomerPayment = () => {
       
     } catch (err) {
       console.error('[CustomerPayment] Razorpay payment error:', err);
-      
-      const errorMessage = err.response?.data?.message || err.message || 'Payment gateway error';
-      
-      if (err.response?.data?.code === 'GATEWAY_NOT_CONFIGURED') {
-        // Razorpay not configured - fall back to direct UPI
-        toast.error('Payment gateway not available. Using direct UPI.');
-        setUseRazorpay(false);
-        handleSelectMethod('upi');
-      } else {
-        toast.error(errorMessage);
-        setSelectedMethod(null);
-      }
-      
+      toast.error(err.response?.data?.message || err.message || 'Payment gateway error');
+      setSelectedMethod(null);
       setRazorpayLoading(false);
     }
   };
-  
-  // Handle iOS app-specific payment (fallback for direct UPI)
-  const handleIOSAppPayment = (appType) => {
-    if (!bill?.merchant?.upiId) return;
+
+  // Open UPI app (redirect to any UPI app)
+  const handleOpenUPIApp = () => {
+    // Try to open UPI intent - this will let user choose their UPI app
+    const upiIntent = 'upi://';
+    window.location.href = upiIntent;
     
-    const upiId = bill.merchant.upiId;
-    const pn = encodeURIComponent(bill.merchant.upiName || bill.merchant.shopName || 'Merchant');
-    const cu = 'INR';
-    const tn = encodeURIComponent(bill.upiNote || `Payment to ${bill.merchant.shopName}`);
-    
-    // For PERSONAL UPI type, omit amount to avoid "merchant not verified" errors
-    // Customer will enter amount manually in the UPI app
-    const isPersonal = bill.merchant.upiType === 'PERSONAL';
-    const am = isPersonal ? '' : bill.total.toFixed(2);
-    
-    let deepLink = '';
-    
-    // Build deep link - only include amount for MERCHANT type
-    const amountParam = am ? `&am=${am}` : '';
-    
-    switch (appType) {
-      case 'gpay':
-        deepLink = `gpay://upi/pay?pa=${upiId}&pn=${pn}${amountParam}&cu=${cu}&tn=${tn}`;
-        break;
-      case 'phonepe':
-        deepLink = `phonepe://pay?pa=${upiId}&pn=${pn}${amountParam}&cu=${cu}&tn=${tn}`;
-        break;
-      case 'paytm':
-        deepLink = `paytmmp://pay?pa=${upiId}&pn=${pn}${amountParam}&cu=${cu}&tn=${tn}`;
-        break;
-      default:
-        return;
-    }
-    
-    // Try to open the app
-    window.location.href = deepLink;
-    
-    // Show reminder to enter amount for personal UPI
-    if (isPersonal) {
-      setTimeout(() => {
-        toast(`Remember to enter ₹${bill.total} as the amount`, {
-          duration: 5000,
-          icon: '💰',
-        });
-      }, 1500);
-    }
-  };
-  
-  // Copy to clipboard helper
-  const copyToClipboard = async (text, type) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(prev => ({ ...prev, [type]: true }));
-      toast.success(`${type === 'upiId' ? 'UPI ID' : 'Amount'} copied!`);
-      setTimeout(() => {
-        setCopied(prev => ({ ...prev, [type]: false }));
-      }, 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-      toast.error('Failed to copy. Please try manually.');
-    }
+    toast('Opening UPI app... Scan the shop\'s QR code to pay', {
+      duration: 4000,
+      icon: '📱',
+    });
   };
 
   // Handle claiming receipt to customer account
@@ -663,179 +558,100 @@ const CustomerPayment = () => {
     );
   }
 
-  // UPI selected (direct UPI fallback) - redirect screen with polling
-  if (selectedMethod === 'upi' && upiLink) {
-    // Check if this is a personal UPI (needs manual amount entry)
-    const isPersonalUPI = bill.merchant?.upiType === 'PERSONAL';
-    
-    // iOS: Show app selection screen
-    if (isIOS && showIOSOptions) {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-slate-900 to-slate-900 flex items-center justify-center p-4">
-          <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl p-6 max-w-md w-full border border-purple-500/30">
-            {/* Header */}
-            <div className="text-center mb-6">
-              <h1 className="text-2xl font-bold text-white mb-2">Pay ₹{bill.total}</h1>
-              <p className="text-slate-400 text-sm">{bill.merchant?.shopName || 'Merchant'}</p>
-            </div>
-
-            {/* Amount Reminder for Personal UPI */}
-            {isPersonalUPI && (
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
-                <div className="flex items-center gap-2 text-amber-400 mb-2">
-                  <AlertCircle size={18} />
-                  <span className="font-bold text-sm">Enter amount manually</span>
-                </div>
-                <p className="text-amber-300/80 text-xs">
-                  After the app opens, enter <span className="font-bold">₹{bill.total}</span> as the payment amount.
-                </p>
-              </div>
-            )}
-
-            {/* UPI App Options - Opens payment app directly */}
-            <div className="space-y-3 mb-6">
-              <p className="text-slate-400 text-xs text-center mb-3">Choose your UPI app</p>
-              
-              {/* Google Pay */}
-              <button
-                onClick={() => handleIOSAppPayment('gpay')}
-                className="w-full p-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 rounded-xl flex items-center justify-between transition-all active:scale-[0.98]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-xl">
-                    G
-                  </div>
-                  <span className="font-bold text-white">Google Pay</span>
-                </div>
-                <ArrowRight size={18} className="text-white/60" />
-              </button>
-
-              {/* PhonePe */}
-              <button
-                onClick={() => handleIOSAppPayment('phonepe')}
-                className="w-full p-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 rounded-xl flex items-center justify-between transition-all active:scale-[0.98]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-xl">
-                    📱
-                  </div>
-                  <span className="font-bold text-white">PhonePe</span>
-                </div>
-                <ArrowRight size={18} className="text-white/60" />
-              </button>
-
-              {/* Paytm */}
-              <button
-                onClick={() => handleIOSAppPayment('paytm')}
-                className="w-full p-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-xl flex items-center justify-between transition-all active:scale-[0.98]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-xl">
-                    💳
-                  </div>
-                  <span className="font-bold text-white">Paytm</span>
-                </div>
-                <ArrowRight size={18} className="text-white/60" />
-              </button>
-            </div>
-
-            <div className="relative mb-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-700"></div>
-              </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="bg-slate-800 px-2 text-slate-500">OR</span>
-              </div>
-            </div>
-
-            {/* Alternative Options - Copy UPI ID */}
-            <div className="space-y-3">
-              {/* Copy UPI ID */}
-              <button
-                onClick={() => copyToClipboard(bill.merchant.upiId, 'upiId')}
-                className="w-full p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center justify-center gap-2 text-white transition-all"
-              >
-                {copied.upiId ? <Check size={18} /> : <Copy size={18} />}
-                <span className="font-medium">Copy UPI ID</span>
-              </button>
-
-              {/* Copy Amount */}
-              <button
-                onClick={() => copyToClipboard(bill.total.toString(), 'amount')}
-                className="w-full p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center justify-center gap-2 text-white transition-all"
-              >
-                {copied.amount ? <Check size={18} /> : <Copy size={18} />}
-                <span className="font-medium">Copy Amount (₹{bill.total})</span>
-              </button>
-            </div>
-
-            {/* Waiting status */}
-            <div className="mt-6 flex items-center justify-center gap-2 text-purple-400 text-sm">
-              <Loader2 size={14} className="animate-spin" />
-              <span>Waiting for merchant confirmation...</span>
-            </div>
-
-            {/* Back button */}
-            <button
-              onClick={() => {
-                setShowIOSOptions(false);
-                setSelectedMethod(null);
-                setUpiLink(null);
-              }}
-              className="w-full mt-4 py-2 text-slate-400 hover:text-white text-sm transition-colors"
-            >
-              ← Back to payment options
-            </button>
-          </div>
-        </div>
-      );
-    }
-    
-    // Android: Show redirect screen - UPI app opens automatically
+  // UPI selected - Show instructions to scan shop QR
+  if (selectedMethod === 'upi' || showUPIDetails) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-slate-900 to-slate-900 flex items-center justify-center p-4">
-        <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl p-8 max-w-sm w-full text-center border border-purple-500/30">
-          <Loader2 size={40} className="animate-spin text-purple-400 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-white mb-2">Opening UPI App...</h1>
-          <p className="text-slate-400 text-sm mb-6">
-            If the app doesn't open automatically, 
-            <a href={upiLink} className="text-purple-400 underline ml-1">tap here</a>
-          </p>
-          
-          <div className="bg-slate-900/50 rounded-xl p-4 mb-4">
-            <div className="text-3xl font-black text-white mb-1">₹{bill.total}</div>
-            <div className="text-xs text-slate-500">Pay to: {bill.merchant?.shopName}</div>
-          </div>
-
-          {/* Amount Reminder for Personal UPI */}
-          {isPersonalUPI && (
-            <div className="text-[11px] text-slate-500 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mb-4">
-              <span className="text-amber-400 font-bold">💰 Remember:</span> Enter <span className="text-amber-300">₹{bill.total}</span> as the payment amount
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl p-6 max-w-md w-full border border-purple-500/30">
+          {/* Header */}
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Smartphone size={32} className="text-purple-400" />
             </div>
-          )}
+            <h1 className="text-2xl font-bold text-white mb-2">Pay via UPI</h1>
+            <p className="text-slate-400 text-sm">Amount: <span className="text-white font-bold">₹{bill.total}</span></p>
+          </div>
 
-          <div className="text-[11px] text-slate-500 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 mb-4">
-            <span className="text-emerald-400 font-bold">After payment:</span> Return here - we'll automatically detect when merchant confirms
+          {/* Instructions */}
+          <div className="bg-slate-900/50 rounded-xl p-4 mb-6">
+            <h3 className="text-white font-medium mb-3 text-sm">Follow these steps:</h3>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-purple-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-purple-400 text-xs font-bold">1</span>
+                </div>
+                <p className="text-slate-300 text-sm">Open your UPI app (GPay, PhonePe, Paytm, etc.)</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-purple-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-purple-400 text-xs font-bold">2</span>
+                </div>
+                <p className="text-slate-300 text-sm">Scan the shop's QR code displayed at the counter</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-purple-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-purple-400 text-xs font-bold">3</span>
+                </div>
+                <p className="text-slate-300 text-sm">Pay <span className="text-white font-bold">₹{bill.total}</span> and come back here</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Open UPI App Button */}
+          <button
+            onClick={handleOpenUPIApp}
+            className="w-full p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] mb-4"
+          >
+            <Smartphone size={20} className="text-white" />
+            <span className="font-bold text-white">Open UPI App</span>
+          </button>
+
+          {/* Payment Info */}
+          <div className="bg-slate-900/50 rounded-xl p-4 mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-slate-500 text-sm">Pay to</span>
+              <span className="text-white font-medium">{bill.merchant?.shopName || 'Merchant'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500 text-sm">Amount</span>
+              <span className="text-purple-400 font-bold text-lg">₹{bill.total}</span>
+            </div>
+          </div>
+
+          {/* Waiting status */}
+          <div className="flex items-center justify-center gap-2 text-purple-400 text-sm mb-4">
+            <Loader2 size={14} className="animate-spin" />
+            <span>Waiting for merchant confirmation...</span>
           </div>
           
-          <div className="flex items-center justify-center gap-2 text-purple-400 text-sm">
-            <Loader2 size={14} className="animate-spin" />
-            Waiting for merchant confirmation...
-          </div>
+          <p className="text-[10px] text-slate-600 text-center mb-4">
+            After you complete the payment, the merchant will confirm it
+          </p>
+
+          {/* Back button */}
+          <button
+            onClick={() => {
+              setShowUPIDetails(false);
+              setSelectedMethod(null);
+            }}
+            className="w-full py-2 text-slate-400 hover:text-white text-sm transition-colors"
+          >
+            ← Back to payment options
+          </button>
         </div>
       </div>
     );
   }
 
   // Cash selected - waiting screen with polling
-  if (selectedMethod === 'cash' || bill.customerSelected) {
+  if (selectedMethod === 'cash') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-900 via-slate-900 to-slate-900 flex items-center justify-center p-4">
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl p-8 max-w-sm w-full text-center border border-blue-500/30">
           <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <Banknote size={32} className="text-blue-400" />
           </div>
-          <h1 className="text-xl font-bold text-white mb-2">Cash Payment</h1>
+          <h1 className="text-xl font-bold text-white mb-2">Pay by Cash</h1>
           <p className="text-slate-400 text-sm mb-6">
             Please pay <span className="text-white font-bold">₹{bill.total}</span> in cash to the merchant.
           </p>
@@ -853,9 +669,17 @@ const CustomerPayment = () => {
             Waiting for merchant confirmation...
           </div>
           
-          <p className="text-[10px] text-slate-600 mt-4">
+          <p className="text-[10px] text-slate-600 mt-4 mb-4">
             This page will update automatically when the merchant confirms your payment
           </p>
+
+          {/* Back button */}
+          <button
+            onClick={() => setSelectedMethod(null)}
+            className="w-full py-2 text-slate-400 hover:text-white text-sm transition-colors"
+          >
+            ← Back to payment options
+          </button>
         </div>
       </div>
     );
@@ -933,40 +757,10 @@ const CustomerPayment = () => {
           <div className="space-y-3">
             <p className="text-center text-slate-400 text-xs mb-4">Choose Payment Method</p>
             
-            {/* Pay by UPI (Razorpay) - RECOMMENDED */}
-            {useRazorpay && (
-              <button
-                onClick={handleRazorpayPayment}
-                disabled={razorpayLoading || processing}
-                className="w-full p-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-emerald-500/20 relative overflow-hidden"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
-                    <CreditCard size={20} className="text-white" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-bold text-white flex items-center gap-2">
-                      Pay via UPI
-                      <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">RECOMMENDED</span>
-                    </div>
-                    <div className="text-emerald-200 text-xs flex items-center gap-1">
-                      <Shield size={10} />
-                      Secure Razorpay checkout
-                    </div>
-                  </div>
-                </div>
-                {razorpayLoading ? (
-                  <Loader2 size={18} className="text-white animate-spin" />
-                ) : (
-                  <ArrowRight size={18} className="text-white/60" />
-                )}
-              </button>
-            )}
-            
             {/* Pay by Cash */}
             <button
               onClick={() => handleSelectMethod('cash')}
-              disabled={processing || razorpayLoading}
+              disabled={processing}
               className="w-full p-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-blue-500/20"
             >
               <div className="flex items-center gap-3">
@@ -974,46 +768,59 @@ const CustomerPayment = () => {
                   <Banknote size={20} className="text-white" />
                 </div>
                 <div className="text-left">
-                  <div className="font-bold text-white">Pay by Cash</div>
+                  <div className="font-bold text-white">Pay via Cash</div>
                   <div className="text-blue-200 text-xs">Hand cash to merchant</div>
                 </div>
               </div>
               <ArrowRight size={18} className="text-white/60" />
             </button>
 
-            {/* Direct UPI (fallback) - Only shown if Razorpay is disabled or merchant prefers it */}
-            {(!useRazorpay || bill.merchant?.preferDirectUPI) && bill.merchant?.upiId && (
-              <button
-                onClick={() => handleSelectMethod('upi')}
-                disabled={processing || razorpayLoading}
-                className="w-full p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-purple-500/20"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
-                    <Smartphone size={20} className="text-white" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-bold text-white">Direct UPI</div>
-                    <div className="text-purple-200 text-xs">GPay, PhonePe, Paytm</div>
-                  </div>
+            {/* Pay via UPI */}
+            <button
+              onClick={() => handleSelectMethod('upi')}
+              disabled={processing}
+              className="w-full p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-purple-500/20"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                  <Smartphone size={20} className="text-white" />
                 </div>
+                <div className="text-left">
+                  <div className="font-bold text-white">Pay via UPI</div>
+                  <div className="text-purple-200 text-xs">Scan shop QR & pay</div>
+                </div>
+              </div>
+              <ArrowRight size={18} className="text-white/60" />
+            </button>
+
+            {/* Pay via Other (Razorpay - Card, Netbanking, Wallet) */}
+            <button
+              onClick={handleRazorpayPayment}
+              disabled={processing || razorpayLoading}
+              className="w-full p-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-emerald-500/20"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                  <CreditCard size={20} className="text-white" />
+                </div>
+                <div className="text-left">
+                  <div className="font-bold text-white">Pay via Other</div>
+                  <div className="text-emerald-200 text-xs">Card, Netbanking, Wallet</div>
+                </div>
+              </div>
+              {razorpayLoading ? (
+                <Loader2 size={18} className="text-white animate-spin" />
+              ) : (
                 <ArrowRight size={18} className="text-white/60" />
-              </button>
-            )}
-            
-            {!useRazorpay && !bill.merchant?.upiId && (
-              <p className="text-center text-amber-400/70 text-[10px]">
-                <AlertCircle size={10} className="inline mr-1" />
-                UPI not available for this merchant
-              </p>
-            )}
+              )}
+            </button>
           </div>
 
           {/* Processing indicator */}
           {(processing || razorpayLoading) && (
             <div className="mt-4 flex items-center justify-center gap-2 text-slate-400 text-sm">
               <Loader2 size={14} className="animate-spin" />
-              {razorpayLoading ? 'Preparing secure checkout...' : 'Processing...'}
+              {razorpayLoading ? 'Opening payment gateway...' : 'Processing...'}
             </div>
           )}
         </div>

@@ -136,7 +136,8 @@ const posBillSchema = new mongoose.Schema(
     // Payment method selected by customer (cash or upi)
     paymentMethod: {
       type: String,
-      enum: ["cash", "upi", null],
+      // 'other' is used for Razorpay checkout options like card/netbanking/wallet
+      enum: ["cash", "upi", "other", null],
       default: null,
     },
     

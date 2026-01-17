@@ -190,9 +190,9 @@ export const confirmPayment = async (req, res) => {
     // Allow merchant to explicitly set payment method (optional).
     // If not provided, prefer the customer's selected method; default to 'upi'.
     if (paymentMethod) {
-      if (!['cash', 'upi'].includes(paymentMethod)) {
+      if (!['cash', 'upi', 'other'].includes(paymentMethod)) {
         return res.status(400).json({
-          message: "Invalid payment method. Use 'cash' or 'upi'",
+          message: "Invalid payment method. Use 'cash', 'upi', or 'other'",
           code: "INVALID_PAYMENT_METHOD",
         });
       }
@@ -625,9 +625,9 @@ export const selectPaymentMethod = async (req, res) => {
     const { billId } = req.params;
     const { method, customerName, customerPhone } = req.body;
 
-    // Validate method
-    if (!method || !["cash", "upi"].includes(method)) {
-      return res.status(400).json({ message: "Invalid payment method. Use 'cash' or 'upi'" });
+    // Validate method - now includes 'other' option
+    if (!method || !["cash", "upi", "other"].includes(method)) {
+      return res.status(400).json({ message: "Invalid payment method. Use 'cash', 'upi', or 'other'" });
     }
 
     const bill = await POSBill.findById(billId);
@@ -661,29 +661,6 @@ export const selectPaymentMethod = async (req, res) => {
     if (customerPhone) bill.customerPhone = customerPhone.trim();
     await bill.save();
 
-    // For UPI, generate the deep link
-    let upiLink = null;
-    if (method === "upi") {
-      const merchant = await Merchant.findById(bill.merchantId).select("upiId upiName shopName upiType");
-      
-      if (!merchant?.upiId) {
-        return res.status(400).json({ 
-          message: "Merchant UPI not configured",
-          code: "UPI_NOT_CONFIGURED"
-        });
-      }
-
-      const upiPayeeName = merchant.upiName || merchant.shopName || "Merchant";
-      upiLink = buildUPILink({
-        pa: merchant.upiId,
-        pn: upiPayeeName,
-        am: bill.total,
-        cu: "INR",
-        tn: bill.upiNote,
-        upiType: merchant.upiType || "PERSONAL",
-      });
-    }
-
     res.json({
       message: `Payment method '${method}' selected`,
       bill: {
@@ -693,7 +670,6 @@ export const selectPaymentMethod = async (req, res) => {
         status: bill.status,
         paymentMethod: method,
       },
-      upiLink, // Only populated for UPI method
     });
   } catch (error) {
     console.error("[POS] Select payment method error:", error);
