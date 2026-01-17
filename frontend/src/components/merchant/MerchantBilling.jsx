@@ -855,7 +855,7 @@ const PaymentStatusIndicator = ({ method, customerName, isDark }) => {
 const QrCodeDisplay = ({ qrUrl, countdown, isDark }) => (
   <div className="relative mb-6">
     <div
-      className={`p-4 rounded-2xl border-2 ${
+      className={`p-4 rounded-2xl border-2 mx-auto max-w-[280px] ${
         isDark ? "bg-black/30 border-emerald-500/30" : "bg-white border-emerald-100"
       }`}
     >
@@ -881,6 +881,7 @@ const QrCodeDisplay = ({ qrUrl, countdown, isDark }) => (
   </div>
 );
 
+// ✅ CENTER ALIGNED MODAL COMPONENT
 const PaymentQrModal = ({
   isOpen,
   posBill,
@@ -904,32 +905,32 @@ const PaymentQrModal = ({
       aria-labelledby="payment-modal-title"
     >
       <div
-        className={`rounded-[32px] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 ${
+        className={`relative rounded-[32px] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 ${
           isDark ? "bg-[#1E1E1E] border border-gray-800" : "bg-white"
         }`}
       >
-        {/* Header */}
-        <div className="px-6 pt-6 pb-2 flex justify-between items-start">
-          <div>
-            <h2
-              id="payment-modal-title"
-              className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}
-            >
-              Collect Payment
-            </h2>
-            <p className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-              Scan to pay {formatCurrency(posBill?.bill?.total || 0)}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className={`p-2 rounded-full transition-colors ${
-              isDark ? "bg-white/10 hover:bg-white/20" : "bg-gray-100 hover:bg-gray-200"
-            }`}
-            aria-label="Close payment modal"
+        {/* Close Button - Absolutely positioned to keep header text centered */}
+        <button
+          onClick={onClose}
+          className={`absolute right-5 top-5 p-2 rounded-full transition-colors z-10 ${
+            isDark ? "bg-white/10 hover:bg-white/20 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+          }`}
+          aria-label="Close payment modal"
+        >
+          <X size={20} />
+        </button>
+
+        {/* Header - Center Aligned */}
+        <div className="px-6 pt-8 pb-2 text-center w-full">
+          <h2
+            id="payment-modal-title"
+            className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-gray-900"}`}
           >
-            <X size={20} className={isDark ? "text-white" : "text-gray-700"} />
-          </button>
+            Collect Payment
+          </h2>
+          <p className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+            Scan to pay {formatCurrency(posBill?.bill?.total || 0)}
+          </p>
         </div>
 
         <div className="p-6 pt-4">
