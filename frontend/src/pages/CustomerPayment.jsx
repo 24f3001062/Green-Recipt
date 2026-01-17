@@ -648,63 +648,60 @@ const CustomerPayment = () => {
 
           {/* Open UPI App Button(s) */}
           {isMobileDevice ? (
-            // Mobile: Show default UPI button + individual app buttons as fallback
+            // Mobile: Show app buttons with GPay as primary
             <div className="space-y-3 mb-4">
-              {/* Primary: Open Default UPI App */}
-              <button
-                onClick={() => handleOpenUPIApp('default')}
-                className="w-full p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
-              >
-                <Smartphone size={20} className="text-white" />
-                <span className="font-bold text-white">Open UPI App</span>
-              </button>
-              
-              {/* Divider */}
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-slate-700"></div>
-                <span className="text-slate-500 text-xs">or choose app</span>
-                <div className="flex-1 h-px bg-slate-700"></div>
-              </div>
-              
-              {/* Secondary: Individual app buttons */}
-              <div className="grid grid-cols-4 gap-2">
+              {/* Primary: Popular UPI Apps */}
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => handleOpenUPIApp('gpay')}
-                  className="p-2 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"
+                  className="p-4 bg-gradient-to-br from-blue-500 via-blue-600 to-green-500 hover:from-blue-400 hover:via-blue-500 hover:to-green-400 rounded-2xl flex flex-col items-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-500/30"
                 >
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-green-500 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-[10px]">G</span>
+                  <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+                    <span className="text-white font-black text-lg">G</span>
                   </div>
-                  <span className="text-white text-[9px]">GPay</span>
+                  <span className="text-white font-bold text-sm">Google Pay</span>
                 </button>
                 <button
                   onClick={() => handleOpenUPIApp('phonepe')}
-                  className="p-2 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"
+                  className="p-4 bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-700 hover:from-purple-500 hover:via-purple-600 hover:to-indigo-600 rounded-2xl flex flex-col items-center gap-2 transition-all active:scale-95 shadow-lg shadow-purple-500/30"
                 >
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-[10px]">Pe</span>
+                  <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+                    <span className="text-white font-black text-lg">Pe</span>
                   </div>
-                  <span className="text-white text-[9px]">PhonePe</span>
+                  <span className="text-white font-bold text-sm">PhonePe</span>
                 </button>
+              </div>
+              
+              {/* Secondary: Other apps */}
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => handleOpenUPIApp('paytm')}
-                  className="p-2 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"
+                  className="p-3 bg-gradient-to-br from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 rounded-xl flex items-center gap-3 transition-all active:scale-95 shadow-md shadow-sky-500/20"
                 >
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-[10px]">P</span>
+                  <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">P</span>
                   </div>
-                  <span className="text-white text-[9px]">Paytm</span>
+                  <span className="text-white font-semibold text-sm">Paytm</span>
                 </button>
                 <button
                   onClick={() => handleOpenUPIApp('bhim')}
-                  className="p-2 bg-slate-700/50 hover:bg-slate-700 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"
+                  className="p-3 bg-gradient-to-br from-orange-500 to-green-600 hover:from-orange-400 hover:to-green-500 rounded-xl flex items-center gap-3 transition-all active:scale-95 shadow-md shadow-orange-500/20"
                 >
-                  <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-green-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-[10px]">B</span>
+                  <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">B</span>
                   </div>
-                  <span className="text-white text-[9px]">BHIM</span>
+                  <span className="text-white font-semibold text-sm">BHIM</span>
                 </button>
               </div>
+              
+              {/* Tertiary: Open any other bank app */}
+              <button
+                onClick={() => handleOpenUPIApp('default')}
+                className="w-full p-3 bg-slate-700/50 hover:bg-slate-700 border border-slate-600/50 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+              >
+                <Smartphone size={16} className="text-slate-400" />
+                <span className="text-slate-300 text-sm">Open other bank/UPI app</span>
+              </button>
               
               <p className="text-slate-500 text-[10px] text-center">
                 Tap to open → scan shop's QR code at counter
