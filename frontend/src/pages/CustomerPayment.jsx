@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Banknote, 
   Smartphone, 
@@ -15,7 +15,11 @@ import {
   UserPlus,
   Receipt,
   CreditCard,
-  Wallet
+  Wallet,
+  User,
+  Phone,
+  X,
+  ShieldCheck
 } from 'lucide-react';
 import { 
   fetchPublicBill, 
@@ -23,6 +27,7 @@ import {
   claimPOSReceipt, 
   getStoredRole, 
   hasSession,
+  getStoredUser,
   createRazorpayOrder,
   verifyRazorpayPayment
 } from '../services/api';
@@ -31,6 +36,7 @@ import toast from 'react-hot-toast';
 const CustomerPayment = () => {
   const { billId } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const [bill, setBill] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -50,8 +56,23 @@ const CustomerPayment = () => {
   // Razorpay state for "Other" payment option
   const [razorpayLoading, setRazorpayLoading] = useState(false);
   
+  // Khata flow states
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [showKhataApproval, setShowKhataApproval] = useState(false);
+  const [khataProcessing, setKhataProcessing] = useState(false);
+  
   // Check if customer is logged in
   const isLoggedIn = hasSession() && getStoredRole() === 'customer';
+  
+  // Check for khata redirect from login
+  useEffect(() => {
+    if (searchParams.get('showKhataApproval') === 'true' && isLoggedIn) {
+      setShowKhataApproval(true);
+      // Clear the query param
+      searchParams.delete('showKhataApproval');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, isLoggedIn, setSearchParams]);
 
   // Load Razorpay SDK
   useEffect(() => {
@@ -185,9 +206,56 @@ const CustomerPayment = () => {
     return () => clearInterval(timer);
   }, [bill?.expiresAt, bill?.status]);
 
+  // Handle Khata button click - check login status first
+  const handleKhataClick = () => {
+    if (!isLoggedIn) {
+      // Show login prompt
+      setShowLoginPrompt(true);
+    } else {
+      // Show merchant approval screen with customer details
+      setShowKhataApproval(true);
+    }
+  };
+
+  // Handle confirming Khata after merchant approval
+  const handleConfirmKhata = async () => {
+    if (khataProcessing) return;
+    
+    setKhataProcessing(true);
+    
+    try {
+      const user = getStoredUser();
+      const customerInfo = {
+        customerName: user?.name || '',
+        customerPhone: user?.phone || '',
+        customerId: user?.id || user?._id || '',
+      };
+      
+      const { data } = await selectPaymentMethod(billId, 'khata', customerInfo);
+      console.log('[CustomerPayment] Khata response:', data);
+      
+      // Move to khata confirmation screen
+      setSelectedMethod('khata');
+      setShowKhataApproval(false);
+      setBill(prev => ({ ...prev, paymentMethod: 'pending', customerSelected: true, status: 'PENDING' }));
+      toast.success('Added to Khata! 📒', { duration: 3000 });
+    } catch (err) {
+      console.error('Failed to add to khata:', err);
+      toast.error(err.response?.data?.message || 'Failed to add to Khata');
+    } finally {
+      setKhataProcessing(false);
+    }
+  };
+
   // Handle payment method selection
   const handleSelectMethod = async (method) => {
     if (processing) return;
+    
+    // Khata is handled separately
+    if (method === 'khata') {
+      handleKhataClick();
+      return;
+    }
     
     console.log('[CustomerPayment] Selecting payment method:', method);
     setSelectedMethod(method);
@@ -204,10 +272,6 @@ const CustomerPayment = () => {
       } else if (method === 'cash') {
         // Cash selected - show waiting for merchant confirmation
         setBill(prev => ({ ...prev, paymentMethod: 'cash', customerSelected: true }));
-      } else if (method === 'khata') {
-        // Khata (Pay Later) selected - show pending screen
-        setBill(prev => ({ ...prev, paymentMethod: 'pending', customerSelected: true, status: 'PENDING' }));
-        toast.success('Added to your pending dues! 📒', { duration: 3000 });
       }
     } catch (err) {
       console.error('Failed to select payment method:', err);
@@ -883,6 +947,167 @@ const CustomerPayment = () => {
     );
   }
 
+  // Login Prompt Modal for Khata
+  if (showLoginPrompt) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl p-8 max-w-sm w-full text-center border border-slate-700">
+          {/* Close button */}
+          <button
+            onClick={() => setShowLoginPrompt(false)}
+            className="absolute top-4 right-4 text-slate-400 hover:text-white"
+          >
+            <X size={24} />
+          </button>
+          
+          <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <LogIn size={32} className="text-amber-400" />
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2">Login Required</h1>
+          <p className="text-slate-400 text-sm mb-6">
+            Please login to use <span className="text-amber-400 font-semibold">Pay Later (Khata)</span>. 
+            This helps the merchant track your pending dues.
+          </p>
+          
+          <div className="bg-slate-900/50 rounded-xl p-4 mb-6">
+            <div className="text-2xl font-black text-white mb-1">₹{bill?.total}</div>
+            <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
+              <Store size={12} />
+              {bill?.merchant?.shopName || 'Merchant'}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {/* Login button */}
+            <button
+              onClick={() => navigate(`/customer-login?redirect=/pay/${billId}&khata=true`)}
+              className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-bold hover:from-amber-500 hover:to-orange-500 transition-colors flex items-center justify-center gap-2"
+            >
+              <LogIn size={18} />
+              Login to Continue
+            </button>
+            
+            {/* Sign up button */}
+            <button
+              onClick={() => navigate(`/customer-signup?redirect=/pay/${billId}&khata=true`)}
+              className="w-full py-3 bg-slate-700 text-white rounded-xl font-medium hover:bg-slate-600 transition-colors flex items-center justify-center gap-2"
+            >
+              <UserPlus size={18} />
+              Create Account
+            </button>
+            
+            {/* Back button */}
+            <button
+              onClick={() => setShowLoginPrompt(false)}
+              className="w-full py-2 text-slate-400 hover:text-white text-sm transition-colors"
+            >
+              ← Back to payment options
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Khata Approval Screen - Show customer details to merchant
+  if (showKhataApproval) {
+    const user = getStoredUser();
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-900 via-slate-900 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl p-8 max-w-sm w-full border border-amber-500/30">
+          {/* Header */}
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ShieldCheck size={32} className="text-amber-400" />
+            </div>
+            <h1 className="text-xl font-bold text-white mb-2">Enable Khata</h1>
+            <p className="text-slate-400 text-sm">
+              Show this to the merchant for approval
+            </p>
+          </div>
+
+          {/* Customer Details Card */}
+          <div className="bg-slate-900/70 rounded-xl p-4 mb-4 border border-slate-700">
+            <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">Customer Details</p>
+            
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-500/20 rounded-full flex items-center justify-center">
+                  <User size={20} className="text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-white font-medium">{user?.name || 'Customer'}</p>
+                  <p className="text-slate-500 text-xs">Name</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center">
+                  <Phone size={20} className="text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-white font-medium">{user?.phone || 'Not provided'}</p>
+                  <p className="text-slate-500 text-xs">Phone Number</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Amount Card */}
+          <div className="bg-amber-500/10 rounded-xl p-4 mb-4 border border-amber-500/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-amber-400 text-xs uppercase tracking-wider">Amount to Add</p>
+                <p className="text-3xl font-black text-white">₹{bill?.total}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-slate-400 text-xs">To Khata of</p>
+                <p className="text-white font-medium">{bill?.merchant?.shopName || 'Merchant'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Info */}
+          <div className="bg-slate-900/50 rounded-xl p-3 mb-6">
+            <p className="text-slate-400 text-xs text-center">
+              📒 Once approved, this amount will be added to your pending dues. 
+              You can pay it later from your dashboard.
+            </p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="space-y-3">
+            <button
+              onClick={handleConfirmKhata}
+              disabled={khataProcessing}
+              className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-bold hover:from-amber-500 hover:to-orange-500 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {khataProcessing ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={18} />
+                  Merchant Approved - Confirm
+                </>
+              )}
+            </button>
+            
+            <button
+              onClick={() => setShowKhataApproval(false)}
+              disabled={khataProcessing}
+              className="w-full py-2 text-slate-400 hover:text-white text-sm transition-colors"
+            >
+              ← Back to payment options
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Khata (Pay Later) selected - show confirmation screen
   if (selectedMethod === 'khata') {
     return (
@@ -1066,25 +1291,23 @@ const CustomerPayment = () => {
               )}
             </button>
 
-            {/* Pay Later (Khata) - Only for logged in customers */}
-            {isLoggedIn && (
-              <button
-                onClick={() => handleSelectMethod('khata')}
-                disabled={processing}
-                className="w-full p-4 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-amber-500/20"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
-                    <Wallet size={20} className="text-white" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-bold text-white">Pay Later (Khata)</div>
-                    <div className="text-amber-200 text-xs">Add to pending dues</div>
-                  </div>
+            {/* Pay Later (Khata) - Available for all, prompts login if needed */}
+            <button
+              onClick={() => handleSelectMethod('khata')}
+              disabled={processing}
+              className="w-full p-4 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-amber-500/20"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                  <Wallet size={20} className="text-white" />
                 </div>
-                <ArrowRight size={18} className="text-white/60" />
-              </button>
-            )}
+                <div className="text-left">
+                  <div className="font-bold text-white">Pay Later (Khata)</div>
+                  <div className="text-amber-200 text-xs">Add to pending dues</div>
+                </div>
+              </div>
+              <ArrowRight size={18} className="text-white/60" />
+            </button>
           </div>
 
           {/* Processing indicator */}

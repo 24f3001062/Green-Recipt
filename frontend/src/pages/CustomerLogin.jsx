@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, ShieldAlert, Sparkles, Receipt, ArrowRight} from "lucide-react"; // 👈 Used Lucide for consistent icons
 import useForceLightMode from "../hooks/useForceLightMode";
@@ -9,6 +9,7 @@ const CustomerLogin = () => {
   useForceLightMode();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,8 +20,9 @@ const CustomerLogin = () => {
   // 👁️ VISIBILITY STATE
   const [showPassword, setShowPassword] = useState(false);
   
-  // Get return URL from location state (for redirecting after payment QR scan)
-  const returnTo = location.state?.returnTo;
+  // Get return URL from location state or query params (for redirecting after payment QR scan)
+  const returnTo = location.state?.returnTo || searchParams.get('redirect');
+  const isKhataRedirect = searchParams.get('khata') === 'true';
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -32,7 +34,9 @@ const CustomerLogin = () => {
       
       // Redirect to return URL if provided (e.g., /pay/:billId), otherwise dashboard
       if (returnTo) {
-        navigate(returnTo);
+        // If coming from khata flow, add khata param to trigger approval screen
+        const redirectUrl = isKhataRedirect ? `${returnTo}?showKhataApproval=true` : returnTo;
+        navigate(redirectUrl);
       } else {
         navigate("/customer-dashboard");
       }

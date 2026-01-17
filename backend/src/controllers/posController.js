@@ -623,7 +623,7 @@ export const getPublicBill = async (req, res) => {
 export const selectPaymentMethod = async (req, res) => {
   try {
     const { billId } = req.params;
-    const { method, customerName, customerPhone } = req.body;
+    const { method, customerName, customerPhone, customerId } = req.body;
 
     // Validate method - now includes 'other' and 'khata' options
     if (!method || !["cash", "upi", "other", "khata"].includes(method)) {
@@ -656,9 +656,18 @@ export const selectPaymentMethod = async (req, res) => {
 
     // Handle Khata (Pay Later) - mark as pending
     if (method === 'khata') {
+      // Khata requires customer to be logged in
+      if (!customerId) {
+        return res.status(400).json({ 
+          message: "Please login to use Pay Later (Khata)",
+          code: "LOGIN_REQUIRED"
+        });
+      }
+      
       bill.paymentMethod = 'pending';
       bill.customerSelected = true;
       bill.status = 'PENDING'; // Mark as pending for khata
+      bill.customerId = customerId; // Link customer to bill
       if (customerName) bill.customerName = customerName.trim();
       if (customerPhone) bill.customerPhone = customerPhone.trim();
       await bill.save();
@@ -669,6 +678,7 @@ export const selectPaymentMethod = async (req, res) => {
       const receipt = await Receipt.create({
         merchantId: bill.merchantId,
         merchantCode: merchant?.merchantCode,
+        userId: customerId, // Link customer to receipt for reminders
         items: bill.items.map(item => ({
           name: item.name,
           unitPrice: item.price,
