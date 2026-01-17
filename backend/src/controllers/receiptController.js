@@ -2,9 +2,11 @@ import Receipt from "../models/Receipt.js";
 import Merchant from "../models/Merchant.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
+import POSBill from "../models/POSBill.js";
 import { getNowIST, normalizeToIST, formatISTDate, formatISTTime } from "../utils/timezone.js";
 import { clearAnalyticsCache } from "./analyticsController.js";
 import { sendReceiptEmail } from "../utils/sendEmail.js";
+import { assertTransitionAllowed } from "../utils/billStateMachine.js";
 
 const normalizeItems = (items = []) =>
   items.map((item) => ({
@@ -860,6 +862,29 @@ export const markPendingAsPaid = async (req, res) => {
     // Check receipt is pending
     if (receipt.status !== "pending") {
       return res.status(400).json({ message: "Receipt is not pending" });
+    }
+
+    // Sync with POS Bill if exists (Phase 3: Enforce strict transitions)
+    if (receipt.billId) {
+      const bill = await POSBill.findById(receipt.billId);
+      if (bill) {
+        try {
+          if (bill.status === "AWAITING_PAYMENT") {
+            await bill.checkAndExpire();
+          }
+          assertTransitionAllowed(bill.status, "PAID");
+          
+          bill.status = "PAID";
+          bill.paidAt = getNowIST();
+          if (paymentMethod) bill.paymentMethod = paymentMethod;
+          await bill.save();
+        } catch (err) {
+          return res.status(400).json({ 
+            message: `Bill update failed: ${err.message}`, 
+            code: "BILL_TRANSITION_FAILED" 
+          });
+        }
+      }
     }
 
     // Update receipt to paid

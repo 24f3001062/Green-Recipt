@@ -34,13 +34,17 @@ export const finalizeBillAndCreateReceipt = async (billId, source = "system") =>
   ).lean();
 
   const isKhata = bill.paymentMethod === "khata" || bill.paymentMethod === "pending";
+  // The receipt is "pending" only if it's a Khata bill AND it is NOT paid (PENDING_KHATA).
+  // If merchant confirmed it (status=PAID), then receipt is completed even if method=khata.
+  const isPendingKhata = isKhata && bill.status !== "PAID";
+  
   const resolvedPaymentMethod = bill.paymentMethod === "pending" ? "khata" : (bill.paymentMethod || "upi");
 
   const receiptPayload = {
     billId: bill._id,
     merchantId: bill.merchantId,
     merchantCode: merchant?.merchantCode,
-    userId: isKhata ? bill.customerId : undefined,
+    userId: bill.customerId || (isKhata ? bill.customerId : undefined),
     items: (bill.items || []).map(item => ({
       name: item.name,
       unitPrice: item.price,
@@ -50,11 +54,11 @@ export const finalizeBillAndCreateReceipt = async (billId, source = "system") =>
     subtotal: bill.total,
     discount: 0,
     source: "qr",
-    status: isKhata ? "pending" : "completed",
+    status: isPendingKhata ? "pending" : "completed",
     paymentMethod: resolvedPaymentMethod,
     transactionDate: bill.paidAt || new Date(),
-    paidAt: isKhata ? null : (bill.paidAt || new Date()),
-    pendingAmount: isKhata ? bill.total : 0,
+    paidAt: isPendingKhata ? null : (bill.paidAt || new Date()),
+    pendingAmount: isPendingKhata ? bill.total : 0,
     currency: bill.currency || "INR",
     note: `POS Bill: ${bill.upiNote || "N/A"} | Source: ${source}`,
     merchantSnapshot: {
