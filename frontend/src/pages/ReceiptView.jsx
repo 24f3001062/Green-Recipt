@@ -117,9 +117,21 @@ const ReceiptView = () => {
   };
 
   // Get status display info
-  const getStatusInfo = (status) => {
+  const getStatusInfo = (status, paymentMethod) => {
+    // Check if it's a khata/pending payment
+    const isKhata = paymentMethod === 'khata' || paymentMethod === 'pending';
+    
     switch (status) {
       case 'completed':
+        if (isKhata) {
+          return { 
+            icon: CheckCircle, 
+            text: 'Khata Paid', 
+            color: 'text-emerald-400',
+            bgColor: 'bg-emerald-500/10',
+            borderColor: 'border-emerald-500/30'
+          };
+        }
         return { 
           icon: CheckCircle, 
           text: 'Payment Verified', 
@@ -136,6 +148,15 @@ const ReceiptView = () => {
           borderColor: 'border-amber-500/30'
         };
       case 'pending':
+        if (isKhata) {
+          return { 
+            icon: AlertCircle, 
+            text: 'Pending Payment (Khata)', 
+            color: 'text-amber-400',
+            bgColor: 'bg-amber-500/10',
+            borderColor: 'border-amber-500/30'
+          };
+        }
         return { 
           icon: AlertCircle, 
           text: 'Payment Pending', 
@@ -187,7 +208,7 @@ const ReceiptView = () => {
     );
   }
 
-  const statusInfo = getStatusInfo(receipt.status);
+  const statusInfo = getStatusInfo(receipt.status, receipt.paymentMethod);
   const StatusIcon = statusInfo.icon;
 
   // Receipt already claimed and acknowledged

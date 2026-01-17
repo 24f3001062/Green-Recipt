@@ -171,7 +171,6 @@ const CustomerPayment = () => {
   // Poll for payment status updates (when waiting for merchant confirmation)
   useEffect(() => {
     if (!bill || paymentComplete) return;
-    if (isKhataIntent) return;
     if (bill.status !== 'AWAITING_PAYMENT') return;
     if (!selectedMethod && !bill.customerSelected) return;
     

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { MOCK_RECEIPTS } from './customerData';
 import ReceiptCard from './ReceiptCard';
 import { useTheme } from '../../contexts/ThemeContext';
-import { Search, Filter, Inbox, Receipt, QrCode, Upload, X, ChevronDown, Check, Smartphone, Banknote, CreditCard, SlidersHorizontal, ArrowUpDown, Calendar } from 'lucide-react';
+import { Search, Filter, Inbox, Receipt, QrCode, Upload, X, ChevronDown, Check, Smartphone, Banknote, CreditCard, SlidersHorizontal, ArrowUpDown, Calendar, Wallet } from 'lucide-react';
 import { fetchCustomerReceipts } from '../../services/api';
 
 // ============== SKELETON LOADER ==============
@@ -100,7 +100,9 @@ const CustomerReceipts = () => {
     let result = receipts.filter(r => {
       const matchesType = filter === 'all' || r.type === filter;
       const matchesSearch = r.merchant?.toLowerCase().includes(search.toLowerCase());
-      const matchesPayment = paymentFilter === 'all' || r.paymentMethod === paymentFilter;
+      const matchesPayment = paymentFilter === 'all' 
+        || r.paymentMethod === paymentFilter 
+        || (paymentFilter === 'khata' && (r.paymentMethod === 'khata' || r.paymentMethod === 'pending'));
       return matchesType && matchesSearch && matchesPayment;
     });
 
@@ -207,6 +209,7 @@ const CustomerReceipts = () => {
                   { id: 'upi', label: t('dashboard.upi'), icon: Smartphone },
                   { id: 'cash', label: t('dashboard.cash'), icon: Banknote },
                   { id: 'card', label: t('receipts.card'), icon: CreditCard },
+                  { id: 'khata', label: 'Khata', icon: Wallet },
                 ].map(pm => (
                   <button
                     key={pm.id}

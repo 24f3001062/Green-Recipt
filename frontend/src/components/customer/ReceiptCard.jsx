@@ -349,7 +349,7 @@
 // export default ReceiptCard;
 
 import React, { useState } from 'react';
-import { QrCode, Image, X, Calendar, Trash2, CreditCard, Smartphone, EyeOff, CheckCircle, Check, Banknote, Loader2, ChevronRight, Clock, ShoppingBag, MapPin, Phone } from 'lucide-react';
+import { QrCode, Image, X, Calendar, Trash2, CreditCard, Smartphone, EyeOff, CheckCircle, Check, Banknote, Loader2, ChevronRight, Clock, ShoppingBag, MapPin, Phone, Wallet } from 'lucide-react';
 import { deleteReceipt as deleteReceiptApi } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
 import { createPortal } from 'react-dom';
@@ -401,7 +401,11 @@ const ReceiptCard = ({ data, onDelete, isDark: propIsDark }) => {
   };
 
   const getPaymentInfo = () => {
+    // For pending khata payments, show special label
     if (isPending) {
+      if (method === 'khata' || method === 'pending') {
+        return { label: 'Pending Payment', icon: Wallet, color: 'text-amber-600', bg: 'bg-amber-50' };
+      }
       return { label: 'Payment Pending', icon: Clock, color: 'text-slate-600', bg: 'bg-slate-100' };
     }
 
@@ -409,8 +413,9 @@ const ReceiptCard = ({ data, onDelete, isDark: propIsDark }) => {
     if (method === 'upi') return { label: 'UPI', icon: Smartphone, color: 'text-emerald-600', bg: 'bg-emerald-50' };
     if (method === 'cash') return { label: 'Cash', icon: Banknote, color: 'text-amber-600', bg: 'bg-amber-50' };
     if (method === 'card') return { label: 'Card', icon: CreditCard, color: 'text-blue-600', bg: 'bg-blue-50' };
-    if (method === 'other') return { label: 'Other', icon: Clock, color: 'text-slate-600', bg: 'bg-slate-100' };
-    return { label: 'Other', icon: Clock, color: 'text-slate-600', bg: 'bg-slate-100' };
+    if (method === 'khata' || method === 'pending') return { label: 'Khata', icon: Wallet, color: 'text-orange-600', bg: 'bg-orange-50' };
+    if (method === 'other') return { label: 'Other', icon: CreditCard, color: 'text-purple-600', bg: 'bg-purple-50' };
+    return { label: 'Paid', icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' };
   };
 
   const paymentInfo = getPaymentInfo();

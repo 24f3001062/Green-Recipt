@@ -589,7 +589,7 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
                           </div>
                           <div>
                             <p className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                              {receipt.merchantName || "Merchant"}
+                              {receipt.merchant || receipt.merchantName || receipt.merchantSnapshot?.shopName || "Merchant"}
                             </p>
                             <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                               {new Date(receipt.transactionDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
@@ -641,7 +641,7 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
                 Pay ₹{selectedPendingReceipt.pendingAmount || selectedPendingReceipt.amount}
               </h3>
               <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                to {selectedPendingReceipt.merchantName || "Merchant"}
+                to {selectedPendingReceipt.merchant || selectedPendingReceipt.merchantName || selectedPendingReceipt.merchantSnapshot?.shopName || "Merchant"}
               </p>
             </div>
 
