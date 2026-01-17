@@ -238,21 +238,26 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
     isAutoPay: false,
   });
   const [loading, setLoading] = useState(false);
+  const [customIntervalUnit, setCustomIntervalUnit] = useState('days');
   
   useEffect(() => {
     if (bill) {
+      const intervalDays = bill.customIntervalDays || 30;
+      const isWeekly = intervalDays % 7 === 0;
+      setCustomIntervalUnit(isWeekly ? 'weeks' : 'days');
       setFormData({
         name: bill.name || '',
         amount: bill.amount || '',
         category: bill.category || 'other',
         billCycle: bill.billCycle || 'monthly',
         dueDay: bill.dueDay || 1,
-        customIntervalDays: bill.customIntervalDays || 30,
+        customIntervalDays: intervalDays,
         reminderOffsets: bill.reminderOffsets || [3, 1],
         notes: bill.notes || '',
         isAutoPay: bill.isAutoPay || false,
       });
     } else {
+      setCustomIntervalUnit('days');
       setFormData({
         name: '',
         amount: '',
@@ -275,7 +280,7 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
     }
 
     if (formData.billCycle === 'custom' && (!formData.customIntervalDays || formData.customIntervalDays < 1)) {
-      toast.error('Please enter a valid interval in days');
+      toast.error('Please enter a valid interval');
       return;
     }
     
@@ -310,6 +315,12 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
   const cycleLabel = CYCLE_OPTIONS.find(opt => opt.value === formData.billCycle)?.label || 'Custom';
   const amountDisplay = formData.amount ? `₹${Number(formData.amount).toLocaleString('en-IN')}` : 'Variable';
   const dueDayDisplay = Number(formData.dueDay) === 31 ? 'Last day' : `Day ${formData.dueDay}`;
+  const customIntervalValue = customIntervalUnit === 'weeks'
+    ? Math.max(1, Math.round(Number(formData.customIntervalDays || 0) / 7))
+    : Math.max(1, Number(formData.customIntervalDays || 0) || 1);
+  const customFrequencyLabel = formData.billCycle === 'custom'
+    ? `Every ${customIntervalValue} ${customIntervalUnit}`
+    : cycleLabel;
   const remindersDisplay = (formData.reminderOffsets || []).length
     ? formData.reminderOffsets.map(offset => {
         const option = REMINDER_OFFSET_OPTIONS.find(opt => opt.value === offset);
@@ -323,7 +334,7 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-      <div className={`relative w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-3xl shadow-2xl ${
+      <div className={`relative w-full max-w-2xl max-h-[90vh] mx-auto overflow-hidden rounded-3xl shadow-2xl ${
         isDark ? 'bg-slate-900' : 'bg-white'
       }`}>
         {/* Header */}
@@ -363,7 +374,7 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
                   {formData.name?.trim() || 'Untitled bill'}
                 </p>
                 <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  {cycleLabel} • {dueDayDisplay}
+                  {customFrequencyLabel} • {formData.billCycle === 'custom' ? 'Flexible schedule' : dueDayDisplay}
                 </p>
               </div>
               <div className="text-left md:text-right">
@@ -477,11 +488,12 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
                   <select
                     value={formData.dueDay}
                     onChange={(e) => setFormData({ ...formData, dueDay: e.target.value })}
+                    disabled={formData.billCycle === 'custom'}
                     className={`w-full px-4 py-3 rounded-xl border text-sm transition-colors ${
                       isDark
                         ? 'bg-slate-800 border-slate-700 text-white focus:border-emerald-500'
                         : 'bg-white border-slate-200 text-slate-800 focus:border-emerald-500'
-                    } focus:outline-none focus:ring-2 focus:ring-emerald-500/20`}
+                    } ${formData.billCycle === 'custom' ? 'opacity-60 cursor-not-allowed' : ''} focus:outline-none focus:ring-2 focus:ring-emerald-500/20`}
                   >
                     {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
                       <option key={day} value={day}>
@@ -495,27 +507,46 @@ const BillModal = ({ isOpen, onClose, bill, onSave, isDark }) => {
               {formData.billCycle === 'custom' && (
                 <div className="mt-4 animate-fade-in">
                   <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                    Repeat every
+                    Custom frequency
                   </label>
-                  <div className="relative">
+                  <div className="grid grid-cols-[1fr_auto] gap-3">
                     <input
                       type="number"
                       min="1"
-                      value={formData.customIntervalDays}
-                      onChange={(e) => setFormData({ ...formData, customIntervalDays: e.target.value })}
-                      placeholder="e.g. 28"
+                      value={customIntervalValue}
+                      onChange={(e) => {
+                        const value = Math.max(1, Number(e.target.value || 1));
+                        const days = customIntervalUnit === 'weeks' ? value * 7 : value;
+                        setFormData({ ...formData, customIntervalDays: days });
+                      }}
+                      placeholder="e.g. 2"
                       className={`w-full px-4 py-3 rounded-xl border text-sm transition-colors ${
                         isDark
                           ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500'
                           : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'
                       } focus:outline-none focus:ring-2 focus:ring-emerald-500/20`}
                     />
-                    <span className={`absolute right-4 top-1/2 -translate-y-1/2 text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                      days
-                    </span>
+                    <select
+                      value={customIntervalUnit}
+                      onChange={(e) => {
+                        const nextUnit = e.target.value;
+                        const value = Math.max(1, Number(customIntervalValue || 1));
+                        const days = nextUnit === 'weeks' ? value * 7 : value;
+                        setCustomIntervalUnit(nextUnit);
+                        setFormData({ ...formData, customIntervalDays: days });
+                      }}
+                      className={`px-4 py-3 rounded-xl border text-sm transition-colors ${
+                        isDark
+                          ? 'bg-slate-800 border-slate-700 text-white focus:border-emerald-500'
+                          : 'bg-white border-slate-200 text-slate-800 focus:border-emerald-500'
+                      } focus:outline-none focus:ring-2 focus:ring-emerald-500/20`}
+                    >
+                      <option value="days">Days</option>
+                      <option value="weeks">Weeks</option>
+                    </select>
                   </div>
                   <p className={`text-xs mt-1.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                    Next bill will be due {formData.customIntervalDays || '...'} days after the previous one.
+                    We’ll remind you every {customIntervalValue} {customIntervalUnit}.
                   </p>
                 </div>
               )}
