@@ -347,43 +347,43 @@ const CustomerPayment = () => {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isAndroid = /Android/.test(navigator.userAgent);
     
-    // Android deep links and Play Store URLs
+    // Android deep links and Play Store URLs (using market:// to open Play Store app directly)
     const ANDROID_APPS = {
       gpay: {
         deepLink: 'gpay://upi/',
-        playStore: 'https://play.google.com/store/apps/details?id=com.google.android.apps.nbu.paisa.user',
+        playStore: 'market://details?id=com.google.android.apps.nbu.paisa.user',
       },
       phonepe: {
         deepLink: 'phonepe://pay',
-        playStore: 'https://play.google.com/store/apps/details?id=com.phonepe.app',
+        playStore: 'market://details?id=com.phonepe.app',
       },
       paytm: {
         deepLink: 'paytm://upi',
-        playStore: 'https://play.google.com/store/apps/details?id=net.one97.paytm',
+        playStore: 'market://details?id=net.one97.paytm',
       },
       bhim: {
         deepLink: 'upi://pay',
-        playStore: 'https://play.google.com/store/apps/details?id=in.org.npci.upiapp',
+        playStore: 'market://details?id=in.org.npci.upiapp',
       },
     };
     
-    // iOS app schemes and App Store URLs
+    // iOS app schemes and App Store URLs (using itms-apps:// to open App Store app directly)
     const IOS_APPS = {
       gpay: {
         scheme: 'gpay://',
-        appStore: 'https://apps.apple.com/app/google-pay/id1193357041',
+        appStore: 'itms-apps://apps.apple.com/app/google-pay/id1193357041',
       },
       phonepe: {
         scheme: 'phonepe://',
-        appStore: 'https://apps.apple.com/app/phonepe-upi-payments-recharge/id1170055821',
+        appStore: 'itms-apps://apps.apple.com/app/phonepe-upi-payments-recharge/id1170055821',
       },
       paytm: {
         scheme: 'paytm://',
-        appStore: 'https://apps.apple.com/app/paytm-payments-bank/id473941634',
+        appStore: 'itms-apps://apps.apple.com/app/paytm-payments-bank/id473941634',
       },
       bhim: {
         scheme: 'bhim://',
-        appStore: 'https://apps.apple.com/app/bhim-making-india-cashless/id1200315258',
+        appStore: 'itms-apps://apps.apple.com/app/bhim-making-india-cashless/id1200315258',
       },
     };
     
