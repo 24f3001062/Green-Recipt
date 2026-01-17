@@ -20,6 +20,14 @@ const receiptSchema = new mongoose.Schema(
       ref: "Merchant",
       required: false,
     },
+    billId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "POSBill",
+      unique: true,
+      sparse: true,
+      index: true,
+      default: null,
+    },
     merchantCode: {
       type: String,
       trim: true,
@@ -163,6 +171,7 @@ receiptSchema.index({ userId: 1, status: 1 }); // For customer pending receipts
 receiptSchema.index({ userId: 1, transactionDate: -1 });
 receiptSchema.index({ source: 1 });
 receiptSchema.index({ excludeFromStats: 1 });
+receiptSchema.index({ billId: 1 }, { unique: true, sparse: true });
 
 const Receipt = mongoose.model("Receipt", receiptSchema);
 

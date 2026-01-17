@@ -1,8 +1,7 @@
 import crypto from "crypto";
 import Razorpay from "razorpay";
 import POSBill from "../models/POSBill.js";
-import Receipt from "../models/Receipt.js";
-import Merchant from "../models/Merchant.js";
+import { finalizeBillAndCreateReceipt } from "../services/receiptFinalizer.js";
 
 /**
  * Payment Controller - Razorpay Payment Gateway Integration
@@ -307,28 +306,11 @@ export const verifyRazorpayPayment = async (req, res) => {
       });
     }
     
-    // IDEMPOTENCY: Check if already marked as paid
-    if (bill.status === "PAID" && bill.razorpayPaymentId) {
-      console.log("[Razorpay] Bill already marked PAID");
-      return res.json({
-        success: true,
-        message: "Payment already verified",
-        billId: bill._id,
-        receiptId: bill.receiptId,
-      });
-    }
-    
-    // Mark bill as PAID
-    bill.status = "PAID";
-    bill.paidAt = new Date();
+    // Store verified payment details (do NOT mark PAID here)
     bill.razorpayPaymentId = razorpay_payment_id;
     bill.razorpaySignature = razorpay_signature;
     bill.razorpayOrderStatus = "paid";
-    
     await bill.save();
-    
-    // Generate receipt
-    const receipt = await generateReceiptFromBill(bill);
     
     console.log("[Razorpay] Payment verified, bill marked PAID:", bill._id);
     
@@ -336,7 +318,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       success: true,
       message: "Payment verified successfully",
       billId: bill._id,
-      receiptId: receipt?._id,
+      receiptId: bill.receiptId || null,
     });
     
   } catch (error) {
@@ -446,8 +428,8 @@ export const handleRazorpayWebhook = async (req, res) => {
       
       await bill.save();
       
-      // Generate receipt
-      await generateReceiptFromBill(bill);
+      // Generate receipt (idempotent)
+      await finalizeBillAndCreateReceipt(bill._id, "razorpay-webhook");
       
       console.log("[Razorpay Webhook] Bill marked PAID via webhook:", bill._id);
       
@@ -493,7 +475,6 @@ export const handleRazorpayWebhook = async (req, res) => {
 export const getPaymentStatus = async (req, res) => {
   try {
     const { billId } = req.params;
-    const { verify } = req.query;
     
     const bill = await POSBill.findById(billId)
       .populate("merchantId", "shopName merchantCode")
@@ -503,36 +484,7 @@ export const getPaymentStatus = async (req, res) => {
       return res.status(404).json({ message: "Bill not found" });
     }
     
-    // Optionally verify with Razorpay API
-    if (verify === "true" && bill.razorpayOrderId && RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
-      try {
-        const razorpayInstance = getRazorpayInstance();
-        if (razorpayInstance) {
-          const order = await razorpayInstance.orders.fetch(bill.razorpayOrderId);
-          
-          // Update local status if Razorpay shows paid
-          if (order.status === "paid" && bill.status !== "PAID") {
-            console.log("[Payment Status] Razorpay shows paid but local is", bill.status);
-            
-            // Fetch payments for this order
-            const payments = await razorpayInstance.orders.fetchPayments(bill.razorpayOrderId);
-            const successfulPayment = payments.items?.find(p => p.status === "captured");
-            
-            if (successfulPayment) {
-              bill.status = "PAID";
-              bill.paidAt = new Date();
-              bill.razorpayPaymentId = successfulPayment.id;
-              bill.razorpayOrderStatus = "paid";
-              await bill.save();
-              await generateReceiptFromBill(bill);
-            }
-          }
-        }
-      } catch (rpError) {
-        console.error("[Payment Status] Razorpay verification failed:", rpError);
-        // Continue with local status
-      }
-    }
+    // Optional verification removed from this public endpoint to keep it read-only.
     
     res.json({
       billId: bill._id,
@@ -562,45 +514,7 @@ export const getPaymentStatus = async (req, res) => {
  */
 const generateReceiptFromBill = async (bill) => {
   try {
-    // Check if receipt already exists
-    if (bill.receiptId) {
-      console.log("[Receipt] Receipt already exists for bill:", bill._id);
-      return await Receipt.findById(bill.receiptId);
-    }
-    
-    // Get merchant details
-    const merchant = await Merchant.findById(bill.merchantId).select(
-      "shopName merchantCode addressLine phone logoUrl receiptHeader receiptFooter brandColor businessCategory"
-    );
-    
-    // Create receipt
-    const receipt = await Receipt.create({
-      merchantId: bill.merchantId,
-      merchantCode: merchant?.merchantCode,
-      userId: bill.customerId, // May be null if customer didn't log in
-      items: bill.items.map(item => ({
-        name: item.name,
-        unitPrice: item.price,
-        quantity: item.quantity || 1,
-      })),
-      total: bill.total,
-      subtotal: bill.total,
-      discount: 0,
-      source: "qr",
-      status: "completed",
-      paymentMethod: bill.paymentMethod || "upi",
-      transactionDate: bill.paidAt || new Date(),
-      currency: "INR",
-      note: `Reference: ${bill.upiNote} | Razorpay: ${bill.razorpayOrderId || 'N/A'}`,
-    });
-    
-    // Link receipt to bill
-    bill.receiptId = receipt._id;
-    await bill.save();
-    
-    console.log("[Receipt] Created receipt:", receipt._id, "for bill:", bill._id);
-    
-    return receipt;
+    return await finalizeBillAndCreateReceipt(bill._id, "razorpay-webhook");
     
   } catch (error) {
     console.error("[Receipt] Failed to generate receipt:", error);

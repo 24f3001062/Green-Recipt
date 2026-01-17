@@ -1,6 +1,7 @@
 import POSBill from "../models/POSBill.js";
 import Receipt from "../models/Receipt.js";
 import Merchant from "../models/Merchant.js";
+import { finalizeBillAndCreateReceipt } from "../services/receiptFinalizer.js";
 
 /**
  * POS Controller - Merchant-Confirmed UPI Payment System
@@ -178,11 +179,6 @@ export const confirmPayment = async (req, res) => {
       }
     }
 
-    // Get merchant details for receipt
-    const merchant = await Merchant.findById(merchantId).select(
-      "shopName merchantCode addressLine phone logoUrl receiptHeader receiptFooter brandColor businessCategory"
-    );
-
     // Mark as PAID
     bill.status = "PAID";
     bill.paidAt = new Date();
@@ -209,53 +205,10 @@ export const confirmPayment = async (req, res) => {
     if (customerPhone) bill.customerPhone = customerPhone.trim();
     if (customerName) bill.customerName = customerName.trim();
 
-    // Create receipt
-    const receiptData = {
-      merchantId,
-      merchantCode: merchant?.merchantCode,
-      items: bill.items.map(item => ({
-        name: item.name,
-        unitPrice: item.price,
-        quantity: item.quantity,
-      })),
-      total: bill.total,
-      subtotal: bill.total,
-      source: "qr",
-      status: "completed",
-      // Ensure we don't send 'pending' as paymentMethod to Receipt model
-      paymentMethod: bill.paymentMethod === 'pending' ? 'khata' : (bill.paymentMethod || "upi"),
-      transactionDate: new Date(),
-      paidAt: new Date(),
-      note: `POS Bill: ${bill.upiNote}`,
-      merchantSnapshot: {
-        shopName: merchant?.shopName,
-        merchantCode: merchant?.merchantCode,
-        address: merchant?.addressLine,
-        phone: merchant?.phone,
-        logoUrl: merchant?.logoUrl,
-        receiptHeader: merchant?.receiptHeader,
-        receiptFooter: merchant?.receiptFooter || "Thank you! Visit again.",
-        brandColor: merchant?.brandColor || "#10b981",
-        businessCategory: merchant?.businessCategory,
-      },
-      customerSnapshot: {
-        name: bill.customerName,
-        phone: bill.customerPhone,
-      },
-      // If it's a Khata transaction, link the customer and set pending amount
-      userId: bill.paymentMethod === 'khata' ? bill.customerId : undefined,
-    };
-
-    if (bill.paymentMethod === 'khata') {
-        receiptData.pendingAmount = bill.total;
-        receiptData.status = 'pending'; // Mark receipt as pending payment
-    }
-
-    const receipt = await Receipt.create(receiptData);
-
-    // Link receipt to bill
-    bill.receiptId = receipt._id;
     await bill.save();
+
+    // Create receipt (idempotent + centralized)
+    const receipt = await finalizeBillAndCreateReceipt(bill._id, "merchant-confirm");
 
     res.json({
       message: "Payment confirmed successfully",
@@ -267,12 +220,14 @@ export const confirmPayment = async (req, res) => {
         paidAt: bill.paidAt,
         paymentMethod: bill.paymentMethod || null,
       },
-      receipt: {
-        id: receipt._id,
-        reference: bill.upiNote,
-        total: receipt.total,
-        issuedAt: receipt.createdAt,
-      },
+      receipt: receipt
+        ? {
+            id: receipt._id,
+            reference: bill.upiNote,
+            total: receipt.total,
+            issuedAt: receipt.createdAt,
+          }
+        : null,
     });
   } catch (error) {
     console.error("[POS] Confirm payment error:", error);
