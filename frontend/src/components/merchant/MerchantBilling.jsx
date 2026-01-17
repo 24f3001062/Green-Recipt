@@ -1783,6 +1783,8 @@ import {
   Wallet,
   Clock,
   Loader2,
+  User,
+  Phone,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { 
@@ -1816,6 +1818,7 @@ const MerchantBilling = ({ inventory, profile }) => {
   const [billExpiry, setBillExpiry] = useState(null);
   const [expiryCountdown, setExpiryCountdown] = useState(0);
   const [customerPaymentMethod, setCustomerPaymentMethod] = useState(null);
+  const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '' }); // For Khata display
 
   // Ref to track if we should close the payment QR
   const shouldClosePaymentQrRef = useRef(false);
@@ -1837,6 +1840,7 @@ const MerchantBilling = ({ inventory, profile }) => {
     setBillExpiry(null);
     setExpiryCountdown(0);
     setCustomerPaymentMethod(null);
+      setCustomerInfo({ name: "", phone: "" });
   });
 
   // Countdown timer for bill expiry
@@ -1866,6 +1870,25 @@ const MerchantBilling = ({ inventory, profile }) => {
         const { data } = await fetchPublicBill(posBill.bill.id);
         if (data.customerSelected && data.paymentMethod) {
           setCustomerPaymentMethod(data.paymentMethod);
+          // Capture customer info for Khata display
+          if (data.customerName || data.customerPhone) {
+            setCustomerInfo({
+              name: data.customerName || '',
+              phone: data.customerPhone || ''
+            });
+          }
+        }
+        // Handle PENDING status for Khata - auto close as it's confirmed
+        if (data.status === 'PENDING') {
+          toast.success("Added to Khata! 📒 Customer will pay later.", { duration: 4000 });
+          shouldClosePaymentQrRef.current = true;
+          setShowPaymentQr(false);
+          // Reset cart
+          setCart([]);
+          setDiscount(0);
+          setIsMobileCartOpen(false);
+          // Trigger events
+          window.dispatchEvent(new Event("merchant-receipts-updated"));
         }
         if (data.status === 'EXPIRED') {
           toast.error("Bill expired");
@@ -1890,6 +1913,7 @@ const MerchantBilling = ({ inventory, profile }) => {
       setBillExpiry(null);
       setExpiryCountdown(0);
       setCustomerPaymentMethod(null);
+      setCustomerInfo({ name: "", phone: "" });
     }
   }, [showPaymentQr]);
 
@@ -2260,6 +2284,7 @@ const MerchantBilling = ({ inventory, profile }) => {
       setBillExpiry(data.bill.expiresAt);
       setExpiryCountdown(Math.floor((new Date(data.bill.expiresAt) - Date.now()) / 1000));
       setCustomerPaymentMethod(null);
+      setCustomerInfo({ name: "", phone: "" });
       
       // Generate QR pointing to payment page URL
       const paymentPageUrl = `${window.location.origin}/pay/${data.bill.id}`;
@@ -2296,6 +2321,7 @@ const MerchantBilling = ({ inventory, profile }) => {
     setBillExpiry(null);
     setExpiryCountdown(0);
     setCustomerPaymentMethod(null);
+      setCustomerInfo({ name: "", phone: "" });
   };
 
   // 🆕 CONFIRM PAYMENT RECEIVED (Merchant is the source of truth)
@@ -2328,6 +2354,7 @@ const MerchantBilling = ({ inventory, profile }) => {
       setDiscount(0);
       setIsMobileCartOpen(false);
       setCustomerPaymentMethod(null);
+      setCustomerInfo({ name: "", phone: "" });
       
     } catch (err) {
       console.error("Payment confirmation failed", err);
@@ -3430,20 +3457,51 @@ const MerchantBilling = ({ inventory, profile }) => {
             {/* Customer Status */}
             {customerPaymentMethod && (
               <div className={`mb-4 px-4 py-3 rounded-xl ${
-                customerPaymentMethod === 'upi'
-                  ? isDark ? 'bg-purple-500/10 border border-purple-500/30' : 'bg-purple-50 border border-purple-200'
-                  : isDark ? 'bg-blue-500/10 border border-blue-500/30' : 'bg-blue-50 border border-blue-200'
+                customerPaymentMethod === 'pending'
+                  ? isDark ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-amber-50 border border-amber-200'
+                  : customerPaymentMethod === 'upi'
+                    ? isDark ? 'bg-purple-500/10 border border-purple-500/30' : 'bg-purple-50 border border-purple-200'
+                    : isDark ? 'bg-blue-500/10 border border-blue-500/30' : 'bg-blue-50 border border-blue-200'
               }`}>
                 <div className={`flex items-center justify-center gap-2 ${
-                  customerPaymentMethod === 'upi' 
-                    ? isDark ? 'text-purple-400' : 'text-purple-600'
-                    : isDark ? 'text-blue-400' : 'text-blue-600'
+                  customerPaymentMethod === 'pending'
+                    ? isDark ? 'text-amber-400' : 'text-amber-600'
+                    : customerPaymentMethod === 'upi' 
+                      ? isDark ? 'text-purple-400' : 'text-purple-600'
+                      : isDark ? 'text-blue-400' : 'text-blue-600'
                 }`}>
-                  {customerPaymentMethod === 'upi' ? <Smartphone size={16} /> : <Banknote size={16} />}
+                  {customerPaymentMethod === 'pending' ? <Wallet size={16} /> : customerPaymentMethod === 'upi' ? <Smartphone size={16} /> : <Banknote size={16} />}
                   <span className="text-sm font-bold">
-                    Customer chose: {customerPaymentMethod === 'upi' ? 'UPI Payment' : 'Cash Payment'}
+                    {customerPaymentMethod === 'pending' 
+                      ? 'Customer wants: Pay Later (Khata)' 
+                      : customerPaymentMethod === 'upi' 
+                        ? 'Customer chose: UPI Payment' 
+                        : 'Customer chose: Cash Payment'}
                   </span>
                 </div>
+                {/* Show customer info for Khata */}
+                {customerPaymentMethod === 'pending' && (customerInfo.name || customerInfo.phone) && (
+                  <div className={`mt-3 pt-3 border-t ${isDark ? 'border-amber-500/20' : 'border-amber-200'}`}>
+                    <p className={`text-xs font-medium mb-2 ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>Customer Details:</p>
+                    <div className="space-y-1">
+                      {customerInfo.name && (
+                        <div className={`flex items-center gap-2 text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                          <User size={14} />
+                          <span>{customerInfo.name}</span>
+                        </div>
+                      )}
+                      {customerInfo.phone && (
+                        <div className={`flex items-center gap-2 text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                          <Phone size={14} />
+                          <span>+91 {customerInfo.phone}</span>
+                        </div>
+                      )}
+                    </div>
+                    <p className={`text-[10px] mt-2 ${isDark ? 'text-amber-400/70' : 'text-amber-600/70'}`}>
+                      ⚠️ Verify customer identity before approving
+                    </p>
+                  </div>
+                )}
                 {customerPaymentMethod === 'upi' && (
                   <p className={`text-[10px] mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     Check your UPI app for payment

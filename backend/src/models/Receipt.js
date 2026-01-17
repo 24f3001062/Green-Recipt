@@ -73,7 +73,7 @@ const receiptSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["upi", "card", "cash", "other"],
+      enum: ["upi", "card", "cash", "other", "khata"],
       default: "upi",
     },
     transactionDate: {

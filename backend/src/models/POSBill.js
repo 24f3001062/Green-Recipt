@@ -139,7 +139,8 @@ const posBillSchema = new mongoose.Schema(
       type: String,
       // 'other' is used for Razorpay checkout options like card/netbanking/wallet
       // 'pending' is used for Khata (pay later)
-      enum: ["cash", "upi", "other", "pending", null],
+      // 'khata' is now explicitly supported
+      enum: ["cash", "upi", "other", "pending", "khata", null],
       default: null,
     },
     

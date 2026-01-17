@@ -76,6 +76,13 @@ export const getStoredUser = () => {
   return user ? JSON.parse(user) : null;
 };
 
+// Set stored user info (for updating user data locally)
+export const setStoredUser = (user) => {
+  if (user) {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  }
+};
+
 // Get stored role
 export const getStoredRole = () => localStorage.getItem(ROLE_KEY);
 
@@ -430,6 +437,9 @@ export const fetchProfile = () => api.get("/auth/me");
 export const updateProfile = (payload) => api.patch("/auth/me", payload);
 export const changePassword = (payload) => api.post("/auth/change-password", payload);
 export const deleteAccount = () => api.delete("/auth/me");
+
+// Update customer phone number (for Khata feature)
+export const updateCustomerPhone = (phone) => api.patch("/auth/me", { phone });
 
 // ==========================================
 // RECEIPT ACKNOWLEDGMENT FLOW APIs

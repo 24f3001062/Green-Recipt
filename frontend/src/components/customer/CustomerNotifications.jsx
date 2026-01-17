@@ -1,71 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bell, Clock, AlertTriangle, Leaf, Tag, CheckCircle, Sparkles, Shield, RotateCcw, X, Check, Filter, ChevronDown } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '../../services/api'; // Assuming you have these API functions
+import toast from 'react-hot-toast';
 
 const CustomerNotifications = () => {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   
   // Notification data
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'warranty',
-      title: 'Warranty Expiring Soon',
-      message: 'The warranty for "Sony WH-1000XM5" expires in 3 days. Need to claim repairs?',
-      time: '2 hours ago',
-      read: false
-    },
-    {
-      id: 2,
-      type: 'budget',
-      title: 'Monthly Budget Alert',
-      message: 'You have used 85% of your "Eating Out" budget for December.',
-      time: '5 hours ago',
-      read: false
-    },
-    {
-      id: 3,
-      type: 'eco',
-      title: 'Green Milestone Reached! 🌱',
-      message: 'Congratulations! You have saved 1kg of paper receipts this year.',
-      time: 'Yesterday',
-      read: true
-    },
-    {
-      id: 4,
-      type: 'return',
-      title: 'Return Window Closing',
-      message: 'Last chance to return items from your "Zara" purchase on Dec 10.',
-      time: '2 days ago',
-      read: true
-    },
-    {
-      id: 5,
-      type: 'eco',
-      title: 'Weekly Summary Ready',
-      message: 'Your weekly spending summary is ready. You spent ₹4,320 across 12 receipts.',
-      time: '3 days ago',
-      read: true
-    }
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [filter, setFilter] = useState('all');
 
+  // Load notifications from API
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  const loadNotifications = async () => {
+    try {
+      setIsLoading(true);
+      const { data } = await fetchNotifications();
+      // data should be { notifications: [...], unreadCount: 5 }
+      setNotifications(data.notifications || []);
+    } catch (error) {
+      console.error("Failed to load notifications", error);
+    //   toast.error("Failed to load notifications");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Mark all as read
-  const markAllRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  const markAllRead = async () => {
+    try {
+      await markAllNotificationsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      toast.success("All marked as read");
+    } catch (error) {
+      console.error("Failed to mark all as read", error);
+    }
   };
 
   // Mark single as read
-  const markAsRead = (id) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  const markAsRead = async (id) => {
+    try {
+        // Optimistic update
+        setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
+        await markNotificationRead(id);
+    } catch (error) {
+        console.error("Failed to mark as read", error);
+    }
   };
 
-  // Delete notification
+  // Delete notification (Not implemented in backend yet, so just local remove for now or skipping)
   const deleteNotification = (id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    // setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   // Get style based on type
@@ -75,16 +68,25 @@ const CustomerNotifications = () => {
       case 'budget': return { icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', gradient: 'from-red-500 to-rose-500' };
       case 'eco': return { icon: Leaf, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', gradient: 'from-emerald-500 to-teal-500' };
       case 'return': return { icon: RotateCcw, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', gradient: 'from-blue-500 to-indigo-500' };
+      case 'payment_reminder': return { icon: AlertTriangle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', gradient: 'from-orange-500 to-red-500' };
       default: return { icon: Tag, color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-200', gradient: 'from-slate-500 to-slate-600' };
     }
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter(n => !n.isRead).length;
   const filteredNotifications = filter === 'all' 
     ? notifications 
     : filter === 'unread' 
-      ? notifications.filter(n => !n.read)
+      ? notifications.filter(n => !n.isRead)
       : notifications.filter(n => n.type === filter);
+
+  if (isLoading) {
+    return (
+        <div className="max-w-3xl mx-auto py-12 text-center">
+            <p className={isDark ? 'text-slate-400' : 'text-slate-500'}>Loading notifications...</p>
+        </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-5 md:space-y-6 pb-24 md:pb-10">
@@ -115,9 +117,7 @@ const CustomerNotifications = () => {
         {[
           { id: 'all', label: t('notifications.filters.all') },
           { id: 'unread', label: t('notifications.filters.unread'), count: unreadCount },
-          { id: 'warranty', label: t('notifications.filters.warranty') },
-          { id: 'budget', label: t('notifications.filters.budget') },
-          { id: 'eco', label: t('notifications.filters.eco') },
+          { id: 'payment_reminder', label: 'Payment Reminders' },
         ].map(f => (
           <button
             key={f.id}
@@ -151,17 +151,17 @@ const CustomerNotifications = () => {
 
             return (
               <div 
-                key={notif.id} 
-                onClick={() => !notif.read && markAsRead(notif.id)}
+                key={notif._id} 
+                onClick={() => !notif.isRead && markAsRead(notif._id)}
                 className={`p-4 md:p-5 rounded-xl md:rounded-2xl border transition-all relative overflow-hidden group cursor-pointer
-                  ${notif.read 
+                  ${notif.isRead 
                     ? isDark ? 'bg-slate-800/50 border-slate-700 hover:border-slate-600' : 'bg-white border-slate-100 hover:border-slate-200' 
                     : isDark ? `bg-slate-800 ${style.border} shadow-sm hover:shadow-md` : `bg-white ${style.border} shadow-sm hover:shadow-md`
                   }
                 `}
               >
                 {/* Unread indicator bar */}
-                {!notif.read && (
+                {!notif.isRead && (
                   <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${style.gradient}`} />
                 )}
 
@@ -174,35 +174,34 @@ const CustomerNotifications = () => {
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className={`font-bold text-sm md:text-base ${notif.read ? (isDark ? 'text-slate-400' : 'text-slate-600') : (isDark ? 'text-white' : 'text-slate-800')}`}>
+                      <h3 className={`font-bold text-sm md:text-base ${notif.isRead ? (isDark ? 'text-slate-400' : 'text-slate-600') : (isDark ? 'text-white' : 'text-slate-800')}`}>
                         {notif.title}
                       </h3>
                       
                       {/* Actions */}
                       <div className="flex items-center gap-1 shrink-0">
-                        {!notif.read && (
+                        {!notif.isRead && (
                           <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                         )}
+                        {/* 
                         <button 
-                          onClick={(e) => { e.stopPropagation(); deleteNotification(notif.id); }}
+                          onClick={(e) => { e.stopPropagation(); deleteNotification(notif._id); }}
                           className={`p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-100'}`}
                         >
                           <X size={14} className={isDark ? 'text-slate-500' : 'text-slate-400'} />
                         </button>
+                        */}
                       </div>
                     </div>
                     
-                    <p className={`text-xs md:text-sm mt-1 leading-relaxed ${notif.read ? (isDark ? 'text-slate-500' : 'text-slate-400') : (isDark ? 'text-slate-300' : 'text-slate-600')}`}>
+                    <p className={`text-xs md:text-sm mt-1 leading-relaxed ${notif.isRead ? (isDark ? 'text-slate-500' : 'text-slate-400') : (isDark ? 'text-slate-300' : 'text-slate-600')}`}>
                       {notif.message}
                     </p>
                     
                     <div className="flex items-center gap-3 mt-2 md:mt-3">
                       <p className={`text-[10px] md:text-xs font-medium flex items-center gap-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                        <Clock size={10} className="md:w-3 md:h-3" /> {notif.time}
+                        <Clock size={10} className="md:w-3 md:h-3" /> {new Date(notif.createdAt).toLocaleDateString()}
                       </p>
-                      <span className={`text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full ${isDark ? 'bg-slate-700 ' + style.color : style.bg + ' ' + style.color}`}>
-                        {notif.type.charAt(0).toUpperCase() + notif.type.slice(1)}
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -211,22 +210,6 @@ const CustomerNotifications = () => {
           })
         )}
       </div>
-
-      {/* ========== ALL CAUGHT UP ========== */}
-      {filteredNotifications.length > 0 && unreadCount === 0 && (
-        <div className="text-center py-6 md:py-8">
-          <div className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
-            <Sparkles size={16} className="text-emerald-500" />
-            <span className={`text-sm font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>{t('notifications.allCaughtUp')}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Scrollbar hide style */}
-      <style>{`
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
     </div>
   );
 };

@@ -28,8 +28,11 @@ import {
   getStoredRole, 
   hasSession,
   getStoredUser,
+  setStoredUser,
   createRazorpayOrder,
-  verifyRazorpayPayment
+  verifyRazorpayPayment,
+  updateCustomerPhone,
+  fetchProfile
 } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -60,6 +63,9 @@ const CustomerPayment = () => {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showKhataApproval, setShowKhataApproval] = useState(false);
   const [khataProcessing, setKhataProcessing] = useState(false);
+  const [showPhonePrompt, setShowPhonePrompt] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneUpdating, setPhoneUpdating] = useState(false);
   
   // Check if customer is logged in
   const isLoggedIn = hasSession() && getStoredRole() === 'customer';
@@ -206,14 +212,82 @@ const CustomerPayment = () => {
     return () => clearInterval(timer);
   }, [bill?.expiresAt, bill?.status]);
 
-  // Handle Khata button click - check login status first
-  const handleKhataClick = () => {
+  // Handle Khata button click - check login status and phone number
+  const handleKhataClick = async () => {
     if (!isLoggedIn) {
       // Show login prompt
       setShowLoginPrompt(true);
-    } else {
-      // Show merchant approval screen with customer details
+      return;
+    }
+    
+    // Fetch fresh user data from API to ensure we have latest phone
+    try {
+      setProcessing(true);
+      const { data: freshUser } = await fetchProfile();
+      
+      // Update local storage with fresh data
+      if (freshUser) {
+        setStoredUser(freshUser);
+      }
+      
+      if (freshUser?.phone) {
+        // User has phone, show approval screen
+        setPhoneNumber(freshUser.phone); // Pre-populate in case they want to edit
+        setShowKhataApproval(true);
+      } else {
+        // No phone, show phone prompt
+        // Pre-populate from local storage if available
+        const storedUser = getStoredUser();
+        if (storedUser?.phone) {
+          setPhoneNumber(storedUser.phone);
+        }
+        setShowPhonePrompt(true);
+      }
+    } catch (err) {
+      console.error('Failed to fetch user profile:', err);
+      // Fallback to local storage
+      const user = getStoredUser();
+      if (user?.phone) {
+        setPhoneNumber(user.phone);
+        setShowKhataApproval(true);
+      } else {
+        setShowPhonePrompt(true);
+      }
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // Handle phone number update
+  const handlePhoneUpdate = async () => {
+    if (!phoneNumber || phoneNumber.length < 10) {
+      toast.error('Please enter a valid 10-digit phone number');
+      return;
+    }
+    
+    setPhoneUpdating(true);
+    
+    try {
+      // Update phone on backend
+      const { data } = await updateCustomerPhone(phoneNumber);
+      
+      // Update local storage
+      const user = getStoredUser();
+      if (user) {
+        user.phone = phoneNumber;
+        setStoredUser(user);
+      }
+      
+      toast.success('Phone number updated!');
+      setShowPhonePrompt(false);
+      
+      // Now show khata approval screen
       setShowKhataApproval(true);
+    } catch (err) {
+      console.error('Failed to update phone:', err);
+      toast.error(err.response?.data?.message || 'Failed to update phone number');
+    } finally {
+      setPhoneUpdating(false);
     }
   };
 
@@ -221,13 +295,37 @@ const CustomerPayment = () => {
   const handleConfirmKhata = async () => {
     if (khataProcessing) return;
     
+    const user = getStoredUser();
+    const currentPhone = phoneNumber || user?.phone || '';
+    
+    // Validate phone number
+    if (!currentPhone || currentPhone.length < 10) {
+      toast.error('Please enter a valid 10-digit phone number');
+      return;
+    }
+    
     setKhataProcessing(true);
     
     try {
-      const user = getStoredUser();
+      // If phone was edited/added, save it to DB first
+      if (phoneNumber && phoneNumber !== user?.phone) {
+        try {
+          await updateCustomerPhone(phoneNumber);
+          // Update local storage
+          if (user) {
+            user.phone = phoneNumber;
+            setStoredUser(user);
+          }
+          console.log('[CustomerPayment] Phone number saved to DB:', phoneNumber);
+        } catch (phoneErr) {
+          console.error('Failed to save phone number:', phoneErr);
+          // Continue with khata even if phone save fails - backend will use provided phone
+        }
+      }
+      
       const customerInfo = {
         customerName: user?.name || '',
-        customerPhone: user?.phone || '',
+        customerPhone: currentPhone,
         customerId: user?.id || user?._id || '',
       };
       
@@ -951,7 +1049,7 @@ const CustomerPayment = () => {
   if (showLoginPrompt) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-        <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl p-8 max-w-sm w-full text-center border border-slate-700">
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl p-8 max-w-sm w-full text-center border border-slate-700 relative">
           {/* Close button */}
           <button
             onClick={() => setShowLoginPrompt(false)}
@@ -1009,9 +1107,75 @@ const CustomerPayment = () => {
     );
   }
 
-  // Khata Approval Screen - Show customer details to merchant
+  // Phone Number Prompt Modal for Khata
+  if (showPhonePrompt) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl p-8 max-w-sm w-full text-center border border-amber-500/30">
+          <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Phone size={32} className="text-amber-400" />
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2">Phone Number Required</h1>
+          <p className="text-slate-400 text-sm mb-6">
+            Please add your phone number to use <span className="text-amber-400 font-semibold">Pay Later (Khata)</span>. 
+            This helps the merchant contact you for payment reminders.
+          </p>
+          
+          <div className="bg-slate-900/50 rounded-xl p-4 mb-6">
+            <label className="block text-left text-slate-400 text-xs mb-2">Phone Number</label>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400 text-lg">+91</span>
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                placeholder="Enter 10-digit number"
+                className="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white text-lg tracking-wider focus:outline-none focus:border-amber-500"
+                maxLength={10}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {/* Update phone button */}
+            <button
+              onClick={handlePhoneUpdate}
+              disabled={phoneUpdating || phoneNumber.length < 10}
+              className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-bold hover:from-amber-500 hover:to-orange-500 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {phoneUpdating ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={18} />
+                  Save & Continue
+                </>
+              )}
+            </button>
+            
+            {/* Back button */}
+            <button
+              onClick={() => setShowPhonePrompt(false)}
+              disabled={phoneUpdating}
+              className="w-full py-2 text-slate-400 hover:text-white text-sm transition-colors"
+            >
+              ← Back to payment options
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Khata Approval Screen - Show customer details to merchant for approval
   if (showKhataApproval) {
     const user = getStoredUser();
+    const hasExistingPhone = !!user?.phone;
+    const displayPhone = hasExistingPhone ? user.phone : phoneNumber;
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-900 via-slate-900 to-slate-900 flex items-center justify-center p-4">
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl p-8 max-w-sm w-full border border-amber-500/30">
@@ -1041,13 +1205,35 @@ const CustomerPayment = () => {
                 </div>
               </div>
               
+              {/* Phone Number - Editable only if user doesn't have one */}
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center">
+                <div className="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center flex-shrink-0">
                   <Phone size={20} className="text-emerald-400" />
                 </div>
-                <div>
-                  <p className="text-white font-medium">{user?.phone || 'Not provided'}</p>
-                  <p className="text-slate-500 text-xs">Phone Number</p>
+                <div className="flex-1">
+                  {hasExistingPhone ? (
+                    // Show phone as read-only when user has it
+                    <div>
+                      <p className="text-white font-medium">+91 {user.phone}</p>
+                      <p className="text-slate-500 text-xs">Phone Number</p>
+                    </div>
+                  ) : (
+                    // Allow input when user doesn't have phone
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400 text-sm">+91</span>
+                        <input
+                          type="tel"
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          placeholder="Enter phone"
+                          className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500"
+                          maxLength={10}
+                        />
+                      </div>
+                      <p className="text-amber-400 text-xs mt-1">* Phone required for Khata</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1079,7 +1265,7 @@ const CustomerPayment = () => {
           <div className="space-y-3">
             <button
               onClick={handleConfirmKhata}
-              disabled={khataProcessing}
+              disabled={khataProcessing || (!hasExistingPhone && phoneNumber.length < 10)}
               className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-bold hover:from-amber-500 hover:to-orange-500 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {khataProcessing ? (
@@ -1094,6 +1280,10 @@ const CustomerPayment = () => {
                 </>
               )}
             </button>
+            
+            {!hasExistingPhone && phoneNumber.length < 10 && (
+              <p className="text-red-400 text-xs text-center">Please enter a valid 10-digit phone number</p>
+            )}
             
             <button
               onClick={() => setShowKhataApproval(false)}

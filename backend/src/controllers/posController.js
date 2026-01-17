@@ -190,14 +190,19 @@ export const confirmPayment = async (req, res) => {
     // Allow merchant to explicitly set payment method (optional).
     // If not provided, prefer the customer's selected method; default to 'upi'.
     if (paymentMethod) {
-      if (!['cash', 'upi', 'other'].includes(paymentMethod)) {
+      if (!['cash', 'upi', 'other', 'khata'].includes(paymentMethod)) {
         return res.status(400).json({
-          message: "Invalid payment method. Use 'cash', 'upi', or 'other'",
+          message: "Invalid payment method. Use 'cash', 'upi', 'other', or 'khata'",
           code: "INVALID_PAYMENT_METHOD",
         });
       }
       bill.paymentMethod = paymentMethod;
       bill.customerSelected = true;
+    } else {
+      // If customer selected 'khata' (stored as 'pending' on bill), treat it as 'khata' now that merchant is confirming
+      if (bill.paymentMethod === 'pending') {
+        bill.paymentMethod = 'khata';
+      }
     }
     
     // Update customer info if provided
@@ -205,7 +210,7 @@ export const confirmPayment = async (req, res) => {
     if (customerName) bill.customerName = customerName.trim();
 
     // Create receipt
-    const receipt = await Receipt.create({
+    const receiptData = {
       merchantId,
       merchantCode: merchant?.merchantCode,
       items: bill.items.map(item => ({
@@ -217,7 +222,8 @@ export const confirmPayment = async (req, res) => {
       subtotal: bill.total,
       source: "qr",
       status: "completed",
-      paymentMethod: bill.paymentMethod || "upi",
+      // Ensure we don't send 'pending' as paymentMethod to Receipt model
+      paymentMethod: bill.paymentMethod === 'pending' ? 'khata' : (bill.paymentMethod || "upi"),
       transactionDate: new Date(),
       paidAt: new Date(),
       note: `POS Bill: ${bill.upiNote}`,
@@ -236,7 +242,16 @@ export const confirmPayment = async (req, res) => {
         name: bill.customerName,
         phone: bill.customerPhone,
       },
-    });
+      // If it's a Khata transaction, link the customer and set pending amount
+      userId: bill.paymentMethod === 'khata' ? bill.customerId : undefined,
+    };
+
+    if (bill.paymentMethod === 'khata') {
+        receiptData.pendingAmount = bill.total;
+        receiptData.status = 'pending'; // Mark receipt as pending payment
+    }
+
+    const receipt = await Receipt.create(receiptData);
 
     // Link receipt to bill
     bill.receiptId = receipt._id;
@@ -663,69 +678,39 @@ export const selectPaymentMethod = async (req, res) => {
           code: "LOGIN_REQUIRED"
         });
       }
-      
-      bill.paymentMethod = 'pending';
+
+      // Require customer identity details so merchant can review before confirming
+      if (!customerPhone) {
+        return res.status(400).json({
+          message: "Phone number is required for Khata. Please update your profile.",
+          code: "PHONE_REQUIRED",
+        });
+      }
+
+      // IMPORTANT:
+      // Do NOT create a Receipt and do NOT finalize Khata here.
+      // This endpoint is public and should only capture customer's intent.
+      // The merchant must confirm Khata separately.
+
+      bill.paymentMethod = 'pending'; // customer intent (bill-level)
       bill.customerSelected = true;
-      bill.status = 'PENDING'; // Mark as pending for khata
-      bill.customerId = customerId; // Link customer to bill
+      bill.customerId = customerId; // Link customer to bill for later confirmation & reminders
       if (customerName) bill.customerName = customerName.trim();
       if (customerPhone) bill.customerPhone = customerPhone.trim();
       await bill.save();
 
-      // Also create a pending receipt for the merchant to track
-      const merchant = await Merchant.findById(bill.merchantId);
-      
-      const receipt = await Receipt.create({
-        merchantId: bill.merchantId,
-        merchantCode: merchant?.merchantCode,
-        userId: customerId, // Link customer to receipt for reminders
-        items: bill.items.map(item => ({
-          name: item.name,
-          unitPrice: item.price,
-          quantity: item.quantity,
-        })),
-        total: bill.total,
-        subtotal: bill.total,
-        pendingAmount: bill.total,
-        source: "qr",
-        status: "pending",
-        paymentMethod: "pending",
-        transactionDate: new Date(),
-        note: `Khata/Credit - POS Bill: ${bill.upiNote}`,
-        merchantSnapshot: {
-          shopName: merchant?.shopName,
-          merchantCode: merchant?.merchantCode,
-          address: merchant?.addressLine,
-          phone: merchant?.phone,
-          logoUrl: merchant?.logoUrl,
-          receiptHeader: merchant?.receiptHeader,
-          receiptFooter: merchant?.receiptFooter || "Thank you! Visit again.",
-          brandColor: merchant?.brandColor || "#10b981",
-          businessCategory: merchant?.businessCategory,
-        },
-        customerSnapshot: {
-          name: bill.customerName,
-          phone: bill.customerPhone,
-        },
-      });
-
-      // Link to customer if logged in (customerId will be added when they claim)
-      bill.receiptId = receipt._id;
-      await bill.save();
-
       return res.json({
-        message: "Added to Khata (pending dues)",
+        message: "Khata request recorded. Waiting for merchant confirmation.",
         bill: {
           id: bill._id,
           upiNote: bill.upiNote,
           total: bill.total,
-          status: bill.status,
-          paymentMethod: 'pending',
+          status: bill.status, // should remain AWAITING_PAYMENT until merchant confirms
+          paymentMethod: bill.paymentMethod,
+          customerName: bill.customerName,
+          customerPhone: bill.customerPhone,
+          customerId: bill.customerId,
         },
-        receipt: {
-          id: receipt._id,
-          status: 'pending',
-        }
       });
     }
 

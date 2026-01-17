@@ -34,8 +34,10 @@ const CustomerLogin = () => {
       
       // Redirect to return URL if provided (e.g., /pay/:billId), otherwise dashboard
       if (returnTo) {
-        // If coming from khata flow, add khata param to trigger approval screen
-        const redirectUrl = isKhataRedirect ? `${returnTo}?showKhataApproval=true` : returnTo;
+        // If coming from khata flow, add showKhataApproval param to trigger approval screen
+        const redirectUrl = isKhataRedirect 
+          ? `${returnTo}${returnTo.includes('?') ? '&' : '?'}showKhataApproval=true` 
+          : returnTo;
         navigate(redirectUrl);
       } else {
         navigate("/customer-dashboard");
