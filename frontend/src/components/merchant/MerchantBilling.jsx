@@ -3370,188 +3370,201 @@ const MerchantBilling = ({ inventory, profile }) => {
 
       {/* 🆕 UNIFIED PAYMENT QR MODAL */}
       {showPaymentQr && posBill && (
-        <div className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4 backdrop-blur-md">
+        <div className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4 backdrop-blur-md">
           <div
             className={`${
-              isDark ? "bg-dark-card" : "bg-white"
-            } rounded-3xl p-6 max-w-sm w-full text-center animate-[popIn_0.2s_ease-out] shadow-2xl max-h-[90vh] overflow-y-auto`}
+              isDark ? "bg-[#1E1E1E] border border-gray-800" : "bg-white"
+            } rounded-[32px] p-0 max-w-sm w-full text-center animate-[popIn_0.3s_cubic-bezier(0.16,1,0.3,1)] shadow-2xl overflow-hidden`}
           >
-            {/* Header with close button */}
-            <div className="flex justify-between items-start mb-4">
+            {/* Header */}
+            <div className={`px-6 pt-6 pb-2 flex justify-between items-start`}>
               <div className="text-left">
-                <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-slate-800"}`}>
-                  Payment QR
+                <h2 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-gray-900"}`}>
+                  Collect Payment
                 </h2>
-                <p className={`text-[10px] ${isDark ? "text-slate-500" : "text-slate-500"}`}>
-                  Customer scans → chooses method → you confirm
+                <p className={`text-xs mt-1 font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                  Show QR to customer
                 </p>
               </div>
               <button
                 onClick={handleClosePaymentQr}
-                className={`p-2 ${
-                  isDark ? "bg-dark-surface hover:bg-dark-hover" : "bg-slate-100 hover:bg-slate-200"
-                } rounded-full transition-colors`}
+                className={`p-2 rounded-full transition-colors ${
+                  isDark 
+                    ? "bg-white/10 hover:bg-white/20 text-white" 
+                    : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                }`}
               >
-                <X size={18} className={isDark ? "text-slate-400" : ""} />
+                <X size={20} />
               </button>
             </div>
 
-            {/* Expiry Timer */}
-            <div className={`flex items-center justify-center gap-2 mb-4 px-4 py-2 rounded-full ${
-              expiryCountdown < 60 
-                ? 'bg-red-500/10 text-red-500' 
-                : expiryCountdown < 180 
-                  ? 'bg-amber-500/10 text-amber-500'
-                  : isDark ? 'bg-dark-surface text-slate-400' : 'bg-slate-100 text-slate-600'
-            }`}>
-              <Clock size={14} />
-              <span className="text-xs font-bold">
-                Expires in {Math.floor(expiryCountdown / 60)}:{String(expiryCountdown % 60).padStart(2, '0')}
-              </span>
-            </div>
-
-            {/* QR Code - Opens payment page */}
-            <div className={`relative bg-white p-3 rounded-2xl inline-block mb-4 border-2 ${
-              isDark ? "border-emerald-500/30" : "border-emerald-200"
-            } shadow-lg`}>
-              {paymentQrUrl ? (
-                <img
-                  src={paymentQrUrl}
-                  alt="Payment QR"
-                  className="w-56 h-56 rounded-xl"
-                />
-              ) : (
-                <div className={`w-56 h-56 ${isDark ? "bg-dark-surface" : "bg-slate-100"} flex items-center justify-center rounded-xl`}>
-                  <Loader2 size={24} className="animate-spin text-emerald-500" />
-                </div>
-              )}
+            {/* Main Content Area */}
+            <div className="p-6 pt-2">
               
-              {/* Badge */}
-              <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-emerald-500 to-green-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-md">
-                SCAN TO PAY
-              </div>
-            </div>
-
-            {/* Copy Payment Link Button - For testing/debugging */}
-            <button
-              onClick={() => {
-                const paymentUrl = `${window.location.origin}/pay/${posBill.bill.id}`;
-                navigator.clipboard.writeText(paymentUrl);
-                toast.success('Payment link copied! Share with customer or test in browser.', { duration: 3000 });
-              }}
-              className={`mb-4 text-xs ${isDark ? 'text-emerald-400 hover:text-emerald-300' : 'text-emerald-600 hover:text-emerald-500'} underline`}
-            >
-              📋 Copy Payment Link (for testing)
-            </button>
-
-            {/* Amount Display */}
-            <div className="mb-4">
-              <div className={`text-4xl font-black ${isDark ? "text-white" : "text-slate-900"}`}>
-                ₹{posBill.bill.total}
-              </div>
-              <div className={`text-xs ${isDark ? "text-slate-500" : "text-slate-400"} mt-1`}>
-                Bill Reference: <span className="font-mono font-medium">{posBill.bill.upiNote}</span>
-              </div>
-            </div>
-
-            {/* Customer Status */}
-            {customerPaymentMethod && (
-              <div className={`mb-4 px-4 py-3 rounded-xl ${
-                customerPaymentMethod === 'pending'
-                  ? isDark ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-amber-50 border border-amber-200'
-                  : customerPaymentMethod === 'upi'
-                    ? isDark ? 'bg-purple-500/10 border border-purple-500/30' : 'bg-purple-50 border border-purple-200'
-                    : isDark ? 'bg-blue-500/10 border border-blue-500/30' : 'bg-blue-50 border border-blue-200'
-              }`}>
-                <div className={`flex items-center justify-center gap-2 ${
-                  customerPaymentMethod === 'pending'
-                    ? isDark ? 'text-amber-400' : 'text-amber-600'
-                    : customerPaymentMethod === 'upi' 
-                      ? isDark ? 'text-purple-400' : 'text-purple-600'
-                      : isDark ? 'text-blue-400' : 'text-blue-600'
-                }`}>
-                  {customerPaymentMethod === 'pending' ? <Wallet size={16} /> : customerPaymentMethod === 'upi' ? <Smartphone size={16} /> : <Banknote size={16} />}
-                  <span className="text-sm font-bold">
-                    {customerPaymentMethod === 'pending' 
-                      ? 'Customer wants: Pay Later (Khata)' 
-                      : customerPaymentMethod === 'upi' 
-                        ? 'Customer chose: UPI Payment' 
-                        : 'Customer chose: Cash Payment'}
+              {/* Amount Badge */}
+              <div className="flex justify-center mb-6">
+                <div className={`px-5 py-2 rounded-full ${isDark ? "bg-[#2A2A2A]" : "bg-gray-50"} flex items-baseline gap-1`}>
+                  <span className={`text-sm font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>Total:</span>
+                  <span className={`text-2xl font-bold tracking-tight ${isDark ? "text-white" : "text-gray-900"}`}>
+                    ₹{posBill.bill.total}
                   </span>
                 </div>
-                {/* Show customer info for Khata */}
-                {customerPaymentMethod === 'pending' && (customerInfo.name || customerInfo.phone) && (
-                  <div className={`mt-3 pt-3 border-t ${isDark ? 'border-amber-500/20' : 'border-amber-200'}`}>
-                    <p className={`text-xs font-medium mb-2 ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>Customer Details:</p>
-                    <div className="space-y-1">
-                      {customerInfo.name && (
-                        <div className={`flex items-center gap-2 text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                          <User size={14} />
-                          <span>{customerInfo.name}</span>
-                        </div>
-                      )}
-                      {customerInfo.phone && (
-                        <div className={`flex items-center gap-2 text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                          <Phone size={14} />
-                          <span>+91 {customerInfo.phone}</span>
-                        </div>
-                      )}
+              </div>
+
+              {/* Status Banner */}
+              {customerPaymentMethod ? (
+                <div className={`mb-6 p-4 rounded-2xl animate-in slide-in-from-bottom-4 fade-in duration-300 ${
+                  customerPaymentMethod === 'pending' || customerPaymentMethod === 'khata'
+                    ? 'bg-amber-500/10 border border-amber-500/20'
+                    : customerPaymentMethod === 'upi'
+                    ? 'bg-emerald-500/10 border border-emerald-500/20'
+                    : 'bg-blue-500/10 border border-blue-500/20'
+                }`}>
+                  <div className="flex flex-col items-center gap-2">
+                    <div className={`p-2 rounded-full ${
+                      customerPaymentMethod === 'pending' || customerPaymentMethod === 'khata'
+                        ? 'bg-amber-500/20 text-amber-500'
+                        : customerPaymentMethod === 'upi'
+                        ? 'bg-emerald-500/20 text-emerald-500'
+                        : 'bg-blue-500/20 text-blue-500'
+                    }`}>
+                      {customerPaymentMethod === 'pending' || customerPaymentMethod === 'khata'
+                        ? <Clock size={24} /> 
+                        : customerPaymentMethod === 'upi' 
+                        ? <Smartphone size={24} /> 
+                        : <Banknote size={24} />}
                     </div>
-                    <p className={`text-[10px] mt-2 ${isDark ? 'text-amber-400/70' : 'text-amber-600/70'}`}>
-                      ⚠️ Verify customer identity before approving
-                    </p>
+                    
+                    <div className="text-center">
+                      <h3 className={`font-bold text-lg ${
+                        isDark ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        {customerPaymentMethod === 'pending' || customerPaymentMethod === 'khata'
+                          ? "Khata Request"
+                          : customerPaymentMethod === 'upi'
+                          ? "UPI Payment Selected"
+                          : "Cash Payment Selected"}
+                      </h3>
+                      <p className={`text-sm ${
+                        isDark ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
+                        {customerPaymentMethod === 'pending' || customerPaymentMethod === 'khata' ? (
+                          <>
+                            <span className="font-semibold text-amber-500 block text-base mb-1">
+                              {customerInfo.name || "Customer"} chose Khata
+                            </span>
+                            Wait for your confirmation
+                          </>
+                        ) : (
+                          `${customerInfo.name || "Customer"} wants to pay via ${customerPaymentMethod.toUpperCase()}`
+                        )}
+                      </p>
+                    </div>
                   </div>
-                )}
-                {customerPaymentMethod === 'upi' && (
-                  <p className={`text-[10px] mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Check your UPI app for payment
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Instructions */}
-            {!customerPaymentMethod && (
-              <div className={`text-left ${isDark ? "bg-dark-surface/50" : "bg-slate-50"} rounded-xl p-3 mb-4 text-[11px]`}>
-                <div className={`font-bold mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
-                  How it works:
                 </div>
-                <ol className={`list-decimal list-inside space-y-1 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                  <li>Customer scans this QR code</li>
-                  <li>Customer chooses Cash or UPI</li>
-                  <li>If UPI: Customer pays via GPay/PhonePe</li>
-                  <li>You verify payment received</li>
-                  <li>Click confirm to generate receipt</li>
-                </ol>
+              ) : (
+                /* QR Code Display when waiting */
+                <div className="relative group mb-6">
+                  {/* Pulse effect background */}
+                  <div className={`absolute inset-0 bg-emerald-500/20 rounded-2xl blur-xl transition-all duration-1000 ${
+                    expiryCountdown < 60 ? 'bg-red-500/20' : 'animate-pulse'
+                  }`} />
+                  
+                  <div className={`relative p-3 rounded-2xl border-2 ${
+                    isDark ? "bg-[#1E1E1E] border-emerald-500/30" : "bg-white border-emerald-100"
+                  }`}>
+                    {paymentQrUrl ? (
+                      <img
+                        src={paymentQrUrl}
+                        alt="Payment QR"
+                        className="w-full aspect-square rounded-xl object-contain mix-blend-multiply dark:mix-blend-normal"
+                      />
+                    ) : (
+                      <div className="w-full aspect-square flex items-center justify-center">
+                        <Loader2 size={32} className="animate-spin text-emerald-500" />
+                      </div>
+                    )}
+                    
+                    {/* Scan Badge */}
+                    <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-emerald-600 text-white text-[10px] font-bold tracking-wider rounded-full shadow-lg border border-emerald-400">
+                      SCAN TO PAY
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Waiting Status / Expiry */}
+              {!customerPaymentMethod && (
+                <div className="flex flex-col items-center gap-2 mb-6">
+                  <div className={`flex items-center gap-2 text-sm font-medium ${
+                    isDark ? 'text-emerald-400' : 'text-emerald-600'
+                  }`}>
+                    <Loader2 size={16} className="animate-spin" />
+                    Waiting for customer scan...
+                  </div>
+                  <div className={`text-xs ${
+                    expiryCountdown < 60 ? 'text-red-500 font-bold' : isDark ? 'text-gray-500' : 'text-gray-400'
+                  }`}>
+                     Expires in {Math.floor(expiryCountdown / 60)}:{String(expiryCountdown % 60).padStart(2, '0')}
+                  </div>
+                </div>
+              )}
+
+              {/* ACTION BUTTON - Primary Action */}
+              <button
+                onClick={handleConfirmPayment}
+                className={`w-full py-4 rounded-xl font-bold text-base shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
+                  customerPaymentMethod
+                    ? customerPaymentMethod === 'pending' || customerPaymentMethod === 'khata'
+                      ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-amber-500/25'
+                      : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-500/25'
+                    : isDark
+                      ? 'bg-[#2A2A2A] text-gray-500 cursor-not-allowed'
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
+                disabled={!customerPaymentMethod} // Disable until customer selects
+              >
+                {customerPaymentMethod === 'pending' || customerPaymentMethod === 'khata' ? (
+                  <>
+                    <CheckCircle size={20} />
+                    Confirm Khata (Credit)
+                  </>
+                ) : customerPaymentMethod ? (
+                  <>
+                    <CheckCircle size={20} />
+                    Confirm Payment Received
+                  </>
+                ) : (
+                  <>
+                    <span className="opacity-50">Waiting for selection...</span>
+                  </>
+                )}
+              </button>
+              
+              <div className="mt-4 text-[10px] text-center text-gray-500">
+                {customerPaymentMethod === 'pending' || customerPaymentMethod === 'khata' 
+                  ? "Clicking confirm will record this as a pending payment." 
+                  : "Only confirm after you have actually received the money."}
               </div>
-            )}
 
-            {/* Waiting indicator */}
-            {!customerPaymentMethod && (
-              <div className={`flex items-center justify-center gap-2 mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                <Loader2 size={14} className="animate-spin" />
-                <span className="text-xs">Waiting for customer to scan...</span>
-              </div>
-            )}
+            </div>
+            
+            {/* Footer with testing link */}
+            <div className={`py-3 px-6 text-center border-t ${isDark ? 'border-white/5 bg-white/5' : 'border-gray-100 bg-gray-50'}`}>
+               <button
+                  onClick={() => {
+                    const paymentUrl = `${window.location.origin}/pay/${posBill.bill.id}`;
+                    navigator.clipboard.writeText(paymentUrl);
+                    toast.success('Payment link copied!', { duration: 2000 });
+                  }}
+                  className={`text-[10px] underline hover:no-underline ${
+                    isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  Copy payment link (debug)
+                </button>
+            </div>
 
-            {/* Confirm Payment Button - THE ONLY SOURCE OF TRUTH */}
-            <button
-              onClick={handleConfirmPayment}
-              className={`w-full py-4 rounded-xl font-bold shadow-xl flex justify-center items-center gap-2 transition-all active:scale-[0.98] ${
-                customerPaymentMethod
-                  ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:from-emerald-600 hover:to-green-700 shadow-emerald-500/30'
-                  : isDark
-                    ? 'bg-slate-700 text-slate-400'
-                    : 'bg-slate-200 text-slate-500'
-              }`}
-            >
-              <CheckCircle size={20} />
-              I RECEIVED ₹{posBill.bill.total}
-            </button>
-
-            <p className={`text-[9px] mt-3 ${isDark ? "text-slate-600" : "text-slate-400"}`}>
-              Only confirm after verifying payment received
-            </p>
           </div>
         </div>
       )}
