@@ -558,6 +558,12 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onNavigate('pending'); }}
+                  className="text-[10px] md:text-xs font-bold text-emerald-500 hover:text-emerald-400 flex items-center gap-0.5 transition-colors"
+                >
+                  View All <ChevronRight size={12} />
+                </button>
                 <p className={`text-base md:text-xl font-black ${isDark ? 'text-red-400' : 'text-red-600'}`}>
                   ₹{pendingSummary.totalPendingAmount?.toLocaleString('en-IN')}
                 </p>
@@ -653,7 +659,13 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
                     await payPendingBill(selectedPendingReceipt.id, "upi");
                     toast.success("Payment recorded!");
                     setSelectedPendingReceipt(null);
-                    // Trigger refresh
+                    // Reload pending data
+                    const [summaryRes, listRes] = await Promise.all([
+                      fetchCustomerPendingSummary(),
+                      fetchCustomerPendingReceipts()
+                    ]);
+                    setPendingSummary(summaryRes.data || { totalPendingAmount: 0, pendingCount: 0 });
+                    setPendingReceipts(listRes.data.receipts || []);
                     window.dispatchEvent(new Event("customer-receipts-updated"));
                   } catch (err) {
                     toast.error(err.response?.data?.message || "Failed");
@@ -675,6 +687,13 @@ const CustomerHome = ({ onNavigate, onScanTrigger }) => {
                     await payPendingBill(selectedPendingReceipt.id, "cash");
                     toast.success("Payment recorded!");
                     setSelectedPendingReceipt(null);
+                    // Reload pending data
+                    const [summaryRes, listRes] = await Promise.all([
+                      fetchCustomerPendingSummary(),
+                      fetchCustomerPendingReceipts()
+                    ]);
+                    setPendingSummary(summaryRes.data || { totalPendingAmount: 0, pendingCount: 0 });
+                    setPendingReceipts(listRes.data.receipts || []);
                     window.dispatchEvent(new Event("customer-receipts-updated"));
                   } catch (err) {
                     toast.error(err.response?.data?.message || "Failed");
