@@ -22,6 +22,8 @@ const ALLOWED_TRANSITIONS = {
  * @throws {Error} If transition is not allowed
  */
 export const assertTransitionAllowed = (currentStatus, nextStatus) => {
+  if (currentStatus === nextStatus) return; // Allow self-transitions (idempotency)
+  
   const allowed = ALLOWED_TRANSITIONS[currentStatus] || [];
   if (!allowed.includes(nextStatus)) {
     const error = new Error(`Invalid state transition: ${currentStatus} -> ${nextStatus}`);

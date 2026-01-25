@@ -166,9 +166,12 @@ export const confirmPayment = async (req, res) => {
       }
     }
 
+    const isKhata = paymentMethod === 'khata' || (!paymentMethod && (bill.paymentMethod === 'khata' || bill.paymentMethod === 'pending'));
+    const targetStatus = isKhata ? "PENDING_KHATA" : "PAID";
+
     // Enforce strict transitions (Phase 3.2)
     try {
-      assertTransitionAllowed(bill.status, "PAID");
+      assertTransitionAllowed(bill.status, targetStatus);
     } catch (error) {
       return res.status(400).json({ 
         message: error.message,
@@ -177,8 +180,10 @@ export const confirmPayment = async (req, res) => {
     }
 
     // Update bill
-    bill.status = "PAID";
-    bill.paidAt = new Date();
+    bill.status = targetStatus;
+    if (targetStatus === "PAID") {
+      bill.paidAt = new Date();
+    }
 
     if (paymentMethod) {
       bill.paymentMethod = paymentMethod;

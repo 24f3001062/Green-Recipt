@@ -79,7 +79,7 @@ const PaymentResult = () => {
       setBill(data);
       
       // Check if payment is confirmed
-      if (data.status === 'PAID') {
+      if (data.status === 'PAID' || data.status === 'PENDING_KHATA') {
         setStatus('success');
         return true; // Stop polling
       }

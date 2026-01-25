@@ -70,9 +70,10 @@ const CustomerPayment = () => {
   // Check if customer is logged in
   const isLoggedIn = hasSession() && getStoredRole() === 'customer';
 
-  const isKhataIntent = selectedMethod === 'khata' || bill?.paymentMethod === 'pending';
-  // Check if Khata is fully confirmed (PAID) or if legacy logic applies (paymentComplete + khata)
-  const isKhataConfirmed = (bill?.status === 'PAID' || paymentComplete) && (bill?.paymentMethod === 'khata' || bill?.paymentMethod === 'pending');
+  const isKhataIntent = selectedMethod === 'khata' || bill?.paymentMethod === 'pending' || bill?.paymentMethod === 'khata';
+  // Check if Khata is fully confirmed (PAID or PENDING_KHATA) or if legacy logic applies
+  const isKhataConfirmed = (bill?.status === 'PAID' || bill?.status === 'PENDING_KHATA' || paymentComplete) && 
+                           (bill?.paymentMethod === 'khata' || bill?.paymentMethod === 'pending');
   
   // Only show "Added to Khata" screen if confirmed by merchant
   const shouldShowKhataConfirmation = isKhataConfirmed;
@@ -171,7 +172,10 @@ const CustomerPayment = () => {
   // Poll for payment status updates (when waiting for merchant confirmation)
   useEffect(() => {
     if (!bill || paymentComplete) return;
-    if (bill.status !== 'AWAITING_PAYMENT') return;
+    // Continue polling if AWAITING_PAYMENT or PENDING (legacy)
+    const isWaiting = bill.status === 'AWAITING_PAYMENT' || bill.status === 'PENDING';
+    if (!isWaiting) return;
+    
     if (!selectedMethod && !bill.customerSelected) return;
     
     // Poll every 2 seconds
@@ -179,14 +183,18 @@ const CustomerPayment = () => {
       try {
         const { data } = await fetchPublicBill(billId);
         
-        // Payment was confirmed by merchant
-        if (data.status === 'PAID') {
+        // Payment was confirmed by merchant (PAID or PENDING_KHATA)
+        if (data.status === 'PAID' || data.status === 'PENDING_KHATA') {
           setPaymentComplete(true);
           setBill(data);
           clearInterval(pollInterval);
           
           // Show success toast
-          toast.success('Payment confirmed! 🎉', { duration: 3000 });
+          if (data.status === 'PENDING_KHATA') {
+            toast.success('Added to Khata! 📒', { duration: 3000 });
+          } else {
+            toast.success('Payment confirmed! 🎉', { duration: 3000 });
+          }
         }
         
         // Bill expired
