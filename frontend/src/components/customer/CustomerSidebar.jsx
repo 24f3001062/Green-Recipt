@@ -55,7 +55,8 @@ const CustomerSidebar = ({ activeTab, onNavigate, receipts = [] }) => {
   const mobileNavItems = [
     { id: 'home', icon: Home, label: t('nav.home') },
     { id: 'receipts', icon: FileText, label: t('nav.receipts') },
-    { id: 'pending', icon: Wallet, label: t('nav.pending', 'Pending') },
+    // { id: 'pending', icon: Wallet, label: t('nav.pending', 'Pending') },
+        { id: 'bills', icon: CreditCard, label: t('nav.bills', 'Bills') },
     { id: 'insights', icon: PieChart, label: t('nav.insights') },
     { id: 'profile', icon: User, label: t('nav.profile') },
   ];
